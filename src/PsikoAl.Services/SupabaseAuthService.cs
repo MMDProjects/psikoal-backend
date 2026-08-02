@@ -13,7 +13,7 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken)
+    public async Task<SupabaseSessionDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken)
     {
         var response = await httpClient.PostAsJsonAsync(
             "auth/v1/token?grant_type=password",
@@ -23,38 +23,18 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
 
         if (!response.IsSuccessStatusCode)
         {
-            throw await ToDomainExceptionAsync(response, LoginErrorKeyFor, cancellationToken);
-        }
-
-        var session = await ReadSessionAsync(response, cancellationToken);
-        return new LoginResponseDto(ToUserDto(session.User), ToTokensDto(session));
-    }
-
-    public async Task<LoginResponseDto> RegisterAsync(RegisterRequestDto request, CancellationToken cancellationToken)
-    {
-        var response = await httpClient.PostAsJsonAsync(
-            "auth/v1/signup",
-            new
+            var error = await ReadErrorAsync(response, cancellationToken);
+            throw error?.ErrorCode switch
             {
-                email = request.Email,
-                password = request.Password,
-                data = new
-                {
-                    first_name = request.FirstName,
-                    last_name = request.LastName,
-                    role = request.Role,
-                },
-            },
-            JsonOptions,
-            cancellationToken);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw await ToDomainExceptionAsync(response, RegisterErrorKeyFor, cancellationToken);
+                "user_banned" => new DomainException(ErrorKeys.AuthAccountFrozen),
+                "email_not_confirmed" => new DomainException(ErrorKeys.AuthEmailNotConfirmed),
+                "over_email_send_rate_limit" or "over_request_rate_limit" => new DomainException(ErrorKeys.AuthRateLimited),
+                _ => new DomainException(ErrorKeys.AuthInvalidCredentials),
+            };
         }
 
         var session = await ReadSessionAsync(response, cancellationToken);
-        return new LoginResponseDto(ToUserDto(session.User), ToTokensDto(session));
+        return new SupabaseSessionDto(session.User.Id, ToTokensDto(session));
     }
 
     public async Task<AuthTokensDto> RefreshAsync(RefreshRequestDto request, CancellationToken cancellationToken)
@@ -81,35 +61,22 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
         await httpClient.SendAsync(request, cancellationToken);
     }
 
-    private static async Task<DomainException> ToDomainExceptionAsync(
-        HttpResponseMessage response,
-        Func<GoTrueError, string?> mapErrorCode,
-        CancellationToken cancellationToken)
+    public async Task SendPasswordRecoveryAsync(string email, CancellationToken cancellationToken)
     {
-        var error = await response.Content.ReadFromJsonAsync<GoTrueError>(JsonOptions, cancellationToken);
-        var field = error?.ErrorCode is "email_address_invalid" or "email_exists" or "user_already_exists" ? "email" : null;
-        var errorKey = (error is null ? null : mapErrorCode(error)) ?? ErrorKeys.AuthProviderError;
-        return new DomainException(errorKey, field);
+        await httpClient.PostAsJsonAsync("auth/v1/recover", new { email }, JsonOptions, cancellationToken);
     }
 
-    private static string? LoginErrorKeyFor(GoTrueError error)
-        => error.ErrorCode switch
+    private static async Task<GoTrueError?> ReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
         {
-            "invalid_credentials" or "invalid_grant" => ErrorKeys.AuthInvalidCredentials,
-            "email_not_confirmed" => ErrorKeys.AuthEmailNotConfirmed,
-            "over_email_send_rate_limit" or "over_request_rate_limit" => ErrorKeys.AuthRateLimited,
-            _ => null,
-        };
-
-    private static string? RegisterErrorKeyFor(GoTrueError error)
-        => error.ErrorCode switch
+            return await response.Content.ReadFromJsonAsync<GoTrueError>(JsonOptions, cancellationToken);
+        }
+        catch (JsonException)
         {
-            "email_exists" or "user_already_exists" => ErrorKeys.AuthEmailAlreadyRegistered,
-            "email_address_invalid" => ErrorKeys.AuthEmailInvalid,
-            "weak_password" => ErrorKeys.AuthWeakPassword,
-            "over_email_send_rate_limit" or "over_request_rate_limit" => ErrorKeys.AuthRateLimited,
-            _ => null,
-        };
+            return null;
+        }
+    }
 
     private static async Task<GoTrueSession> ReadSessionAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
@@ -119,19 +86,6 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
 
     private static AuthTokensDto ToTokensDto(GoTrueSession session)
         => new(session.AccessToken, session.RefreshToken, session.ExpiresIn);
-
-    private static AuthUserDto ToUserDto(GoTrueUser user)
-        => new(
-            user.Id,
-            user.Email,
-            user.UserMetadata.FirstName ?? string.Empty,
-            user.UserMetadata.LastName ?? string.Empty,
-            user.UserMetadata.Role ?? "client",
-            user.EmailConfirmedAt is not null,
-            user.UserMetadata.AvatarUrl,
-            user.CreatedAt,
-            user.UserMetadata.Phone,
-            user.UserMetadata.City);
 
     private sealed record GoTrueError(
         [property: JsonPropertyName("error_code")] string? ErrorCode,
@@ -143,18 +97,5 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
         [property: JsonPropertyName("expires_in")] int ExpiresIn,
         [property: JsonPropertyName("user")] GoTrueUser User);
 
-    private sealed record GoTrueUser(
-        [property: JsonPropertyName("id")] Guid Id,
-        [property: JsonPropertyName("email")] string Email,
-        [property: JsonPropertyName("email_confirmed_at")] DateTimeOffset? EmailConfirmedAt,
-        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
-        [property: JsonPropertyName("user_metadata")] GoTrueUserMetadata UserMetadata);
-
-    private sealed record GoTrueUserMetadata(
-        [property: JsonPropertyName("first_name")] string? FirstName,
-        [property: JsonPropertyName("last_name")] string? LastName,
-        [property: JsonPropertyName("role")] string? Role,
-        [property: JsonPropertyName("avatar_url")] string? AvatarUrl,
-        [property: JsonPropertyName("phone")] string? Phone,
-        [property: JsonPropertyName("city")] string? City);
+    private sealed record GoTrueUser([property: JsonPropertyName("id")] Guid Id);
 }
