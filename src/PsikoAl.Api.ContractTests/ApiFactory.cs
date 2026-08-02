@@ -12,7 +12,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         {
             configuration.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Supabase:Url"] = "http://localhost:54321",
+                // https şart: Authority set edildiğinde JwtBearer'ın RequireHttpsMetadata
+                // kontrolü http şemasında TÜM istekleri (health dahil) 500'e düşürür.
+                ["Supabase:Url"] = "https://localhost.supabase.test",
                 ["Supabase:AnonKey"] = "test-anon-key",
                 ["Supabase:ServiceRoleKey"] = "test-service-role-key",
             });
