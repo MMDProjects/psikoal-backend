@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -22,12 +21,11 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
             JsonOptions,
             cancellationToken);
 
-        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized)
+        if (!response.IsSuccessStatusCode)
         {
-            throw new DomainException(ErrorKeys.AuthInvalidCredentials);
+            throw await ToDomainExceptionAsync(response, LoginErrorKeyFor, cancellationToken);
         }
 
-        response.EnsureSuccessStatusCode();
         var session = await ReadSessionAsync(response, cancellationToken);
         return new LoginResponseDto(ToUserDto(session.User), ToTokensDto(session));
     }
@@ -50,12 +48,11 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
             JsonOptions,
             cancellationToken);
 
-        if (response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.UnprocessableEntity)
+        if (!response.IsSuccessStatusCode)
         {
-            throw new DomainException(ErrorKeys.AuthEmailAlreadyRegistered, "email");
+            throw await ToDomainExceptionAsync(response, RegisterErrorKeyFor, cancellationToken);
         }
 
-        response.EnsureSuccessStatusCode();
         var session = await ReadSessionAsync(response, cancellationToken);
         return new LoginResponseDto(ToUserDto(session.User), ToTokensDto(session));
     }
@@ -84,6 +81,36 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
         await httpClient.SendAsync(request, cancellationToken);
     }
 
+    private static async Task<DomainException> ToDomainExceptionAsync(
+        HttpResponseMessage response,
+        Func<GoTrueError, string?> mapErrorCode,
+        CancellationToken cancellationToken)
+    {
+        var error = await response.Content.ReadFromJsonAsync<GoTrueError>(JsonOptions, cancellationToken);
+        var field = error?.ErrorCode is "email_address_invalid" or "email_exists" or "user_already_exists" ? "email" : null;
+        var errorKey = (error is null ? null : mapErrorCode(error)) ?? ErrorKeys.AuthProviderError;
+        return new DomainException(errorKey, field);
+    }
+
+    private static string? LoginErrorKeyFor(GoTrueError error)
+        => error.ErrorCode switch
+        {
+            "invalid_credentials" or "invalid_grant" => ErrorKeys.AuthInvalidCredentials,
+            "email_not_confirmed" => ErrorKeys.AuthEmailNotConfirmed,
+            "over_email_send_rate_limit" or "over_request_rate_limit" => ErrorKeys.AuthRateLimited,
+            _ => null,
+        };
+
+    private static string? RegisterErrorKeyFor(GoTrueError error)
+        => error.ErrorCode switch
+        {
+            "email_exists" or "user_already_exists" => ErrorKeys.AuthEmailAlreadyRegistered,
+            "email_address_invalid" => ErrorKeys.AuthEmailInvalid,
+            "weak_password" => ErrorKeys.AuthWeakPassword,
+            "over_email_send_rate_limit" or "over_request_rate_limit" => ErrorKeys.AuthRateLimited,
+            _ => null,
+        };
+
     private static async Task<GoTrueSession> ReadSessionAsync(HttpResponseMessage response, CancellationToken cancellationToken)
     {
         var session = await response.Content.ReadFromJsonAsync<GoTrueSession>(JsonOptions, cancellationToken);
@@ -105,6 +132,10 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
             user.CreatedAt,
             user.UserMetadata.Phone,
             user.UserMetadata.City);
+
+    private sealed record GoTrueError(
+        [property: JsonPropertyName("error_code")] string? ErrorCode,
+        [property: JsonPropertyName("msg")] string? Msg);
 
     private sealed record GoTrueSession(
         [property: JsonPropertyName("access_token")] string AccessToken,

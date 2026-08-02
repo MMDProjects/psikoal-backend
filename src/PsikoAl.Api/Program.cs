@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using PsikoAl.Api.Middleware;
@@ -7,6 +6,8 @@ using PsikoAl.Services.Abstractions;
 using PsikoAl.Services.Options;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
 builder.Services
     .AddOptions<SupabaseOptions>()
@@ -26,20 +27,23 @@ builder.Services.AddHttpClient<ISupabaseAuthService, SupabaseAuthService>(client
     client.DefaultRequestHeaders.Add("apikey", supabase.AnonKey);
 });
 
+// Supabase artık JWT'leri asimetrik anahtarlarla (ES256) imzalıyor ve JWKS/OIDC discovery yayınlıyor;
+// paylaşılan "JWT Secret" (legacy HS256) yerine standart Authority tabanlı doğrulama kullanılır.
 builder.Services
     .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        if (supabase is not null)
+        {
+            options.Authority = supabase.Url.TrimEnd('/') + "/auth/v1";
+        }
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = supabase is null ? null : supabase.Url.TrimEnd('/') + "/auth/v1",
             ValidateAudience = true,
             ValidAudiences = ["authenticated"],
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = supabase is null
-                ? null
-                : new SymmetricSecurityKey(Encoding.UTF8.GetBytes(supabase.JwtSecret)),
             ValidateLifetime = true,
         };
     });
