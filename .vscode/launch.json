@@ -1,0 +1,47 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API (PsikoAl.Api)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/PsikoAl.Api/bin/Debug/net10.0/PsikoAl.Api.dll",
+      "cwd": "${workspaceFolder}/src/PsikoAl.Api",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5089"
+      },
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "Admin Panel (PsikoAl.Client)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/PsikoAl.Client/bin/Debug/net10.0/PsikoAl.Client.dll",
+      "cwd": "${workspaceFolder}/src/PsikoAl.Client",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5090"
+      },
+      "serverReadyAction": {
+        "action": "openExternally",
+        "pattern": "\\bNow listening on:\\s+(https?://\\S+)"
+      },
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "API + Admin Panel",
+      "configurations": [
+        "API (PsikoAl.Api)",
+        "Admin Panel (PsikoAl.Client)"
+      ],
+      "stopAll": true
+    }
+  ]
+}
