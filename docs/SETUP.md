@@ -9,8 +9,9 @@
    - `service_role` key (gizli!)
 
    (JWT doğrulaması Supabase'in yayınladığı JWKS/OIDC discovery ile yapılır — ayrıca "JWT Secret" almana gerek yok.)
-3. **Storage** → 3 bucket oluştur (hepsi private): `avatars`, `documents`, `blog-media`.
-4. **Database → Connection string** (URI, pooler/Session mode) → Postgres bağlantı dizesi.
+3. **Database → Connection string** (URI, pooler/Session mode) → Postgres bağlantı dizesi.
+
+Not: 3 Storage bucket'ı (`avatars` public-read, `blog-media` public-read, `documents` private) elle oluşturmana gerek yok — `supabase/migrations/00000000000002_storage_buckets.sql` ile (Supabase MCP üzerinden) otomatik kuruldu, RLS policy'leriyle birlikte.
 
 ## 2. Lokal Konfigürasyon
 
