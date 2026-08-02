@@ -7,7 +7,8 @@
    - `Project URL`
    - `anon public` key
    - `service_role` key (gizli!)
-   - **Project Settings → API → JWT Settings** → `JWT Secret`
+
+   (JWT doğrulaması Supabase'in yayınladığı JWKS/OIDC discovery ile yapılır — ayrıca "JWT Secret" almana gerek yok.)
 3. **Storage** → 3 bucket oluştur (hepsi private): `avatars`, `documents`, `blog-media`.
 4. **Database → Connection string** (URI, pooler/Session mode) → Postgres bağlantı dizesi.
 
@@ -20,8 +21,7 @@
   "Supabase": {
     "Url": "https://XXXX.supabase.co",
     "AnonKey": "...",
-    "ServiceRoleKey": "...",
-    "JwtSecret": "..."
+    "ServiceRoleKey": "..."
   },
   "ConnectionStrings": {
     "Postgres": "Host=...;Database=postgres;Username=postgres;Password=...;SSL Mode=Require"

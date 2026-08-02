@@ -15,7 +15,6 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
                 ["Supabase:Url"] = "http://localhost:54321",
                 ["Supabase:AnonKey"] = "test-anon-key",
                 ["Supabase:ServiceRoleKey"] = "test-service-role-key",
-                ["Supabase:JwtSecret"] = "test-jwt-secret-with-at-least-32-chars!",
             });
         });
 

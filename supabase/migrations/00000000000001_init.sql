@@ -50,6 +50,7 @@ create index if not exists idx_audit_logs_created_at on public.audit_logs (creat
 create or replace function public.prevent_audit_mutation()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   raise exception 'audit_logs is append-only';
