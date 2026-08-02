@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        run: dotnet restore src/PsikoAl.slnx
+      - name: Build
+        run: dotnet build src/PsikoAl.slnx --no-restore -warnaserror
+      - name: Test
+        run: dotnet test src/PsikoAl.slnx --no-build
+
+  migration-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Migration dosya adı kontrolü
+        run: |
+          for f in supabase/migrations/*.sql; do
+            base=$(basename "$f")
+            if ! echo "$base" | grep -Eq '^[0-9]{14}_[a-z0-9_]+\.sql$'; then
+              echo "Geçersiz migration adı: $base (beklenen: <14 haneli timestamp>_snake_case.sql)"
+              exit 1
+            fi
+          done

@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="PsikoAl.Api.ContractTests/PsikoAl.Api.ContractTests.csproj" />
+  <Project Path="PsikoAl.Api/PsikoAl.Api.csproj" />
+  <Project Path="PsikoAl.Client/PsikoAl.Client.csproj" />
+  <Project Path="PsikoAl.Common/PsikoAl.Common.csproj" />
+  <Project Path="PsikoAl.Data/PsikoAl.Data.csproj" />
+  <Project Path="PsikoAl.Services.Tests/PsikoAl.Services.Tests.csproj" />
+  <Project Path="PsikoAl.Services/PsikoAl.Services.csproj" />
+</Solution>
