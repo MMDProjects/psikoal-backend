@@ -1,0 +1,177 @@
+@page "/users"
+@rendermode InteractiveServer
+@inject IAdminClientService AdminClient
+@inject AdminSessionState Session
+@inject NavigationManager Navigation
+
+<PageTitle>Kullanıcılar — PsikoAl Admin</PageTitle>
+
+<div class="page-shell">
+    <header class="page-header">
+        <div>
+            <span class="page-eyebrow">PsikoAl Admin</span>
+            <h1 class="page-title">Kullanıcılar</h1>
+        </div>
+        <div class="page-header-actions">
+            <span class="muted">@Session.Email</span>
+            <button class="btn-ghost" @onclick="SignOut">Çıkış</button>
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <input class="field-input toolbar-search" placeholder="E-posta veya isim ara..."
+               @bind="_search" @bind:event="oninput" @onkeyup="@(async e => { if (e.Key == "Enter") await LoadAsync(); })" />
+        <select class="field-input toolbar-select" @bind="_role">
+            <option value="">Tüm roller</option>
+            <option value="expert">Uzman</option>
+            <option value="client">Danışan</option>
+        </select>
+        <select class="field-input toolbar-select" @bind="_status">
+            <option value="">Tüm durumlar</option>
+            <option value="active">Aktif</option>
+            <option value="frozen">Dondurulmuş</option>
+            <option value="deleted">Silinmiş</option>
+        </select>
+        <button class="btn-primary" disabled="@_isLoading" @onclick="LoadAsync">Filtrele</button>
+    </div>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="form-error">@_errorMessage</p>
+    }
+
+    @if (_isLoading)
+    {
+        <p class="muted">Yükleniyor...</p>
+    }
+    else if (_users is { Count: 0 })
+    {
+        <p class="muted">Kayıt bulunamadı.</p>
+    }
+    else if (_users is not null)
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>E-posta</th>
+                    <th>Ad Soyad</th>
+                    <th>Rol</th>
+                    <th>Durum</th>
+                    <th>Kayıt</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var user in _users)
+                {
+                    <tr>
+                        <td>@user.Email</td>
+                        <td>@user.FullName</td>
+                        <td><span class="chip chip-role">@RoleLabel(user.Role)</span></td>
+                        <td><span class="chip @StatusChipClass(user.Status)">@StatusLabel(user.Status)</span></td>
+                        <td class="muted">@user.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                        <td class="cell-actions">
+                            @if (user.Status == "active")
+                            {
+                                <button class="btn-ghost btn-danger-ghost" @onclick="() => FreezeAsync(user.Id)">Dondur</button>
+                            }
+                            else if (user.Status == "frozen")
+                            {
+                                <button class="btn-ghost" @onclick="() => UnfreezeAsync(user.Id)">Aktifleştir</button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AdminUserListItemDto>? _users;
+    private string _search = string.Empty;
+    private string _role = string.Empty;
+    private string _status = string.Empty;
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            _users = await AdminClient.ListUsersAsync(_search, _role, _status, CancellationToken.None);
+            if (_users is null)
+            {
+                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task FreezeAsync(Guid userId)
+    {
+        if (await AdminClient.FreezeUserAsync(userId, null, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task UnfreezeAsync(Guid userId)
+    {
+        if (await AdminClient.UnfreezeUserAsync(userId, null, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private void SignOut()
+    {
+        Session.SignOut();
+        Navigation.NavigateTo("/login");
+    }
+
+    private static string RoleLabel(string role) => role switch
+    {
+        "expert" => "Uzman",
+        "client" => "Danışan",
+        _ => role,
+    };
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "active" => "Aktif",
+        "frozen" => "Dondurulmuş",
+        "deleted" => "Silinmiş",
+        _ => status,
+    };
+
+    private static string StatusChipClass(string status) => status switch
+    {
+        "active" => "chip-active",
+        "frozen" => "chip-frozen",
+        "deleted" => "chip-deleted",
+        _ => string.Empty,
+    };
+}

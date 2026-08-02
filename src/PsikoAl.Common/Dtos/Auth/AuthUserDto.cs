@@ -10,4 +10,7 @@ public sealed record AuthUserDto(
     string? AvatarUrl,
     DateTimeOffset CreatedAt,
     string? Phone,
-    string? City);
+    string? City,
+    bool ShareEmail,
+    bool SharePhone,
+    bool ShareLocation);

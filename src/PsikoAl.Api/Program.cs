@@ -1,6 +1,15 @@
+using System.Threading.RateLimiting;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using PsikoAl.Api.Authorization;
 using PsikoAl.Api.Middleware;
+using PsikoAl.Data;
+using PsikoAl.Data.Repositories;
+using PsikoAl.Data.Repositories.Abstractions;
 using PsikoAl.Services;
 using PsikoAl.Services.Abstractions;
 using PsikoAl.Services.Options;
@@ -16,6 +25,17 @@ builder.Services
 
 var supabase = builder.Configuration.GetSection(SupabaseOptions.SectionName).Get<SupabaseOptions>();
 
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    var connectionString = builder.Configuration.GetConnectionString("Postgres");
+    if (!string.IsNullOrWhiteSpace(connectionString))
+    {
+        options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention();
+    }
+});
+
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
 builder.Services.AddHttpClient<ISupabaseAuthService, SupabaseAuthService>(client =>
 {
     if (supabase is null)
@@ -26,6 +46,24 @@ builder.Services.AddHttpClient<ISupabaseAuthService, SupabaseAuthService>(client
     client.BaseAddress = new Uri(supabase.Url.TrimEnd('/') + "/");
     client.DefaultRequestHeaders.Add("apikey", supabase.AnonKey);
 });
+
+builder.Services.AddHttpClient<ISupabaseAdminService, SupabaseAdminService>(client =>
+{
+    if (supabase is null)
+    {
+        return;
+    }
+
+    client.BaseAddress = new Uri(supabase.Url.TrimEnd('/') + "/");
+    client.DefaultRequestHeaders.Add("apikey", supabase.ServiceRoleKey);
+    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + supabase.ServiceRoleKey);
+});
+
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IAdminUserService, AdminUserService>();
+builder.Services.AddScoped<IAdminGuard, AdminGuard>();
+builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AdminRequirementHandler>();
 
 // Supabase artık JWT'leri asimetrik anahtarlarla (ES256) imzalıyor ve JWKS/OIDC discovery yayınlıyor;
 // paylaşılan "JWT Secret" (legacy HS256) yerine standart Authority tabanlı doğrulama kullanılır.
@@ -48,7 +86,27 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Admin", policy => policy
+        .RequireAuthenticatedUser()
+        .AddRequirements(new AdminRequirement()));
+});
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+        }));
+});
+
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddControllers();
 builder.Services.AddHealthChecks();
 
@@ -56,6 +114,7 @@ var app = builder.Build();
 
 app.UseMiddleware<DomainExceptionMiddleware>();
 app.UseHttpsRedirection();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

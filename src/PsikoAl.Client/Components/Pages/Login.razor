@@ -1,0 +1,56 @@
+@page "/login"
+@rendermode InteractiveServer
+@inject IAdminClientService AdminClient
+@inject NavigationManager Navigation
+
+<PageTitle>Giriş — PsikoAl Admin</PageTitle>
+
+<div class="login-shell">
+    <div class="login-card">
+        <span class="login-brand">PsikoAl Admin</span>
+        <h1 class="login-title">Yönetim Paneli</h1>
+
+        <label class="field-label" for="email">E-posta</label>
+        <input id="email" class="field-input" type="email" @bind="_email" @bind:event="oninput" />
+
+        <label class="field-label" for="password">Şifre</label>
+        <input id="password" class="field-input" type="password" @bind="_password" @bind:event="oninput" />
+
+        @if (_errorMessage is not null)
+        {
+            <p class="form-error">@_errorMessage</p>
+        }
+
+        <button class="btn-primary" disabled="@_isBusy" @onclick="SubmitAsync">
+            @(_isBusy ? "Giriş yapılıyor..." : "Giriş Yap")
+        </button>
+    </div>
+</div>
+
+@code {
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private string? _errorMessage;
+    private bool _isBusy;
+
+    private async Task SubmitAsync()
+    {
+        _errorMessage = null;
+        _isBusy = true;
+        try
+        {
+            var succeeded = await AdminClient.LoginAsync(_email, _password, CancellationToken.None);
+            if (!succeeded)
+            {
+                _errorMessage = "Giriş başarısız. Bilgilerinizi kontrol edin.";
+                return;
+            }
+
+            Navigation.NavigateTo("/users");
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+}
