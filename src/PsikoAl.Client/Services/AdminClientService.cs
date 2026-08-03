@@ -73,6 +73,58 @@ public sealed class AdminClientService(HttpClient httpClient, AdminSessionState 
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<IReadOnlyList<AdminExpertListItemDto>?> ListExpertsAsync(string? status, CancellationToken cancellationToken)
+    {
+        var url = "admin/experts" + (string.IsNullOrWhiteSpace(status) ? string.Empty : $"?status={Uri.EscapeDataString(status)}");
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url);
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<AdminExpertListItemDto>>(cancellationToken)
+            : null;
+    }
+
+    public async Task<AdminExpertDetailDto?> GetExpertDetailAsync(Guid expertId, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/experts/{expertId}");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<AdminExpertDetailDto>(cancellationToken)
+            : null;
+    }
+
+    public async Task<bool> ApproveExpertAsync(Guid expertId, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/experts/{expertId}/approve");
+        request.Content = JsonContent.Create(new { });
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> RejectExpertAsync(Guid expertId, string reason, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/experts/{expertId}/reject");
+        request.Content = JsonContent.Create(new AdminActionReasonDto(reason));
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> SetExpertVerifiedAsync(Guid expertId, bool isVerified, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/experts/{expertId}/verify");
+        request.Content = JsonContent.Create(new AdminSetVerifiedDto(isVerified));
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<AdminExpertDocumentUrls?> GetExpertDocumentUrlsAsync(Guid expertId, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/experts/{expertId}/documents");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<AdminExpertDocumentUrls>(cancellationToken)
+            : null;
+    }
+
     private HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url)
     {
         var request = new HttpRequestMessage(method, url);

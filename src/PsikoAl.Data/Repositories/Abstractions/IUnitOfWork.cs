@@ -4,6 +4,8 @@ public interface IUnitOfWork
 {
     IProfileRepository Profiles { get; }
 
+    IExpertRepository Experts { get; }
+
     IAdminUserRepository AdminUsers { get; }
 
     IAuditLogRepository AuditLogs { get; }
