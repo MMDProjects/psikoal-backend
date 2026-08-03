@@ -59,9 +59,24 @@ builder.Services.AddHttpClient<ISupabaseAdminService, SupabaseAdminService>(clie
     client.DefaultRequestHeaders.Add("Authorization", "Bearer " + supabase.ServiceRoleKey);
 });
 
+builder.Services.AddHttpClient<ISupabaseStorageService, SupabaseStorageService>(client =>
+{
+    if (supabase is null)
+    {
+        return;
+    }
+
+    client.BaseAddress = new Uri(supabase.Url.TrimEnd('/') + "/");
+    client.DefaultRequestHeaders.Add("apikey", supabase.ServiceRoleKey);
+    client.DefaultRequestHeaders.Add("Authorization", "Bearer " + supabase.ServiceRoleKey);
+});
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IExpertService, ExpertService>();
+builder.Services.AddScoped<IUploadService, UploadService>();
 builder.Services.AddScoped<IAdminUserService, AdminUserService>();
+builder.Services.AddScoped<IAdminExpertService, AdminExpertService>();
 builder.Services.AddScoped<IAdminGuard, AdminGuard>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AdminRequirementHandler>();
 
@@ -101,6 +116,15 @@ builder.Services.AddRateLimiter(options =>
         _ => new FixedWindowRateLimiterOptions
         {
             PermitLimit = 10,
+            Window = TimeSpan.FromMinutes(1),
+        }));
+    options.AddPolicy("upload", context => RateLimitPartition.GetFixedWindowLimiter(
+        context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+            ?? context.Connection.RemoteIpAddress?.ToString()
+            ?? "unknown",
+        _ => new FixedWindowRateLimiterOptions
+        {
+            PermitLimit = 20,
             Window = TimeSpan.FromMinutes(1),
         }));
 });

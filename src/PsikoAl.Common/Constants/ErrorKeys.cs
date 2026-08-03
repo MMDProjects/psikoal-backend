@@ -14,6 +14,13 @@ public static class ErrorKeys
     public const string AuthProviderError = "AUTH_PROVIDER_ERROR";
     public const string ProfileNotFound = "PROFILE_NOT_FOUND";
     public const string AdminUserNotFound = "ADMIN_USER_NOT_FOUND";
+    public const string ExpertNotFound = "EXPERT_NOT_FOUND";
+    public const string ExpertProfileAlreadyExists = "EXPERT_PROFILE_ALREADY_EXISTS";
+    public const string ExpertRoleRequired = "EXPERT_ROLE_REQUIRED";
+    public const string ExpertRejectionReasonRequired = "EXPERT_REJECTION_REASON_REQUIRED";
+    public const string FileTypeNotAllowed = "FILE_TYPE_NOT_ALLOWED";
+    public const string FileTooLarge = "FILE_TOO_LARGE";
+    public const string StorageUploadFailed = "STORAGE_UPLOAD_FAILED";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string InternalError = "INTERNAL_ERROR";
 }

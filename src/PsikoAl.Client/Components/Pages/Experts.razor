@@ -1,0 +1,267 @@
+@page "/experts"
+@rendermode InteractiveServer
+@inject IAdminClientService AdminClient
+@inject AdminSessionState Session
+@inject NavigationManager Navigation
+
+<PageTitle>Uzmanlar — PsikoAl Admin</PageTitle>
+
+<div class="page-shell">
+    <header class="page-header">
+        <div>
+            <span class="page-eyebrow">PsikoAl Admin</span>
+            <h1 class="page-title">Uzman Onayları</h1>
+        </div>
+        <div class="page-header-actions">
+            <a class="btn-ghost" href="/users">Kullanıcılar</a>
+            <span class="muted">@Session.Email</span>
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <select class="field-input toolbar-select" @bind="_status">
+            <option value="">Tümü</option>
+            <option value="pending">Onay Bekleyen</option>
+            <option value="revision_pending">Revizyon Bekleyen</option>
+            <option value="approved">Onaylı</option>
+            <option value="rejected">Reddedilmiş</option>
+        </select>
+        <button class="btn-primary" disabled="@_isLoading" @onclick="LoadAsync">Filtrele</button>
+    </div>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="form-error">@_errorMessage</p>
+    }
+
+    @if (_isLoading)
+    {
+        <p class="muted">Yükleniyor...</p>
+    }
+    else if (_experts is { Count: 0 })
+    {
+        <p class="muted">Kayıt bulunamadı.</p>
+    }
+    else if (_experts is not null)
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Ad Soyad</th>
+                    <th>Ünvan</th>
+                    <th>Durum</th>
+                    <th>Rozet</th>
+                    <th>Kayıt</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var expert in _experts)
+                {
+                    <tr>
+                        <td>
+                            @expert.FullName
+                            <div class="muted">@expert.Email</div>
+                        </td>
+                        <td>@expert.Title</td>
+                        <td>
+                            <span class="chip @StatusChipClass(expert.Status)">@StatusLabel(expert.Status)</span>
+                            @if (expert.HasPendingRevision)
+                            {
+                                <span class="chip chip-frozen">Revizyon</span>
+                            }
+                        </td>
+                        <td>@(expert.IsVerified ? "✓ Doğrulanmış" : "—")</td>
+                        <td class="muted">@expert.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                        <td class="cell-actions">
+                            <button class="btn-ghost" @onclick="() => ToggleDetailAsync(expert.Id)">
+                                @(_openExpertId == expert.Id ? "Kapat" : "İncele")
+                            </button>
+                        </td>
+                    </tr>
+                    @if (_openExpertId == expert.Id && _detail is not null)
+                    {
+                        <tr>
+                            <td colspan="6">
+                                <div class="detail-panel">
+                                    <div class="detail-columns">
+                                        <div>
+                                            <h3 class="detail-heading">Yayındaki Profil</h3>
+                                            <dl class="detail-list">
+                                                <dt>Ünvan</dt><dd>@_detail.Current.Title</dd>
+                                                <dt>Uzmanlıklar</dt><dd>@string.Join(", ", _detail.Current.Specializations)</dd>
+                                                <dt>Deneyim</dt><dd>@_detail.Current.ExperienceYears yıl</dd>
+                                                <dt>Biyografi</dt><dd>@_detail.Current.Bio</dd>
+                                                <dt>Eğitim</dt><dd>@(_detail.Current.Education ?? "—")</dd>
+                                                <dt>Web sitesi</dt><dd>@(_detail.Current.PersonalWebsite ?? "—")</dd>
+                                            </dl>
+                                        </div>
+                                        @if (_detail.PendingRevision is not null)
+                                        {
+                                            <div>
+                                                <h3 class="detail-heading detail-heading-warning">Bekleyen Revizyon</h3>
+                                                <dl class="detail-list">
+                                                    <dt>Ünvan</dt><dd>@Changed(_detail.PendingRevision.Title, _detail.Current.Title)</dd>
+                                                    <dt>Uzmanlıklar</dt><dd>@Changed(_detail.PendingRevision.Specializations is null ? null : string.Join(", ", _detail.PendingRevision.Specializations), string.Join(", ", _detail.Current.Specializations))</dd>
+                                                    <dt>Deneyim</dt><dd>@Changed(_detail.PendingRevision.ExperienceYears?.ToString(), _detail.Current.ExperienceYears.ToString())</dd>
+                                                    <dt>Biyografi</dt><dd>@Changed(_detail.PendingRevision.Bio, _detail.Current.Bio)</dd>
+                                                    <dt>Eğitim</dt><dd>@Changed(_detail.PendingRevision.Education, _detail.Current.Education)</dd>
+                                                    <dt>Web sitesi</dt><dd>@Changed(_detail.PendingRevision.PersonalWebsite, _detail.Current.PersonalWebsite)</dd>
+                                                </dl>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    @if (_detail.RejectionReason is not null)
+                                    {
+                                        <p class="form-error">Son red sebebi: @_detail.RejectionReason</p>
+                                    }
+
+                                    <div class="detail-documents">
+                                        @if (_documents?.CvUrl is not null)
+                                        {
+                                            <a class="btn-ghost" href="@_documents.CvUrl" target="_blank">CV'yi Görüntüle</a>
+                                        }
+                                        @if (_documents is not null)
+                                        {
+                                            @foreach (var (url, index) in _documents.CertificateUrls.Select((url, index) => (url, index)))
+                                            {
+                                                <a class="btn-ghost" href="@url" target="_blank">Sertifika @(index + 1)</a>
+                                            }
+                                        }
+                                        @if (_documents is null || (_documents.CvUrl is null && _documents.CertificateUrls.Count == 0))
+                                        {
+                                            <span class="muted">Yüklü belge yok.</span>
+                                        }
+                                    </div>
+
+                                    <div class="detail-actions">
+                                        <input class="field-input detail-reason" placeholder="Red sebebi (reddetmek için zorunlu)"
+                                               @bind="_rejectReason" @bind:event="oninput" />
+                                        <button class="btn-primary" @onclick="() => ApproveAsync(expert.Id)">Onayla</button>
+                                        <button class="btn-ghost btn-danger-ghost" @onclick="() => RejectAsync(expert.Id)">Reddet</button>
+                                        <button class="btn-ghost" @onclick="() => ToggleVerifiedAsync(expert.Id, !expert.IsVerified)">
+                                            @(expert.IsVerified ? "Rozeti Kaldır" : "Rozet Ver")
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AdminExpertListItemDto>? _experts;
+    private AdminExpertDetailDto? _detail;
+    private AdminExpertDocumentUrls? _documents;
+    private Guid? _openExpertId;
+    private string _status = "pending";
+    private string _rejectReason = string.Empty;
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        _openExpertId = null;
+        try
+        {
+            _experts = await AdminClient.ListExpertsAsync(_status, CancellationToken.None);
+            if (_experts is null)
+            {
+                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ToggleDetailAsync(Guid expertId)
+    {
+        if (_openExpertId == expertId)
+        {
+            _openExpertId = null;
+            _detail = null;
+            _documents = null;
+            return;
+        }
+
+        _openExpertId = expertId;
+        _rejectReason = string.Empty;
+        _detail = await AdminClient.GetExpertDetailAsync(expertId, CancellationToken.None);
+        _documents = await AdminClient.GetExpertDocumentUrlsAsync(expertId, CancellationToken.None);
+    }
+
+    private async Task ApproveAsync(Guid expertId)
+    {
+        if (await AdminClient.ApproveExpertAsync(expertId, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task RejectAsync(Guid expertId)
+    {
+        if (string.IsNullOrWhiteSpace(_rejectReason))
+        {
+            _errorMessage = "Reddetmek için sebep girmelisiniz.";
+            return;
+        }
+
+        if (await AdminClient.RejectExpertAsync(expertId, _rejectReason, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task ToggleVerifiedAsync(Guid expertId, bool isVerified)
+    {
+        if (await AdminClient.SetExpertVerifiedAsync(expertId, isVerified, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private static string Changed(string? revisionValue, string? currentValue)
+        => revisionValue is null || revisionValue == currentValue ? "—" : revisionValue;
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "pending" => "Onay Bekliyor",
+        "approved" => "Onaylı",
+        "rejected" => "Reddedildi",
+        _ => status,
+    };
+
+    private static string StatusChipClass(string status) => status switch
+    {
+        "approved" => "chip-active",
+        "pending" => "chip-frozen",
+        "rejected" => "chip-deleted",
+        _ => string.Empty,
+    };
+}

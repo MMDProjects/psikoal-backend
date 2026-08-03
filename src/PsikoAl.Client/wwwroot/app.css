@@ -277,3 +277,63 @@ h1:focus {
 #blazor-error-ui {
     display: none;
 }
+
+.detail-panel {
+    background: var(--pa-color-bg);
+    border-radius: var(--pa-radius-md);
+    padding: var(--pa-space-4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--pa-space-4);
+}
+
+.detail-columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--pa-space-6);
+}
+
+.detail-heading {
+    margin: 0 0 var(--pa-space-2);
+    font-size: var(--pa-font-size-md);
+    color: var(--pa-color-ink-secondary);
+}
+
+.detail-heading-warning {
+    color: var(--pa-color-warning);
+}
+
+.detail-list {
+    margin: 0;
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: var(--pa-space-1) var(--pa-space-3);
+    font-size: var(--pa-font-size-sm);
+}
+
+.detail-list dt {
+    color: var(--pa-color-ink-tertiary);
+}
+
+.detail-list dd {
+    margin: 0;
+}
+
+.detail-documents {
+    display: flex;
+    gap: var(--pa-space-2);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.detail-actions {
+    display: flex;
+    gap: var(--pa-space-2);
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.detail-reason {
+    flex: 1;
+    min-width: 240px;
+}

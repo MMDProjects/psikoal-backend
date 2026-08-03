@@ -15,4 +15,18 @@ public interface IAdminClientService
     Task<bool> FreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken);
 
     Task<bool> UnfreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<AdminExpertListItemDto>?> ListExpertsAsync(string? status, CancellationToken cancellationToken);
+
+    Task<AdminExpertDetailDto?> GetExpertDetailAsync(Guid expertId, CancellationToken cancellationToken);
+
+    Task<bool> ApproveExpertAsync(Guid expertId, CancellationToken cancellationToken);
+
+    Task<bool> RejectExpertAsync(Guid expertId, string reason, CancellationToken cancellationToken);
+
+    Task<bool> SetExpertVerifiedAsync(Guid expertId, bool isVerified, CancellationToken cancellationToken);
+
+    Task<AdminExpertDocumentUrls?> GetExpertDocumentUrlsAsync(Guid expertId, CancellationToken cancellationToken);
 }
+
+public sealed record AdminExpertDocumentUrls(string? CvUrl, IReadOnlyList<string> CertificateUrls);
