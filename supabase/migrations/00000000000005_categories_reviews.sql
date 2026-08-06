@@ -85,7 +85,9 @@ create policy "reviews_public_read_approved"
 -- Rating agregasyonu Postgres'te (Postgres/C# sınırı kararı): yalnızca approved yorumlar,
 -- backend her expert sorgusunda bu view'dan okur — admin bir yorumu onaylayıp/reddedince
 -- ayrı bir "recalc" adımına gerek kalmaz, view her zaman güncel.
-create or replace view public.expert_ratings as
+create or replace view public.expert_ratings
+with (security_invoker = true)
+as
 select
   expert_id,
   round(avg(rating)::numeric, 1) as rating,
