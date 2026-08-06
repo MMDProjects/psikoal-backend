@@ -36,6 +36,16 @@ public static class ErrorKeys
     public const string ListingReopenNotExpired = "LISTING_REOPEN_NOT_EXPIRED";
     public const string ListingReopenReasonRequired = "LISTING_REOPEN_REASON_REQUIRED";
     public const string SystemSettingNotFound = "SYSTEM_SETTING_NOT_FOUND";
+    public const string OfferNotFound = "OFFER_NOT_FOUND";
+    public const string OfferAlreadyExists = "OFFER_ALREADY_EXISTS";
+    public const string OfferNotPending = "OFFER_NOT_PENDING";
+    public const string OfferExpertRoleRequired = "OFFER_EXPERT_ROLE_REQUIRED";
+    public const string OfferExpertNotApproved = "OFFER_EXPERT_NOT_APPROVED";
+    public const string OfferListingNotOpen = "OFFER_LISTING_NOT_OPEN";
+    public const string MatchNotFound = "MATCH_NOT_FOUND";
+    public const string MatchNotActive = "MATCH_NOT_ACTIVE";
+    public const string MatchNotParticipant = "MATCH_NOT_PARTICIPANT";
+    public const string MatchForceReleaseReasonRequired = "MATCH_FORCE_RELEASE_REASON_REQUIRED";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string InternalError = "INTERNAL_ERROR";
 }

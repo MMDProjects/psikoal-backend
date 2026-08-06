@@ -8,6 +8,7 @@ public sealed class CreateReviewDtoValidator : AbstractValidator<CreateReviewDto
 {
     public CreateReviewDtoValidator()
     {
+        RuleFor(request => request.MatchId).NotEmpty().WithMessage(ErrorKeys.ValidationFailed);
         RuleFor(request => request.Rating).InclusiveBetween(1, 5).WithMessage(ErrorKeys.ValidationFailed);
         RuleFor(request => request.Comment).NotEmpty().MaximumLength(1000).WithMessage(ErrorKeys.ValidationFailed);
         RuleFor(request => request.SessionType)

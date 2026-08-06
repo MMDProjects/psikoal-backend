@@ -259,6 +259,33 @@ public sealed class AdminClientService(HttpClient httpClient, AdminSessionState 
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<IReadOnlyList<AdminMatchListItemDto>?> ListMatchesAsync(string? status, CancellationToken cancellationToken)
+    {
+        var url = "admin/matches" + (string.IsNullOrWhiteSpace(status) ? string.Empty : $"?status={Uri.EscapeDataString(status)}");
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url);
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<AdminMatchListItemDto>>(cancellationToken)
+            : null;
+    }
+
+    public async Task<AdminMatchDetailDto?> GetMatchDetailAsync(Guid matchId, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/matches/{matchId}");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<AdminMatchDetailDto>(cancellationToken)
+            : null;
+    }
+
+    public async Task<bool> ForceReleaseMatchAsync(Guid matchId, string targetStatus, string reason, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/matches/{matchId}/force-release");
+        request.Content = JsonContent.Create(new AdminForceReleaseMatchDto(targetStatus, reason));
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     private HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url)
     {
         var request = new HttpRequestMessage(method, url);

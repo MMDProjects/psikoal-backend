@@ -9,6 +9,8 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
     private ICategoryRepository? _categories;
     private IReviewRepository? _reviews;
     private IListingRepository? _listings;
+    private IOfferRepository? _offers;
+    private IMatchRepository? _matches;
     private ISystemSettingRepository? _systemSettings;
     private IAdminUserRepository? _adminUsers;
     private IAuditLogRepository? _auditLogs;
@@ -22,6 +24,10 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
     public IReviewRepository Reviews => _reviews ??= new ReviewRepository(dbContext);
 
     public IListingRepository Listings => _listings ??= new ListingRepository(dbContext);
+
+    public IOfferRepository Offers => _offers ??= new OfferRepository(dbContext);
+
+    public IMatchRepository Matches => _matches ??= new MatchRepository(dbContext);
 
     public ISystemSettingRepository SystemSettings => _systemSettings ??= new SystemSettingRepository(dbContext);
 

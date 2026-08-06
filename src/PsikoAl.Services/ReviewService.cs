@@ -31,7 +31,20 @@ public sealed class ReviewService(IUnitOfWork unitOfWork) : IReviewService
             throw new DomainException(ErrorKeys.ExpertNotFound);
         }
 
-        if (await unitOfWork.Reviews.ExistsForClientAndExpertAsync(clientUserId, expertId, cancellationToken))
+        var match = await unitOfWork.Matches.GetByIdAsync(request.MatchId, cancellationToken)
+            ?? throw new DomainException(ErrorKeys.MatchNotFound);
+
+        if (match.ClientId != clientUserId || match.ExpertId != expertId)
+        {
+            throw new DomainException(ErrorKeys.MatchNotParticipant);
+        }
+
+        if (match.Status is not (MatchStatuses.Completed or MatchStatuses.Released))
+        {
+            throw new DomainException(ErrorKeys.MatchNotActive);
+        }
+
+        if (await unitOfWork.Reviews.ExistsForMatchAsync(clientUserId, request.MatchId, cancellationToken))
         {
             throw new DomainException(ErrorKeys.ReviewAlreadyExists);
         }
@@ -40,6 +53,7 @@ public sealed class ReviewService(IUnitOfWork unitOfWork) : IReviewService
         {
             ExpertId = expertId,
             ClientId = clientUserId,
+            MatchId = request.MatchId,
             Rating = request.Rating,
             Comment = request.Comment,
             SessionType = request.SessionType,

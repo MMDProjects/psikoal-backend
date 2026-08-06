@@ -12,6 +12,10 @@ public interface IUnitOfWork
 
     IListingRepository Listings { get; }
 
+    IOfferRepository Offers { get; }
+
+    IMatchRepository Matches { get; }
+
     ISystemSettingRepository SystemSettings { get; }
 
     IAdminUserRepository AdminUsers { get; }

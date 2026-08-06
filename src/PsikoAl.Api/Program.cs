@@ -84,6 +84,9 @@ builder.Services.AddScoped<IAdminReviewService, AdminReviewService>();
 builder.Services.AddScoped<IListingService, ListingService>();
 builder.Services.AddScoped<IAdminListingService, AdminListingService>();
 builder.Services.AddScoped<ISystemSettingsService, SystemSettingsService>();
+builder.Services.AddScoped<IOfferService, OfferService>();
+builder.Services.AddScoped<IMatchService, MatchService>();
+builder.Services.AddScoped<IAdminMatchService, AdminMatchService>();
 builder.Services.AddScoped<IAdminGuard, AdminGuard>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AdminRequirementHandler>();
 
