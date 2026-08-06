@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using PsikoAl.Common.Constants;
 using PsikoAl.Data.Entities;
 using PsikoAl.Data.Repositories.Abstractions;
 
@@ -11,4 +12,9 @@ public sealed class ExpertRepository(AppDbContext dbContext)
         => DbContext.Experts
             .Include(expert => expert.Profile)
             .FirstOrDefaultAsync(expert => expert.Id == id, cancellationToken);
+
+    public Task<int> CountApprovedBySpecializationAsync(string specialization, CancellationToken cancellationToken)
+        => DbContext.Experts
+            .Where(expert => expert.Status == ExpertStatuses.Approved && expert.Specializations.Contains(specialization))
+            .CountAsync(cancellationToken);
 }

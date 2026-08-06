@@ -1,0 +1,185 @@
+@page "/categories"
+@rendermode InteractiveServer
+@inject IAdminClientService AdminClient
+@inject AdminSessionState Session
+@inject NavigationManager Navigation
+
+<PageTitle>Kategoriler — PsikoAl Admin</PageTitle>
+
+<div class="page-shell">
+    <header class="page-header">
+        <div>
+            <span class="page-eyebrow">PsikoAl Admin</span>
+            <h1 class="page-title">Kategoriler</h1>
+        </div>
+        <div class="page-header-actions">
+            <a class="btn-ghost" href="/users">Kullanıcılar</a>
+            <a class="btn-ghost" href="/experts">Uzman Onayları</a>
+            <a class="btn-ghost" href="/reviews">Yorumlar</a>
+            <span class="muted">@Session.Email</span>
+        </div>
+    </header>
+
+    <p class="muted">
+        Bu liste, uzman uzmanlık alanlarının ve ilan filtrelerinin tek kaynağıdır — burada eklenen/pasifleştirilen
+        her kategori, uygulamadaki uzmanlık seçimini doğrudan etkiler.
+    </p>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="form-error">@_errorMessage</p>
+    }
+
+    <div class="detail-panel">
+        <h3 class="detail-heading">Yeni Kategori</h3>
+        <div class="toolbar">
+            <input class="field-input" style="width:140px" placeholder="slug (ör. anksiyete)" @bind="_newSlug" />
+            <input class="field-input" style="width:200px" placeholder="Ad (ör. Anksiyete ve Kaygı)" @bind="_newName" />
+            <input class="field-input" style="width:120px" placeholder="İkon (Lucide)" @bind="_newIcon" />
+            <input class="field-input toolbar-search" placeholder="Kısa özet" @bind="_newSummary" />
+        </div>
+        <div class="toolbar">
+            <input class="field-input toolbar-search" placeholder="Açıklama" @bind="_newDescription" />
+            <input class="field-input" style="width:140px" placeholder="Blog etiketi" @bind="_newBlogTag" />
+            <button class="btn-primary" disabled="@_isCreating" @onclick="CreateAsync">Ekle</button>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <p class="muted">Yükleniyor...</p>
+    }
+    else if (_categories is { Count: 0 })
+    {
+        <p class="muted">Kayıt bulunamadı.</p>
+    }
+    else if (_categories is not null)
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Sıra</th>
+                    <th>Ad</th>
+                    <th>Slug</th>
+                    <th>Durum</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var category in _categories)
+                {
+                    <tr>
+                        <td>@category.SortOrder</td>
+                        <td>@category.Name</td>
+                        <td class="muted">@category.Slug</td>
+                        <td>
+                            <span class="chip @(category.IsActive ? "chip-active" : "chip-frozen")">
+                                @(category.IsActive ? "Aktif" : "Pasif")
+                            </span>
+                        </td>
+                        <td class="cell-actions">
+                            <button class="btn-ghost" @onclick="() => ToggleActiveAsync(category)">
+                                @(category.IsActive ? "Pasifleştir" : "Aktifleştir")
+                            </button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AdminCategoryListItemDto>? _categories;
+    private bool _isLoading;
+    private bool _isCreating;
+    private string? _errorMessage;
+
+    private string _newSlug = string.Empty;
+    private string _newName = string.Empty;
+    private string _newIcon = string.Empty;
+    private string _newSummary = string.Empty;
+    private string _newDescription = string.Empty;
+    private string _newBlogTag = string.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            _categories = await AdminClient.ListCategoriesAsync(CancellationToken.None);
+            if (_categories is null)
+            {
+                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newSlug) || string.IsNullOrWhiteSpace(_newName)
+            || string.IsNullOrWhiteSpace(_newIcon) || string.IsNullOrWhiteSpace(_newSummary)
+            || string.IsNullOrWhiteSpace(_newDescription) || string.IsNullOrWhiteSpace(_newBlogTag))
+        {
+            _errorMessage = "Yeni kategori için tüm alanlar zorunludur.";
+            return;
+        }
+
+        _isCreating = true;
+        _errorMessage = null;
+        try
+        {
+            var created = await AdminClient.CreateCategoryAsync(
+                new CreateCategoryDto(_newSlug, _newName, _newIcon, _newSummary, _newDescription, _newBlogTag, null),
+                CancellationToken.None);
+
+            if (created is null)
+            {
+                _errorMessage = "Kategori oluşturulamadı (slug zaten kullanılıyor olabilir).";
+                return;
+            }
+
+            _newSlug = _newName = _newIcon = _newSummary = _newDescription = _newBlogTag = string.Empty;
+            await LoadAsync();
+        }
+        finally
+        {
+            _isCreating = false;
+        }
+    }
+
+    private async Task ToggleActiveAsync(AdminCategoryListItemDto category)
+    {
+        var updated = await AdminClient.UpdateCategoryAsync(
+            category.Id,
+            new UpdateCategoryDto(null, null, null, null, null, null, !category.IsActive, null),
+            CancellationToken.None);
+
+        if (updated is not null)
+        {
+            await LoadAsync();
+        }
+    }
+}

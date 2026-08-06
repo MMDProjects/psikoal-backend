@@ -21,6 +21,12 @@ public static class ErrorKeys
     public const string FileTypeNotAllowed = "FILE_TYPE_NOT_ALLOWED";
     public const string FileTooLarge = "FILE_TOO_LARGE";
     public const string StorageUploadFailed = "STORAGE_UPLOAD_FAILED";
+    public const string CategoryNotFound = "CATEGORY_NOT_FOUND";
+    public const string CategorySlugAlreadyExists = "CATEGORY_SLUG_ALREADY_EXISTS";
+    public const string ReviewNotFound = "REVIEW_NOT_FOUND";
+    public const string ReviewAlreadyExists = "REVIEW_ALREADY_EXISTS";
+    public const string ReviewClientRoleRequired = "REVIEW_CLIENT_ROLE_REQUIRED";
+    public const string ReviewRejectionReasonRequired = "REVIEW_REJECTION_REASON_REQUIRED";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string InternalError = "INTERNAL_ERROR";
 }

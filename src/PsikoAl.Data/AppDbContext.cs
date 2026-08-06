@@ -9,6 +9,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<Expert> Experts => Set<Expert>();
 
+    public DbSet<Category> Categories => Set<Category>();
+
+    public DbSet<Review> Reviews => Set<Review>();
+
+    public DbSet<ExpertRating> ExpertRatings => Set<ExpertRating>();
+
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -33,6 +39,31 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasOne(expert => expert.Profile)
                 .WithOne()
                 .HasForeignKey<Expert>(expert => expert.Id);
+        });
+
+        modelBuilder.Entity<Category>(entity =>
+        {
+            entity.ToTable("categories");
+            entity.HasKey(category => category.Id);
+            entity.Property(category => category.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.Property(category => category.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<Review>(entity =>
+        {
+            entity.ToTable("reviews");
+            entity.HasKey(review => review.Id);
+            entity.Property(review => review.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.Property(review => review.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.HasOne(review => review.Client)
+                .WithMany()
+                .HasForeignKey(review => review.ClientId);
+        });
+
+        modelBuilder.Entity<ExpertRating>(entity =>
+        {
+            entity.HasNoKey();
+            entity.ToView("expert_ratings");
         });
 
         modelBuilder.Entity<AdminUser>(entity =>

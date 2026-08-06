@@ -56,6 +56,13 @@ public sealed class ExpertService(IUnitOfWork unitOfWork) : IExpertService
         return ExpertMapper.ToExpertDto(expert, profile, rating: 0, reviewCount: 0);
     }
 
+    private async Task<ExpertDto> ToExpertDtoWithRatingAsync(Expert expert, Profile profile, CancellationToken cancellationToken)
+    {
+        var rating = await unitOfWork.Reviews.GetRatingAsync(expert.Id, cancellationToken);
+        var reviewCount = await unitOfWork.Reviews.GetReviewCountAsync(expert.Id, cancellationToken);
+        return ExpertMapper.ToExpertDto(expert, profile, rating, reviewCount);
+    }
+
     public async Task<ExpertDto> UpdateProfileAsync(
         Guid userId,
         UpdateExpertProfileDto request,
@@ -80,7 +87,7 @@ public sealed class ExpertService(IUnitOfWork unitOfWork) : IExpertService
         }
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
-        return ExpertMapper.ToExpertDto(expert, profile, rating: 0, reviewCount: 0);
+        return await ToExpertDtoWithRatingAsync(expert, profile, cancellationToken);
     }
 
     public async Task<ExpertDto> GetByIdAsync(Guid expertId, Guid? viewerUserId, CancellationToken cancellationToken)
@@ -94,7 +101,7 @@ public sealed class ExpertService(IUnitOfWork unitOfWork) : IExpertService
             throw new DomainException(ErrorKeys.ExpertNotFound);
         }
 
-        return ExpertMapper.ToExpertDto(expert, profile, rating: 0, reviewCount: 0);
+        return await ToExpertDtoWithRatingAsync(expert, profile, cancellationToken);
     }
 
     internal static void ApplyUpdate(Expert expert, UpdateExpertProfileDto request)

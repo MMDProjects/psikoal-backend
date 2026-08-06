@@ -6,6 +6,10 @@ public interface IUnitOfWork
 
     IExpertRepository Experts { get; }
 
+    ICategoryRepository Categories { get; }
+
+    IReviewRepository Reviews { get; }
+
     IAdminUserRepository AdminUsers { get; }
 
     IAuditLogRepository AuditLogs { get; }

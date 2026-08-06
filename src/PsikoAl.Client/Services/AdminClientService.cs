@@ -3,6 +3,9 @@ using System.Net.Http.Json;
 using PsikoAl.Client.Services;
 using PsikoAl.Common.Dtos.Admin;
 using PsikoAl.Common.Dtos.Auth;
+using PsikoAl.Common.Dtos.Category;
+using PsikoAl.Common.Dtos.Category.Create;
+using PsikoAl.Common.Dtos.Category.Update;
 
 namespace PsikoAl.Client.Services;
 
@@ -123,6 +126,61 @@ public sealed class AdminClientService(HttpClient httpClient, AdminSessionState 
         return response.IsSuccessStatusCode
             ? await response.Content.ReadFromJsonAsync<AdminExpertDocumentUrls>(cancellationToken)
             : null;
+    }
+
+    public async Task<IReadOnlyList<AdminCategoryListItemDto>?> ListCategoriesAsync(CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/categories");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<AdminCategoryListItemDto>>(cancellationToken)
+            : null;
+    }
+
+    public async Task<CategoryDto?> CreateCategoryAsync(CreateCategoryDto request, CancellationToken cancellationToken)
+    {
+        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Post, "admin/categories");
+        httpRequest.Content = JsonContent.Create(request);
+        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<CategoryDto>(cancellationToken)
+            : null;
+    }
+
+    public async Task<CategoryDto?> UpdateCategoryAsync(Guid categoryId, UpdateCategoryDto request, CancellationToken cancellationToken)
+    {
+        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/categories/{categoryId}");
+        httpRequest.Content = JsonContent.Create(request);
+        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<CategoryDto>(cancellationToken)
+            : null;
+    }
+
+    public async Task<IReadOnlyList<AdminReviewListItemDto>?> ListReviewsAsync(string? status, CancellationToken cancellationToken)
+    {
+        var url = "admin/reviews" + (string.IsNullOrWhiteSpace(status) ? string.Empty : $"?status={Uri.EscapeDataString(status)}");
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url);
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<AdminReviewListItemDto>>(cancellationToken)
+            : null;
+    }
+
+    public async Task<bool> ApproveReviewAsync(Guid reviewId, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/reviews/{reviewId}/approve");
+        request.Content = JsonContent.Create(new { });
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> RejectReviewAsync(Guid reviewId, string reason, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/reviews/{reviewId}/reject");
+        request.Content = JsonContent.Create(new AdminActionReasonDto(reason));
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
     }
 
     private HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url)

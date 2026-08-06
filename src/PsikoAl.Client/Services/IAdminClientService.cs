@@ -1,4 +1,7 @@
 using PsikoAl.Common.Dtos.Admin;
+using PsikoAl.Common.Dtos.Category;
+using PsikoAl.Common.Dtos.Category.Create;
+using PsikoAl.Common.Dtos.Category.Update;
 
 namespace PsikoAl.Client.Services;
 
@@ -27,6 +30,18 @@ public interface IAdminClientService
     Task<bool> SetExpertVerifiedAsync(Guid expertId, bool isVerified, CancellationToken cancellationToken);
 
     Task<AdminExpertDocumentUrls?> GetExpertDocumentUrlsAsync(Guid expertId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<AdminCategoryListItemDto>?> ListCategoriesAsync(CancellationToken cancellationToken);
+
+    Task<CategoryDto?> CreateCategoryAsync(CreateCategoryDto request, CancellationToken cancellationToken);
+
+    Task<CategoryDto?> UpdateCategoryAsync(Guid categoryId, UpdateCategoryDto request, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<AdminReviewListItemDto>?> ListReviewsAsync(string? status, CancellationToken cancellationToken);
+
+    Task<bool> ApproveReviewAsync(Guid reviewId, CancellationToken cancellationToken);
+
+    Task<bool> RejectReviewAsync(Guid reviewId, string reason, CancellationToken cancellationToken);
 }
 
 public sealed record AdminExpertDocumentUrls(string? CvUrl, IReadOnlyList<string> CertificateUrls);

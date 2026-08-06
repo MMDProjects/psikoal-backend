@@ -1,0 +1,174 @@
+@page "/reviews"
+@rendermode InteractiveServer
+@inject IAdminClientService AdminClient
+@inject AdminSessionState Session
+@inject NavigationManager Navigation
+
+<PageTitle>Yorumlar — PsikoAl Admin</PageTitle>
+
+<div class="page-shell">
+    <header class="page-header">
+        <div>
+            <span class="page-eyebrow">PsikoAl Admin</span>
+            <h1 class="page-title">Yorum Moderasyonu</h1>
+        </div>
+        <div class="page-header-actions">
+            <a class="btn-ghost" href="/users">Kullanıcılar</a>
+            <a class="btn-ghost" href="/experts">Uzman Onayları</a>
+            <a class="btn-ghost" href="/categories">Kategoriler</a>
+            <span class="muted">@Session.Email</span>
+        </div>
+    </header>
+
+    <p class="muted">Yalnızca onaylanan yorumlar uzmanın puanına ve yorum sayısına dahil edilir.</p>
+
+    <div class="toolbar">
+        <select class="field-input toolbar-select" @bind="_status">
+            <option value="pending">Onay Bekleyen</option>
+            <option value="approved">Onaylı</option>
+            <option value="rejected">Reddedilmiş</option>
+            <option value="">Tümü</option>
+        </select>
+        <button class="btn-primary" disabled="@_isLoading" @onclick="LoadAsync">Filtrele</button>
+    </div>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="form-error">@_errorMessage</p>
+    }
+
+    @if (_isLoading)
+    {
+        <p class="muted">Yükleniyor...</p>
+    }
+    else if (_reviews is { Count: 0 })
+    {
+        <p class="muted">Kayıt bulunamadı.</p>
+    }
+    else if (_reviews is not null)
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Uzman</th>
+                    <th>Danışan</th>
+                    <th>Puan</th>
+                    <th>Yorum</th>
+                    <th>Durum</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var review in _reviews)
+                {
+                    <tr>
+                        <td>@review.ExpertName</td>
+                        <td class="muted">@review.ClientName</td>
+                        <td>@review.Rating / 5</td>
+                        <td style="max-width:320px">
+                            @review.Comment
+                            @if (review.Status == "rejected" && review.RejectionReason is not null)
+                            {
+                                <div class="muted">Red sebebi: @review.RejectionReason</div>
+                            }
+                        </td>
+                        <td><span class="chip @StatusChipClass(review.Status)">@StatusLabel(review.Status)</span></td>
+                        <td class="cell-actions">
+                            @if (review.Status == "pending")
+                            {
+                                <div class="detail-actions">
+                                    <input class="field-input detail-reason" placeholder="Red sebebi"
+                                           @bind="_rejectReasons[review.Id]" @bind:event="oninput" />
+                                    <button class="btn-primary" @onclick="() => ApproveAsync(review.Id)">Onayla</button>
+                                    <button class="btn-ghost btn-danger-ghost" @onclick="() => RejectAsync(review.Id)">Reddet</button>
+                                </div>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AdminReviewListItemDto>? _reviews;
+    private readonly Dictionary<Guid, string> _rejectReasons = [];
+    private string _status = "pending";
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            _reviews = await AdminClient.ListReviewsAsync(_status, CancellationToken.None);
+            if (_reviews is null)
+            {
+                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ApproveAsync(Guid reviewId)
+    {
+        if (await AdminClient.ApproveReviewAsync(reviewId, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task RejectAsync(Guid reviewId)
+    {
+        var reason = _rejectReasons.GetValueOrDefault(reviewId, string.Empty);
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            _errorMessage = "Reddetmek için sebep girmelisiniz.";
+            return;
+        }
+
+        if (await AdminClient.RejectReviewAsync(reviewId, reason, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "pending" => "Onay Bekliyor",
+        "approved" => "Onaylı",
+        "rejected" => "Reddedildi",
+        _ => status,
+    };
+
+    private static string StatusChipClass(string status) => status switch
+    {
+        "approved" => "chip-active",
+        "pending" => "chip-frozen",
+        "rejected" => "chip-deleted",
+        _ => string.Empty,
+    };
+}
