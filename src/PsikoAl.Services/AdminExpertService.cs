@@ -13,7 +13,8 @@ namespace PsikoAl.Services;
 
 public sealed class AdminExpertService(
     IUnitOfWork unitOfWork,
-    IAdminGuard adminGuard) : IAdminExpertService
+    IAdminGuard adminGuard,
+    INotificationService notificationService) : IAdminExpertService
 {
     private static readonly JsonSerializerOptions RevisionJsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -87,6 +88,13 @@ public sealed class AdminExpertService(
 
         await AddAuditAsync(actor.Id, "admin.expert_approve", expert.Id, oldSnapshot, SnapshotOf(expert), null, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await notificationService.NotifyAsync(
+            expert.Id,
+            NotificationTypes.ExpertApproved,
+            new Dictionary<string, string>(),
+            dataJson: null,
+            cancellationToken);
     }
 
     public async Task RejectAsync(Guid actorAuthUserId, Guid expertId, string reason, CancellationToken cancellationToken)
@@ -114,6 +122,13 @@ public sealed class AdminExpertService(
 
         await AddAuditAsync(actor.Id, "admin.expert_reject", expert.Id, oldSnapshot, SnapshotOf(expert), reason, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await notificationService.NotifyAsync(
+            expert.Id,
+            NotificationTypes.ExpertRejected,
+            new Dictionary<string, string> { ["reason"] = reason },
+            dataJson: null,
+            cancellationToken);
     }
 
     public async Task SetVerifiedAsync(Guid actorAuthUserId, Guid expertId, bool isVerified, CancellationToken cancellationToken)

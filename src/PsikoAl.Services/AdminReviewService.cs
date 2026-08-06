@@ -11,7 +11,8 @@ namespace PsikoAl.Services;
 
 public sealed class AdminReviewService(
     IUnitOfWork unitOfWork,
-    IAdminGuard adminGuard) : IAdminReviewService
+    IAdminGuard adminGuard,
+    INotificationService notificationService) : IAdminReviewService
 {
     public async Task<IReadOnlyList<AdminReviewListItemDto>> ListAsync(string? status, CancellationToken cancellationToken)
     {
@@ -54,6 +55,13 @@ public sealed class AdminReviewService(
 
         await AddAuditAsync(actor.Id, "admin.review_approve", review.Id, oldStatus, review.Status, null, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await notificationService.NotifyAsync(
+            review.ClientId,
+            NotificationTypes.ReviewApproved,
+            new Dictionary<string, string>(),
+            dataJson: null,
+            cancellationToken);
     }
 
     public async Task RejectAsync(Guid actorAuthUserId, Guid reviewId, string reason, CancellationToken cancellationToken)
@@ -74,6 +82,13 @@ public sealed class AdminReviewService(
 
         await AddAuditAsync(actor.Id, "admin.review_reject", review.Id, oldStatus, review.Status, reason, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await notificationService.NotifyAsync(
+            review.ClientId,
+            NotificationTypes.ReviewRejected,
+            new Dictionary<string, string> { ["reason"] = reason },
+            dataJson: null,
+            cancellationToken);
     }
 
     private async Task<AdminUser> GetRequiredActorAsync(Guid actorAuthUserId, CancellationToken cancellationToken)

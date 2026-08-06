@@ -1,0 +1,275 @@
+@page "/notifications"
+@rendermode InteractiveServer
+@inject IAdminClientService AdminClient
+@inject AdminSessionState Session
+@inject NavigationManager Navigation
+
+<PageTitle>Bildirimler — PsikoAl Admin</PageTitle>
+
+<div class="page-shell">
+    <header class="page-header">
+        <div>
+            <span class="page-eyebrow">PsikoAl Admin</span>
+            <h1 class="page-title">Bildirimler</h1>
+        </div>
+        <div class="page-header-actions">
+            <a class="btn-ghost" href="/users">Kullanıcılar</a>
+            <a class="btn-ghost" href="/experts">Uzmanlar</a>
+            <a class="btn-ghost" href="/categories">Kategoriler</a>
+            <a class="btn-ghost" href="/reviews">Yorumlar</a>
+            <a class="btn-ghost" href="/listings">İlanlar</a>
+            <a class="btn-ghost" href="/matches">Eşleşmeler</a>
+            <a class="btn-ghost" href="/settings">Sistem Ayarları</a>
+            <span class="muted">@Session.Email</span>
+        </div>
+    </header>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="form-error">@_errorMessage</p>
+    }
+
+    @if (_infoMessage is not null)
+    {
+        <p class="muted">@_infoMessage</p>
+    }
+
+    <div class="detail-panel">
+        <h3 class="detail-heading">Manuel Bildirim Gönder</h3>
+        <div class="toolbar">
+            <select class="field-input toolbar-select" @bind="_targetType">
+                <option value="segment">Segment</option>
+                <option value="user">Tek Kullanıcı</option>
+            </select>
+            @if (_targetType == "segment")
+            {
+                <select class="field-input toolbar-select" @bind="_segmentRole">
+                    <option value="client">Tüm Danışanlar</option>
+                    <option value="expert">Tüm Uzmanlar</option>
+                </select>
+                <input class="field-input" style="width:140px" placeholder="Şehir (opsiyonel)" @bind="_segmentCity" />
+            }
+            else
+            {
+                <input class="field-input" style="width:280px" placeholder="Kullanıcı ID (uuid)" @bind="_targetUserId" />
+            }
+        </div>
+        <div class="toolbar">
+            <input class="field-input toolbar-search" placeholder="Başlık" @bind="_sendTitle" />
+        </div>
+        <div class="toolbar">
+            <input class="field-input toolbar-search" placeholder="Mesaj" @bind="_sendBody" />
+            <button class="btn-primary" disabled="@_isSending" @onclick="SendAsync">Gönder</button>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <p class="muted">Yükleniyor...</p>
+    }
+    else if (_templates is not null)
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Tip</th>
+                    <th>Başlık</th>
+                    <th>Kanallar</th>
+                    <th>Durum</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var template in _templates)
+                {
+                    <tr>
+                        <td class="muted">@template.Type</td>
+                        <td>@template.Title</td>
+                        <td class="muted">
+                            @(template.InAppEnabled ? "in-app " : "")@(template.PushEnabled ? "push " : "")@(template.EmailEnabled ? "email" : "")
+                        </td>
+                        <td>
+                            <span class="chip @(template.IsActive ? "chip-active" : "chip-frozen")">
+                                @(template.IsActive ? "Aktif" : "Pasif")
+                            </span>
+                        </td>
+                        <td class="cell-actions">
+                            <button class="btn-ghost" @onclick="() => ToggleEditAsync(template)">
+                                @(_editingType == template.Type ? "Kapat" : "Düzenle")
+                            </button>
+                        </td>
+                    </tr>
+                    @if (_editingType == template.Type)
+                    {
+                        <tr>
+                            <td colspan="5">
+                                <div class="detail-panel">
+                                    <label>Başlık</label>
+                                    <input class="field-input" style="width:100%" @bind="_editTitle" />
+                                    <label>Gövde ({değişken} yer tutucuları kullanılabilir)</label>
+                                    <input class="field-input" style="width:100%" @bind="_editBody" />
+                                    <label>HTML Gövde (e-posta için, boş bırakılırsa gövde otomatik sarmalanır)</label>
+                                    <input class="field-input" style="width:100%" @bind="_editHtmlBody" />
+                                    <div class="toolbar">
+                                        <label><input type="checkbox" @bind="_editInApp" /> In-app</label>
+                                        <label><input type="checkbox" @bind="_editPush" /> Push</label>
+                                        <label><input type="checkbox" @bind="_editEmail" /> E-posta</label>
+                                        <label><input type="checkbox" @bind="_editActive" /> Aktif</label>
+                                        <button class="btn-primary" @onclick="() => SaveTemplateAsync(template.Type)">Kaydet</button>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AdminNotificationTemplateDto>? _templates;
+    private string? _editingType;
+    private string _editTitle = string.Empty;
+    private string _editBody = string.Empty;
+    private string? _editHtmlBody;
+    private bool _editInApp;
+    private bool _editPush;
+    private bool _editEmail;
+    private bool _editActive;
+
+    private string _targetType = "segment";
+    private string _segmentRole = "client";
+    private string _segmentCity = string.Empty;
+    private string _targetUserId = string.Empty;
+    private string _sendTitle = string.Empty;
+    private string _sendBody = string.Empty;
+    private bool _isSending;
+
+    private bool _isLoading;
+    private string? _errorMessage;
+    private string? _infoMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            _templates = await AdminClient.ListNotificationTemplatesAsync(CancellationToken.None);
+            if (_templates is null)
+            {
+                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleEditAsync(AdminNotificationTemplateDto template)
+    {
+        if (_editingType == template.Type)
+        {
+            _editingType = null;
+            return;
+        }
+
+        _editingType = template.Type;
+        _editTitle = template.Title;
+        _editBody = template.Body;
+        _editHtmlBody = template.HtmlBody;
+        _editInApp = template.InAppEnabled;
+        _editPush = template.PushEnabled;
+        _editEmail = template.EmailEnabled;
+        _editActive = template.IsActive;
+    }
+
+    private async Task SaveTemplateAsync(string type)
+    {
+        var updated = await AdminClient.UpdateNotificationTemplateAsync(
+            type,
+            new UpdateAdminNotificationTemplateDto(_editTitle, _editBody, _editHtmlBody, _editPush, _editEmail, _editInApp, _editActive),
+            CancellationToken.None);
+
+        if (updated is not null)
+        {
+            _editingType = null;
+            await LoadAsync();
+        }
+        else
+        {
+            _errorMessage = "Şablon güncellenemedi.";
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        _errorMessage = null;
+        _infoMessage = null;
+
+        if (string.IsNullOrWhiteSpace(_sendTitle) || string.IsNullOrWhiteSpace(_sendBody))
+        {
+            _errorMessage = "Başlık ve mesaj zorunludur.";
+            return;
+        }
+
+        Guid? userId = null;
+        if (_targetType == "user")
+        {
+            if (!Guid.TryParse(_targetUserId, out var parsed))
+            {
+                _errorMessage = "Geçerli bir kullanıcı ID giriniz.";
+                return;
+            }
+
+            userId = parsed;
+        }
+
+        _isSending = true;
+        try
+        {
+            var request = new AdminSendNotificationDto(
+                _targetType,
+                userId,
+                _targetType == "segment" ? _segmentRole : null,
+                _targetType == "segment" && !string.IsNullOrWhiteSpace(_segmentCity) ? _segmentCity : null,
+                null,
+                _sendTitle,
+                _sendBody);
+
+            var recipientCount = await AdminClient.SendNotificationAsync(request, CancellationToken.None);
+            if (recipientCount is null)
+            {
+                _errorMessage = "Bildirim gönderilemedi.";
+                return;
+            }
+
+            _infoMessage = $"{recipientCount} kullanıcıya bildirim gönderildi.";
+            _sendTitle = string.Empty;
+            _sendBody = string.Empty;
+        }
+        finally
+        {
+            _isSending = false;
+        }
+    }
+}

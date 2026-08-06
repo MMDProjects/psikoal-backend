@@ -286,6 +286,44 @@ public sealed class AdminClientService(HttpClient httpClient, AdminSessionState 
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<IReadOnlyList<AdminNotificationTemplateDto>?> ListNotificationTemplatesAsync(CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/notification-templates");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<AdminNotificationTemplateDto>>(cancellationToken)
+            : null;
+    }
+
+    public async Task<AdminNotificationTemplateDto?> UpdateNotificationTemplateAsync(
+        string type,
+        UpdateAdminNotificationTemplateDto request,
+        CancellationToken cancellationToken)
+    {
+        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/notification-templates/{type}");
+        httpRequest.Content = JsonContent.Create(request);
+        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<AdminNotificationTemplateDto>(cancellationToken)
+            : null;
+    }
+
+    public async Task<int?> SendNotificationAsync(AdminSendNotificationDto request, CancellationToken cancellationToken)
+    {
+        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Post, "admin/notifications/send");
+        httpRequest.Content = JsonContent.Create(request);
+        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<AdminSendNotificationResult>(cancellationToken);
+        return result?.RecipientCount;
+    }
+
+    private sealed record AdminSendNotificationResult(bool Success, int RecipientCount);
+
     private HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url)
     {
         var request = new HttpRequestMessage(method, url);

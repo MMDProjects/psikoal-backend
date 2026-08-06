@@ -12,7 +12,8 @@ namespace PsikoAl.Services;
 
 public sealed class AdminListingService(
     IUnitOfWork unitOfWork,
-    IAdminGuard adminGuard) : IAdminListingService
+    IAdminGuard adminGuard,
+    INotificationService notificationService) : IAdminListingService
 {
     public async Task<IReadOnlyList<AdminListingListItemDto>> ListAsync(string? status, CancellationToken cancellationToken)
     {
@@ -81,6 +82,13 @@ public sealed class AdminListingService(
 
         await AddStatusAuditAsync(actor.Id, "admin.listing_approve", listing.Id, oldStatus, listing.Status, null, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await notificationService.NotifyAsync(
+            listing.ClientId,
+            NotificationTypes.ListingApproved,
+            new Dictionary<string, string> { ["listingTitle"] = listing.Title },
+            JsonSerializer.Serialize(new { listingId = listing.Id }),
+            cancellationToken);
     }
 
     public async Task RejectAsync(Guid actorAuthUserId, Guid listingId, string reason, CancellationToken cancellationToken)
@@ -104,6 +112,13 @@ public sealed class AdminListingService(
 
         await AddStatusAuditAsync(actor.Id, "admin.listing_reject", listing.Id, oldStatus, listing.Status, reason, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        await notificationService.NotifyAsync(
+            listing.ClientId,
+            NotificationTypes.ListingRejected,
+            new Dictionary<string, string> { ["listingTitle"] = listing.Title, ["reason"] = reason },
+            JsonSerializer.Serialize(new { listingId = listing.Id }),
+            cancellationToken);
     }
 
     public async Task CloseAsync(Guid actorAuthUserId, Guid listingId, CancellationToken cancellationToken)

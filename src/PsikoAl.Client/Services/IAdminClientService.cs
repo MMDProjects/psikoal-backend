@@ -66,6 +66,15 @@ public interface IAdminClientService
     Task<AdminMatchDetailDto?> GetMatchDetailAsync(Guid matchId, CancellationToken cancellationToken);
 
     Task<bool> ForceReleaseMatchAsync(Guid matchId, string targetStatus, string reason, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<AdminNotificationTemplateDto>?> ListNotificationTemplatesAsync(CancellationToken cancellationToken);
+
+    Task<AdminNotificationTemplateDto?> UpdateNotificationTemplateAsync(
+        string type,
+        UpdateAdminNotificationTemplateDto request,
+        CancellationToken cancellationToken);
+
+    Task<int?> SendNotificationAsync(AdminSendNotificationDto request, CancellationToken cancellationToken);
 }
 
 public sealed record AdminExpertDocumentUrls(string? CvUrl, IReadOnlyList<string> CertificateUrls);

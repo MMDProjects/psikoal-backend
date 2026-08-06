@@ -23,6 +23,10 @@ builder.Services
     .Bind(builder.Configuration.GetSection(SupabaseOptions.SectionName))
     .ValidateOnStart();
 
+builder.Services
+    .AddOptions<BrevoOptions>()
+    .Bind(builder.Configuration.GetSection(BrevoOptions.SectionName));
+
 var supabase = builder.Configuration.GetSection(SupabaseOptions.SectionName).Get<SupabaseOptions>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -71,6 +75,16 @@ builder.Services.AddHttpClient<ISupabaseStorageService, SupabaseStorageService>(
     client.DefaultRequestHeaders.Add("Authorization", "Bearer " + supabase.ServiceRoleKey);
 });
 
+builder.Services.AddHttpClient<IEmailService, BrevoEmailService>(client =>
+{
+    client.BaseAddress = new Uri("https://api.brevo.com/");
+});
+
+builder.Services.AddHttpClient<IPushNotificationService, ExpoPushNotificationService>(client =>
+{
+    client.BaseAddress = new Uri("https://exp.host/");
+});
+
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IExpertService, ExpertService>();
@@ -87,6 +101,10 @@ builder.Services.AddScoped<ISystemSettingsService, SystemSettingsService>();
 builder.Services.AddScoped<IOfferService, OfferService>();
 builder.Services.AddScoped<IMatchService, MatchService>();
 builder.Services.AddScoped<IAdminMatchService, AdminMatchService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IPushTokenService, PushTokenService>();
+builder.Services.AddScoped<IAdminNotificationTemplateService, AdminNotificationTemplateService>();
+builder.Services.AddScoped<IAdminNotificationService, AdminNotificationService>();
 builder.Services.AddScoped<IAdminGuard, AdminGuard>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AdminRequirementHandler>();
 
