@@ -11,7 +11,7 @@ using PsikoAl.Services.Mapping;
 
 namespace PsikoAl.Services;
 
-public sealed class ExpertService(IUnitOfWork unitOfWork) : IExpertService
+public sealed class ExpertService(IUnitOfWork unitOfWork, ICategoryService categoryService) : IExpertService
 {
     private static readonly JsonSerializerOptions RevisionJsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -32,6 +32,8 @@ public sealed class ExpertService(IUnitOfWork unitOfWork) : IExpertService
         {
             throw new DomainException(ErrorKeys.ExpertProfileAlreadyExists);
         }
+
+        await EnsureValidSpecializationsAsync(request.Specializations, cancellationToken);
 
         var expert = new Expert
         {
@@ -71,6 +73,11 @@ public sealed class ExpertService(IUnitOfWork unitOfWork) : IExpertService
         var expert = await unitOfWork.Experts.GetWithProfileAsync(userId, cancellationToken)
             ?? throw new DomainException(ErrorKeys.ExpertNotFound);
         var profile = expert.Profile ?? throw new DomainException(ErrorKeys.ProfileNotFound);
+
+        if (request.Specializations is not null)
+        {
+            await EnsureValidSpecializationsAsync(request.Specializations, cancellationToken);
+        }
 
         if (expert.Status == ExpertStatuses.Approved)
         {
@@ -166,4 +173,12 @@ public sealed class ExpertService(IUnitOfWork unitOfWork) : IExpertService
 
     private static string? NullIfEmpty(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private async Task EnsureValidSpecializationsAsync(IReadOnlyList<string> specializations, CancellationToken cancellationToken)
+    {
+        if (!await categoryService.AllActiveNamesExistAsync(specializations, cancellationToken))
+        {
+            throw new DomainException(ErrorKeys.ValidationFailed, "specializations");
+        }
+    }
 }
