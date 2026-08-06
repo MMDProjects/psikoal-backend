@@ -7,9 +7,9 @@ namespace PsikoAl.Data.Repositories;
 public sealed class ReviewRepository(AppDbContext dbContext)
     : Repository<Review, Guid>(dbContext), IReviewRepository
 {
-    public Task<bool> ExistsForClientAndExpertAsync(Guid clientId, Guid expertId, CancellationToken cancellationToken)
+    public Task<bool> ExistsForMatchAsync(Guid clientId, Guid matchId, CancellationToken cancellationToken)
         => DbContext.Reviews.AnyAsync(
-            review => review.ClientId == clientId && review.ExpertId == expertId,
+            review => review.ClientId == clientId && review.MatchId == matchId,
             cancellationToken);
 
     public async Task<double> GetRatingAsync(Guid expertId, CancellationToken cancellationToken)

@@ -1,0 +1,207 @@
+@page "/matches"
+@rendermode InteractiveServer
+@inject IAdminClientService AdminClient
+@inject AdminSessionState Session
+@inject NavigationManager Navigation
+
+<PageTitle>Eşleşmeler — PsikoAl Admin</PageTitle>
+
+<div class="page-shell">
+    <header class="page-header">
+        <div>
+            <span class="page-eyebrow">PsikoAl Admin</span>
+            <h1 class="page-title">Eşleşmeler</h1>
+        </div>
+        <div class="page-header-actions">
+            <a class="btn-ghost" href="/users">Kullanıcılar</a>
+            <a class="btn-ghost" href="/experts">Uzmanlar</a>
+            <a class="btn-ghost" href="/categories">Kategoriler</a>
+            <a class="btn-ghost" href="/listings">İlanlar</a>
+            <a class="btn-ghost" href="/reviews">Yorumlar</a>
+            <a class="btn-ghost" href="/settings">Sistem Ayarları</a>
+            <span class="muted">@Session.Email</span>
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <select class="field-input toolbar-select" @bind="_status">
+            <option value="ACTIVE">Aktif</option>
+            <option value="COMPLETED">Tamamlandı</option>
+            <option value="RELEASED">Sonlandırıldı</option>
+            <option value="">Tümü</option>
+        </select>
+        <button class="btn-primary" disabled="@_isLoading" @onclick="LoadAsync">Filtrele</button>
+    </div>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="form-error">@_errorMessage</p>
+    }
+
+    @if (_isLoading)
+    {
+        <p class="muted">Yükleniyor...</p>
+    }
+    else if (_matches is { Count: 0 })
+    {
+        <p class="muted">Kayıt bulunamadı.</p>
+    }
+    else if (_matches is not null)
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Danışan</th>
+                    <th>Uzman</th>
+                    <th>İlan</th>
+                    <th>Durum</th>
+                    <th>Onay Durumu</th>
+                    <th>Kayıt</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var match in _matches)
+                {
+                    <tr>
+                        <td>@match.ClientFullName</td>
+                        <td>@match.ExpertFullName</td>
+                        <td style="max-width:220px">@match.ListingTitle</td>
+                        <td><span class="chip @StatusChipClass(match.Status)">@StatusLabel(match.Status)</span></td>
+                        <td class="muted">
+                            @(match.ClientReleasedAt is not null ? "Danışan onayladı" : "Danışan bekliyor") /
+                            @(match.ExpertReleasedAt is not null ? "Uzman onayladı" : "Uzman bekliyor")
+                        </td>
+                        <td class="muted">@match.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                        <td class="cell-actions">
+                            <button class="btn-ghost" @onclick="() => ToggleDetailAsync(match.Id)">
+                                @(_openMatchId == match.Id ? "Kapat" : "İncele")
+                            </button>
+                        </td>
+                    </tr>
+                    @if (_openMatchId == match.Id && _detail is not null)
+                    {
+                        <tr>
+                            <td colspan="7">
+                                <div class="detail-panel">
+                                    <dl class="detail-list">
+                                        <dt>Danışan E-posta</dt><dd>@_detail.ClientEmail</dd>
+                                        <dt>Teklif Fiyatı</dt><dd>₺@_detail.OfferPrice.ToString("N0")</dd>
+                                        @if (_detail.ReleasedByAdmin)
+                                        {
+                                            <dt>Admin Müdahalesi</dt><dd>@_detail.ReleaseReason</dd>
+                                        }
+                                    </dl>
+
+                                    @if (_detail.Status == "ACTIVE")
+                                    {
+                                        <p class="muted">İhtilaf durumunda tek taraflı sonlandırma yapılabilir (sebep zorunlu, loglanır).</p>
+                                        <div class="detail-actions">
+                                            <input class="field-input detail-reason" placeholder="Sebep (zorunlu)"
+                                                   @bind="_reason" @bind:event="oninput" />
+                                            <button class="btn-ghost" @onclick="@(() => ForceReleaseAsync(match.Id, MatchTargetStatusReleased))">Zorla Sonlandır</button>
+                                            <button class="btn-ghost" @onclick="@(() => ForceReleaseAsync(match.Id, MatchTargetStatusCompleted))">Zorla Tamamla</button>
+                                        </div>
+                                    }
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private const string MatchTargetStatusReleased = "RELEASED";
+    private const string MatchTargetStatusCompleted = "COMPLETED";
+
+    private IReadOnlyList<AdminMatchListItemDto>? _matches;
+    private AdminMatchDetailDto? _detail;
+    private Guid? _openMatchId;
+    private string _status = "ACTIVE";
+    private string _reason = string.Empty;
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        _openMatchId = null;
+        try
+        {
+            _matches = await AdminClient.ListMatchesAsync(_status, CancellationToken.None);
+            if (_matches is null)
+            {
+                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ToggleDetailAsync(Guid matchId)
+    {
+        if (_openMatchId == matchId)
+        {
+            _openMatchId = null;
+            _detail = null;
+            return;
+        }
+
+        _openMatchId = matchId;
+        _reason = string.Empty;
+        _detail = await AdminClient.GetMatchDetailAsync(matchId, CancellationToken.None);
+    }
+
+    private async Task ForceReleaseAsync(Guid matchId, string targetStatus)
+    {
+        if (string.IsNullOrWhiteSpace(_reason))
+        {
+            _errorMessage = "Zorla sonlandırmak için sebep girmelisiniz.";
+            return;
+        }
+
+        if (await AdminClient.ForceReleaseMatchAsync(matchId, targetStatus, _reason, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "ACTIVE" => "Aktif",
+        "COMPLETED" => "Tamamlandı",
+        "RELEASED" => "Sonlandırıldı",
+        _ => status,
+    };
+
+    private static string StatusChipClass(string status) => status switch
+    {
+        "ACTIVE" => "chip-active",
+        "COMPLETED" => "chip-role",
+        "RELEASED" => "chip-deleted",
+        _ => string.Empty,
+    };
+}

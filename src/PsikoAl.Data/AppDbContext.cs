@@ -17,6 +17,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<Listing> Listings => Set<Listing>();
 
+    public DbSet<Offer> Offers => Set<Offer>();
+
+    public DbSet<Match> Matches => Set<Match>();
+
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
@@ -62,6 +66,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasOne(review => review.Client)
                 .WithMany()
                 .HasForeignKey(review => review.ClientId);
+            entity.HasOne<Match>()
+                .WithMany()
+                .HasForeignKey(review => review.MatchId);
         });
 
         modelBuilder.Entity<ExpertRating>(entity =>
@@ -79,6 +86,40 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasOne(listing => listing.Client)
                 .WithMany()
                 .HasForeignKey(listing => listing.ClientId);
+        });
+
+        modelBuilder.Entity<Offer>(entity =>
+        {
+            entity.ToTable("offers");
+            entity.HasKey(offer => offer.Id);
+            entity.Property(offer => offer.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.Property(offer => offer.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.HasOne(offer => offer.Listing)
+                .WithMany()
+                .HasForeignKey(offer => offer.ListingId);
+            entity.HasOne(offer => offer.Expert)
+                .WithMany()
+                .HasForeignKey(offer => offer.ExpertId);
+        });
+
+        modelBuilder.Entity<Match>(entity =>
+        {
+            entity.ToTable("matches");
+            entity.HasKey(match => match.Id);
+            entity.Property(match => match.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.Property(match => match.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.HasOne(match => match.Listing)
+                .WithMany()
+                .HasForeignKey(match => match.ListingId);
+            entity.HasOne(match => match.AcceptedOffer)
+                .WithMany()
+                .HasForeignKey(match => match.AcceptedOfferId);
+            entity.HasOne(match => match.Client)
+                .WithMany()
+                .HasForeignKey(match => match.ClientId);
+            entity.HasOne(match => match.Expert)
+                .WithMany()
+                .HasForeignKey(match => match.ExpertId);
         });
 
         modelBuilder.Entity<SystemSetting>(entity =>

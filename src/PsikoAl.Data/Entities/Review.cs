@@ -10,8 +10,7 @@ public sealed class Review
 
     public Guid ClientId { get; set; }
 
-    /// Dilim 5'te matches tablosuna FK + NOT NULL olacak.
-    public Guid? MatchId { get; set; }
+    public Guid MatchId { get; set; }
 
     public int Rating { get; set; }
 
