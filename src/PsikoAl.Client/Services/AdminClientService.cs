@@ -324,6 +324,40 @@ public sealed class AdminClientService(HttpClient httpClient, AdminSessionState 
 
     private sealed record AdminSendNotificationResult(bool Success, int RecipientCount);
 
+    public async Task<IReadOnlyList<AdminAssessmentListItemDto>?> ListAssessmentsAsync(CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/assessments");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<AdminAssessmentListItemDto>>(cancellationToken)
+            : null;
+    }
+
+    public async Task<AdminAssessmentDetailDto?> GetAssessmentDetailAsync(Guid assessmentId, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/assessments/{assessmentId}");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<AdminAssessmentDetailDto>(cancellationToken)
+            : null;
+    }
+
+    public async Task<bool> UpdateAssessmentAsync(Guid assessmentId, UpdateAdminAssessmentDto request, CancellationToken cancellationToken)
+    {
+        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/assessments/{assessmentId}");
+        httpRequest.Content = JsonContent.Create(request);
+        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> UpdateScoreRuleAsync(Guid scoreRuleId, UpdateAdminScoreRuleDto request, CancellationToken cancellationToken)
+    {
+        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/assessments/score-rules/{scoreRuleId}");
+        httpRequest.Content = JsonContent.Create(request);
+        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     private HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url)
     {
         var request = new HttpRequestMessage(method, url);

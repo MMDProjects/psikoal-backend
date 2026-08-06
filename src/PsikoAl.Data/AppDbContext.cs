@@ -27,6 +27,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<PushToken> PushTokens => Set<PushToken>();
 
+    public DbSet<Assessment> Assessments => Set<Assessment>();
+
+    public DbSet<AssessmentQuestion> AssessmentQuestions => Set<AssessmentQuestion>();
+
+    public DbSet<AssessmentScoreRule> AssessmentScoreRules => Set<AssessmentScoreRule>();
+
+    public DbSet<AssessmentResult> AssessmentResults => Set<AssessmentResult>();
+
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
@@ -150,6 +158,37 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasKey(pushToken => pushToken.Id);
             entity.HasIndex(pushToken => pushToken.Token).IsUnique();
             entity.Property(pushToken => pushToken.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<Assessment>(entity =>
+        {
+            entity.ToTable("assessments");
+            entity.HasKey(assessment => assessment.Id);
+            entity.Property(assessment => assessment.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.Property(assessment => assessment.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<AssessmentQuestion>(entity =>
+        {
+            entity.ToTable("assessment_questions");
+            entity.HasKey(question => question.Id);
+            entity.Property(question => question.Options).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<AssessmentScoreRule>(entity =>
+        {
+            entity.ToTable("assessment_score_rules");
+            entity.HasKey(rule => rule.Id);
+        });
+
+        modelBuilder.Entity<AssessmentResult>(entity =>
+        {
+            entity.ToTable("assessment_results");
+            entity.HasKey(result => result.Id);
+            entity.Property(result => result.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.HasOne(result => result.Assessment)
+                .WithMany()
+                .HasForeignKey(result => result.AssessmentId);
         });
 
         modelBuilder.Entity<SystemSetting>(entity =>

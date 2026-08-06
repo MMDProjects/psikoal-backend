@@ -20,4 +20,5 @@ public sealed record ListingDto(
     string CreatedAtRelative,
     bool ViewerHasOffered,
     Guid? ViewerOfferId,
-    string? RejectionReason);
+    string? RejectionReason,
+    ListingAssessmentResultDto? AssessmentResult);

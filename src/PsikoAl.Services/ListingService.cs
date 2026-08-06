@@ -67,7 +67,12 @@ public sealed class ListingService(
             throw new DomainException(ErrorKeys.ListingMaxActiveExceeded);
         }
 
-        return ListingMapper.ToListingDto(listing, client, viewerIsOwner: true, viewerHasOffered: false, viewerOfferId: null);
+        var assessmentResult = request.AssessmentResultId.HasValue
+            ? await unitOfWork.AssessmentResults.QueryWithAssessment()
+                .FirstOrDefaultAsync(result => result.Id == request.AssessmentResultId.Value, cancellationToken)
+            : null;
+
+        return ListingMapper.ToListingDto(listing, client, viewerIsOwner: true, viewerHasOffered: false, viewerOfferId: null, assessmentResult);
     }
 
     public async Task<ListingListResult> ListFeedAsync(ListingFeedFilters filters, CancellationToken cancellationToken)
@@ -150,8 +155,21 @@ public sealed class ListingService(
             throw new DomainException(ErrorKeys.ListingNotFound);
         }
 
-        // viewerHasOffered/viewerOfferId Dilim 5'te offers tablosu gelince gerçek değere bağlanacak.
-        return ListingMapper.ToListingDto(listing, client, isOwner, viewerHasOffered: false, viewerOfferId: null);
+        var viewerOffer = isOwner
+            ? null
+            : await unitOfWork.Offers.Query()
+                .FirstOrDefaultAsync(offer => offer.ListingId == listingId && offer.ExpertId == viewerUserId, cancellationToken);
+
+        var assessmentResult = listing.AssessmentResultId.HasValue
+            ? await unitOfWork.AssessmentResults.QueryWithAssessment()
+                .FirstOrDefaultAsync(result => result.Id == listing.AssessmentResultId.Value, cancellationToken)
+            : null;
+
+        return ListingMapper.ToListingDto(
+            listing, client, isOwner,
+            viewerHasOffered: viewerOffer is not null,
+            viewerOfferId: viewerOffer?.Id,
+            assessmentResult);
     }
 
     public async Task<ListingDto> CloseAsync(Guid clientUserId, Guid listingId, CancellationToken cancellationToken)

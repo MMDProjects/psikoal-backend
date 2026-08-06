@@ -22,6 +22,14 @@ public interface IUnitOfWork
 
     IPushTokenRepository PushTokens { get; }
 
+    IAssessmentRepository Assessments { get; }
+
+    IAssessmentQuestionRepository AssessmentQuestions { get; }
+
+    IAssessmentScoreRuleRepository AssessmentScoreRules { get; }
+
+    IAssessmentResultRepository AssessmentResults { get; }
+
     ISystemSettingRepository SystemSettings { get; }
 
     IAdminUserRepository AdminUsers { get; }

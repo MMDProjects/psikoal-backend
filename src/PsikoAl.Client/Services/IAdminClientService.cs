@@ -75,6 +75,14 @@ public interface IAdminClientService
         CancellationToken cancellationToken);
 
     Task<int?> SendNotificationAsync(AdminSendNotificationDto request, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<AdminAssessmentListItemDto>?> ListAssessmentsAsync(CancellationToken cancellationToken);
+
+    Task<AdminAssessmentDetailDto?> GetAssessmentDetailAsync(Guid assessmentId, CancellationToken cancellationToken);
+
+    Task<bool> UpdateAssessmentAsync(Guid assessmentId, UpdateAdminAssessmentDto request, CancellationToken cancellationToken);
+
+    Task<bool> UpdateScoreRuleAsync(Guid scoreRuleId, UpdateAdminScoreRuleDto request, CancellationToken cancellationToken);
 }
 
 public sealed record AdminExpertDocumentUrls(string? CvUrl, IReadOnlyList<string> CertificateUrls);

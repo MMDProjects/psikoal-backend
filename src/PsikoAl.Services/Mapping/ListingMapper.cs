@@ -11,7 +11,8 @@ public static class ListingMapper
         Profile client,
         bool viewerIsOwner,
         bool viewerHasOffered,
-        Guid? viewerOfferId)
+        Guid? viewerOfferId,
+        AssessmentResult? assessmentResult = null)
         => new(
             listing.Id,
             listing.ClientId,
@@ -38,5 +39,13 @@ public static class ListingMapper
             RelativeTimeTr.From(listing.CreatedAt),
             viewerHasOffered,
             viewerOfferId,
-            listing.RejectionReason);
+            listing.RejectionReason,
+            assessmentResult is null
+                ? null
+                : new ListingAssessmentResultDto(
+                    assessmentResult.Id,
+                    assessmentResult.Score,
+                    assessmentResult.Level,
+                    assessmentResult.Summary,
+                    assessmentResult.Assessment?.Title ?? string.Empty));
 }
