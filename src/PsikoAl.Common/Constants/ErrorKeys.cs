@@ -46,6 +46,9 @@ public static class ErrorKeys
     public const string MatchNotActive = "MATCH_NOT_ACTIVE";
     public const string MatchNotParticipant = "MATCH_NOT_PARTICIPANT";
     public const string MatchForceReleaseReasonRequired = "MATCH_FORCE_RELEASE_REASON_REQUIRED";
+    public const string NotificationNotFound = "NOTIFICATION_NOT_FOUND";
+    public const string NotificationTemplateNotFound = "NOTIFICATION_TEMPLATE_NOT_FOUND";
+    public const string PushTokenNotFound = "PUSH_TOKEN_NOT_FOUND";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string InternalError = "INTERNAL_ERROR";
 }

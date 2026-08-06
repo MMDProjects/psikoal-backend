@@ -21,6 +21,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<Match> Matches => Set<Match>();
 
+    public DbSet<NotificationTemplate> NotificationTemplates => Set<NotificationTemplate>();
+
+    public DbSet<Notification> Notifications => Set<Notification>();
+
+    public DbSet<PushToken> PushTokens => Set<PushToken>();
+
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
@@ -120,6 +126,30 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasOne(match => match.Expert)
                 .WithMany()
                 .HasForeignKey(match => match.ExpertId);
+        });
+
+        modelBuilder.Entity<NotificationTemplate>(entity =>
+        {
+            entity.ToTable("notification_templates");
+            entity.HasKey(template => template.Id);
+            entity.Property(template => template.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.Property(template => template.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<Notification>(entity =>
+        {
+            entity.ToTable("notifications");
+            entity.HasKey(notification => notification.Id);
+            entity.Property(notification => notification.Data).HasColumnType("jsonb");
+            entity.Property(notification => notification.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<PushToken>(entity =>
+        {
+            entity.ToTable("push_tokens");
+            entity.HasKey(pushToken => pushToken.Id);
+            entity.HasIndex(pushToken => pushToken.Token).IsUnique();
+            entity.Property(pushToken => pushToken.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
         });
 
         modelBuilder.Entity<SystemSetting>(entity =>

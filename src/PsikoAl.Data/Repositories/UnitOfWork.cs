@@ -11,6 +11,9 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
     private IListingRepository? _listings;
     private IOfferRepository? _offers;
     private IMatchRepository? _matches;
+    private INotificationTemplateRepository? _notificationTemplates;
+    private INotificationRepository? _notifications;
+    private IPushTokenRepository? _pushTokens;
     private ISystemSettingRepository? _systemSettings;
     private IAdminUserRepository? _adminUsers;
     private IAuditLogRepository? _auditLogs;
@@ -28,6 +31,13 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
     public IOfferRepository Offers => _offers ??= new OfferRepository(dbContext);
 
     public IMatchRepository Matches => _matches ??= new MatchRepository(dbContext);
+
+    public INotificationTemplateRepository NotificationTemplates
+        => _notificationTemplates ??= new NotificationTemplateRepository(dbContext);
+
+    public INotificationRepository Notifications => _notifications ??= new NotificationRepository(dbContext);
+
+    public IPushTokenRepository PushTokens => _pushTokens ??= new PushTokenRepository(dbContext);
 
     public ISystemSettingRepository SystemSettings => _systemSettings ??= new SystemSettingRepository(dbContext);
 

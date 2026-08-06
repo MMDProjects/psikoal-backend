@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using PsikoAl.Common.Constants;
@@ -11,12 +12,13 @@ using PsikoAl.Services.Mapping;
 
 namespace PsikoAl.Services;
 
-public sealed class OfferService(IUnitOfWork unitOfWork) : IOfferService
+public sealed class OfferService(IUnitOfWork unitOfWork, INotificationService notificationService) : IOfferService
 {
     public async Task<OfferDto> CreateAsync(Guid expertUserId, CreateOfferDto request, CancellationToken cancellationToken)
     {
         var expert = await unitOfWork.Experts.GetWithProfileAsync(expertUserId, cancellationToken)
             ?? throw new DomainException(ErrorKeys.ExpertNotFound);
+        var expertProfile = expert.Profile ?? throw new DomainException(ErrorKeys.ProfileNotFound);
 
         if (expert.Status != ExpertStatuses.Approved)
         {
@@ -49,6 +51,17 @@ public sealed class OfferService(IUnitOfWork unitOfWork) : IOfferService
         await unitOfWork.Offers.AddAsync(offer, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         await unitOfWork.Offers.IncrementListingOfferCountAsync(request.ListingId, cancellationToken);
+
+        await notificationService.NotifyAsync(
+            listing.ClientId,
+            NotificationTypes.OfferReceived,
+            new Dictionary<string, string>
+            {
+                ["expertName"] = $"{expertProfile.FirstName} {expertProfile.LastName}",
+                ["listingTitle"] = listing.Title,
+            },
+            JsonSerializer.Serialize(new { listingId = listing.Id }),
+            cancellationToken);
 
         return await GetByIdAsync(offer.Id, expertUserId, cancellationToken);
     }
@@ -137,6 +150,21 @@ public sealed class OfferService(IUnitOfWork unitOfWork) : IOfferService
         catch (PostgresException exception) when (exception.MessageText == "LISTING_NOT_OPEN")
         {
             throw new DomainException(ErrorKeys.OfferListingNotOpen);
+        }
+
+        var acceptedOffer = await unitOfWork.Offers.GetWithListingAndExpertAsync(offerId, cancellationToken);
+        if (acceptedOffer?.Listing?.Client is { } client)
+        {
+            await notificationService.NotifyAsync(
+                acceptedOffer.ExpertId,
+                NotificationTypes.OfferAccepted,
+                new Dictionary<string, string>
+                {
+                    ["clientName"] = $"{client.FirstName} {client.LastName}",
+                    ["listingTitle"] = acceptedOffer.Listing.Title,
+                },
+                JsonSerializer.Serialize(new { matchId = acceptedOffer.MatchId }),
+                cancellationToken);
         }
 
         return await GetByIdAsync(offerId, clientUserId, cancellationToken);

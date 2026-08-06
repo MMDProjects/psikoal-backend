@@ -16,6 +16,12 @@ public interface IUnitOfWork
 
     IMatchRepository Matches { get; }
 
+    INotificationTemplateRepository NotificationTemplates { get; }
+
+    INotificationRepository Notifications { get; }
+
+    IPushTokenRepository PushTokens { get; }
+
     ISystemSettingRepository SystemSettings { get; }
 
     IAdminUserRepository AdminUsers { get; }
