@@ -14,6 +14,10 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
     private INotificationTemplateRepository? _notificationTemplates;
     private INotificationRepository? _notifications;
     private IPushTokenRepository? _pushTokens;
+    private IAssessmentRepository? _assessments;
+    private IAssessmentQuestionRepository? _assessmentQuestions;
+    private IAssessmentScoreRuleRepository? _assessmentScoreRules;
+    private IAssessmentResultRepository? _assessmentResults;
     private ISystemSettingRepository? _systemSettings;
     private IAdminUserRepository? _adminUsers;
     private IAuditLogRepository? _auditLogs;
@@ -38,6 +42,17 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
     public INotificationRepository Notifications => _notifications ??= new NotificationRepository(dbContext);
 
     public IPushTokenRepository PushTokens => _pushTokens ??= new PushTokenRepository(dbContext);
+
+    public IAssessmentRepository Assessments => _assessments ??= new AssessmentRepository(dbContext);
+
+    public IAssessmentQuestionRepository AssessmentQuestions
+        => _assessmentQuestions ??= new AssessmentQuestionRepository(dbContext);
+
+    public IAssessmentScoreRuleRepository AssessmentScoreRules
+        => _assessmentScoreRules ??= new AssessmentScoreRuleRepository(dbContext);
+
+    public IAssessmentResultRepository AssessmentResults
+        => _assessmentResults ??= new AssessmentResultRepository(dbContext);
 
     public ISystemSettingRepository SystemSettings => _systemSettings ??= new SystemSettingRepository(dbContext);
 

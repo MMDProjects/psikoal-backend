@@ -49,6 +49,9 @@ public static class ErrorKeys
     public const string NotificationNotFound = "NOTIFICATION_NOT_FOUND";
     public const string NotificationTemplateNotFound = "NOTIFICATION_TEMPLATE_NOT_FOUND";
     public const string PushTokenNotFound = "PUSH_TOKEN_NOT_FOUND";
+    public const string AssessmentNotFound = "ASSESSMENT_NOT_FOUND";
+    public const string AssessmentResultNotFound = "ASSESSMENT_RESULT_NOT_FOUND";
+    public const string AssessmentScoreRuleNotFound = "ASSESSMENT_SCORE_RULE_NOT_FOUND";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string InternalError = "INTERNAL_ERROR";
 }

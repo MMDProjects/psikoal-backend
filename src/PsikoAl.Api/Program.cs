@@ -105,6 +105,8 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPushTokenService, PushTokenService>();
 builder.Services.AddScoped<IAdminNotificationTemplateService, AdminNotificationTemplateService>();
 builder.Services.AddScoped<IAdminNotificationService, AdminNotificationService>();
+builder.Services.AddScoped<IAssessmentService, AssessmentService>();
+builder.Services.AddScoped<IAdminAssessmentService, AdminAssessmentService>();
 builder.Services.AddScoped<IAdminGuard, AdminGuard>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AdminRequirementHandler>();
 
