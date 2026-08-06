@@ -15,6 +15,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<ExpertRating> ExpertRatings => Set<ExpertRating>();
 
+    public DbSet<Listing> Listings => Set<Listing>();
+
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
+
     public DbSet<AdminUser> AdminUsers => Set<AdminUser>();
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -64,6 +68,24 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         {
             entity.HasNoKey();
             entity.ToView("expert_ratings");
+        });
+
+        modelBuilder.Entity<Listing>(entity =>
+        {
+            entity.ToTable("listings");
+            entity.HasKey(listing => listing.Id);
+            entity.Property(listing => listing.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.Property(listing => listing.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.HasOne(listing => listing.Client)
+                .WithMany()
+                .HasForeignKey(listing => listing.ClientId);
+        });
+
+        modelBuilder.Entity<SystemSetting>(entity =>
+        {
+            entity.ToTable("system_settings");
+            entity.HasKey(setting => setting.Key);
+            entity.Property(setting => setting.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
         });
 
         modelBuilder.Entity<AdminUser>(entity =>

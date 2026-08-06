@@ -10,6 +10,10 @@ public interface IUnitOfWork
 
     IReviewRepository Reviews { get; }
 
+    IListingRepository Listings { get; }
+
+    ISystemSettingRepository SystemSettings { get; }
+
     IAdminUserRepository AdminUsers { get; }
 
     IAuditLogRepository AuditLogs { get; }

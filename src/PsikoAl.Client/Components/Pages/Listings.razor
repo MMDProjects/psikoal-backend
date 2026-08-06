@@ -1,0 +1,261 @@
+@page "/listings"
+@rendermode InteractiveServer
+@inject IAdminClientService AdminClient
+@inject AdminSessionState Session
+@inject NavigationManager Navigation
+
+<PageTitle>İlanlar — PsikoAl Admin</PageTitle>
+
+<div class="page-shell">
+    <header class="page-header">
+        <div>
+            <span class="page-eyebrow">PsikoAl Admin</span>
+            <h1 class="page-title">İlan Onayları</h1>
+        </div>
+        <div class="page-header-actions">
+            <a class="btn-ghost" href="/users">Kullanıcılar</a>
+            <a class="btn-ghost" href="/experts">Uzmanlar</a>
+            <a class="btn-ghost" href="/categories">Kategoriler</a>
+            <a class="btn-ghost" href="/reviews">Yorumlar</a>
+            <a class="btn-ghost" href="/settings">Sistem Ayarları</a>
+            <span class="muted">@Session.Email</span>
+        </div>
+    </header>
+
+    <div class="toolbar">
+        <select class="field-input toolbar-select" @bind="_status">
+            <option value="PENDING_APPROVAL">Onay Bekleyen</option>
+            <option value="OPEN">Yayında</option>
+            <option value="MATCHED">Eşleşildi</option>
+            <option value="CLOSED">Kapalı</option>
+            <option value="EXPIRED">Süresi Doldu</option>
+            <option value="REJECTED_BY_ADMIN">Reddedildi</option>
+            <option value="">Tümü</option>
+        </select>
+        <button class="btn-primary" disabled="@_isLoading" @onclick="LoadAsync">Filtrele</button>
+    </div>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="form-error">@_errorMessage</p>
+    }
+
+    @if (_isLoading)
+    {
+        <p class="muted">Yükleniyor...</p>
+    }
+    else if (_listings is { Count: 0 })
+    {
+        <p class="muted">Kayıt bulunamadı.</p>
+    }
+    else if (_listings is not null)
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Danışan</th>
+                    <th>Başlık</th>
+                    <th>Bütçe</th>
+                    <th>Durum</th>
+                    <th>Kayıt</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var listing in _listings)
+                {
+                    <tr>
+                        <td>
+                            @listing.ClientFullName
+                            <div class="muted">@listing.ClientEmail</div>
+                        </td>
+                        <td style="max-width:260px">@listing.Title</td>
+                        <td class="muted">@listing.BudgetLabel</td>
+                        <td><span class="chip @StatusChipClass(listing.Status)">@StatusLabel(listing.Status)</span></td>
+                        <td class="muted">@listing.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                        <td class="cell-actions">
+                            <button class="btn-ghost" @onclick="() => ToggleDetailAsync(listing.Id)">
+                                @(_openListingId == listing.Id ? "Kapat" : "İncele")
+                            </button>
+                        </td>
+                    </tr>
+                    @if (_openListingId == listing.Id && _detail is not null)
+                    {
+                        <tr>
+                            <td colspan="6">
+                                <div class="detail-panel">
+                                    <dl class="detail-list">
+                                        <dt>Açıklama</dt><dd>@_detail.Description</dd>
+                                        <dt>Uzmanlıklar</dt><dd>@string.Join(", ", _detail.Specialization)</dd>
+                                        <dt>Seans Tipi</dt><dd>@_detail.PreferredSessionType</dd>
+                                        <dt>Şehir</dt><dd>@(_detail.City ?? "—")</dd>
+                                        <dt>Bitiş</dt><dd>@(_detail.ExpiresAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "—")</dd>
+                                    </dl>
+
+                                    @if (_detail.RejectionReason is not null)
+                                    {
+                                        <p class="form-error">Red sebebi: @_detail.RejectionReason</p>
+                                    }
+
+                                    <div class="detail-actions">
+                                        <input class="field-input detail-reason" placeholder="Sebep (red/yeniden aç için zorunlu)"
+                                               @bind="_reason" @bind:event="oninput" />
+                                        @if (_detail.Status == "PENDING_APPROVAL")
+                                        {
+                                            <button class="btn-primary" @onclick="() => ApproveAsync(listing.Id)">Onayla</button>
+                                            <button class="btn-ghost btn-danger-ghost" @onclick="() => RejectAsync(listing.Id)">Reddet</button>
+                                        }
+                                        @if (_detail.Status == "OPEN")
+                                        {
+                                            <button class="btn-ghost btn-danger-ghost" @onclick="() => CloseAsync(listing.Id)">Kapat</button>
+                                            <input class="field-input" style="width:110px" type="number" min="1" placeholder="Gün" @bind="_extendDays" />
+                                            <button class="btn-ghost" @onclick="() => ExtendAsync(listing.Id)">Süre Uzat</button>
+                                        }
+                                        @if (_detail.Status == "EXPIRED")
+                                        {
+                                            <button class="btn-ghost" @onclick="() => ReopenAsync(listing.Id)">Yeniden Aç (istisnai)</button>
+                                        }
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AdminListingListItemDto>? _listings;
+    private AdminListingDetailDto? _detail;
+    private Guid? _openListingId;
+    private string _status = "PENDING_APPROVAL";
+    private string _reason = string.Empty;
+    private int _extendDays = 7;
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        _openListingId = null;
+        try
+        {
+            _listings = await AdminClient.ListListingsAsync(_status, CancellationToken.None);
+            if (_listings is null)
+            {
+                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ToggleDetailAsync(Guid listingId)
+    {
+        if (_openListingId == listingId)
+        {
+            _openListingId = null;
+            _detail = null;
+            return;
+        }
+
+        _openListingId = listingId;
+        _reason = string.Empty;
+        _detail = await AdminClient.GetListingDetailAsync(listingId, CancellationToken.None);
+    }
+
+    private async Task ApproveAsync(Guid listingId)
+    {
+        if (await AdminClient.ApproveListingAsync(listingId, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task RejectAsync(Guid listingId)
+    {
+        if (string.IsNullOrWhiteSpace(_reason))
+        {
+            _errorMessage = "Reddetmek için sebep girmelisiniz.";
+            return;
+        }
+
+        if (await AdminClient.RejectListingAsync(listingId, _reason, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task CloseAsync(Guid listingId)
+    {
+        if (await AdminClient.CloseListingAsync(listingId, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task ExtendAsync(Guid listingId)
+    {
+        if (await AdminClient.ExtendListingAsync(listingId, _extendDays, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private async Task ReopenAsync(Guid listingId)
+    {
+        if (string.IsNullOrWhiteSpace(_reason))
+        {
+            _errorMessage = "Yeniden açmak için sebep girmelisiniz.";
+            return;
+        }
+
+        if (await AdminClient.ReopenListingAsync(listingId, _reason, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+    }
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "PENDING_APPROVAL" => "Onay Bekliyor",
+        "OPEN" => "Yayında",
+        "MATCHED" => "Eşleşildi",
+        "CLOSED" => "Kapalı",
+        "EXPIRED" => "Süresi Doldu",
+        "REJECTED_BY_ADMIN" => "Reddedildi",
+        _ => status,
+    };
+
+    private static string StatusChipClass(string status) => status switch
+    {
+        "OPEN" => "chip-active",
+        "PENDING_APPROVAL" => "chip-frozen",
+        "MATCHED" => "chip-role",
+        "REJECTED_BY_ADMIN" => "chip-deleted",
+        "CLOSED" or "EXPIRED" => "chip-deleted",
+        _ => string.Empty,
+    };
+}

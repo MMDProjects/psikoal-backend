@@ -1,0 +1,122 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject IAdminClientService AdminClient
+@inject AdminSessionState Session
+@inject NavigationManager Navigation
+
+<PageTitle>Sistem Ayarları — PsikoAl Admin</PageTitle>
+
+<div class="page-shell">
+    <header class="page-header">
+        <div>
+            <span class="page-eyebrow">PsikoAl Admin</span>
+            <h1 class="page-title">Sistem Ayarları</h1>
+        </div>
+        <div class="page-header-actions">
+            <a class="btn-ghost" href="/listings">İlanlar</a>
+            <span class="muted">@Session.Email</span>
+        </div>
+    </header>
+
+    <p class="muted">Bu değerler geriye dönük etkilemez — yalnızca bundan sonra oluşan kayıtlara uygulanır.</p>
+
+    @if (_errorMessage is not null)
+    {
+        <p class="form-error">@_errorMessage</p>
+    }
+
+    @if (_isLoading)
+    {
+        <p class="muted">Yükleniyor...</p>
+    }
+    else if (_settings is not null)
+    {
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Anahtar</th>
+                    <th>Açıklama</th>
+                    <th>Değer</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var setting in _settings)
+                {
+                    <tr>
+                        <td>@setting.Key</td>
+                        <td class="muted">@setting.Description</td>
+                        <td>
+                            <input class="field-input" style="width:140px"
+                                   value="@_editValues.GetValueOrDefault(setting.Key, setting.Value)"
+                                   @onchange="e => _editValues[setting.Key] = e.Value?.ToString() ?? string.Empty" />
+                        </td>
+                        <td class="cell-actions">
+                            <button class="btn-primary" @onclick="() => SaveAsync(setting.Key)">Kaydet</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<SystemSettingDto>? _settings;
+    private readonly Dictionary<string, string> _editValues = [];
+    private bool _isLoading;
+    private string? _errorMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            _settings = await AdminClient.ListSystemSettingsAsync(CancellationToken.None);
+            if (_settings is null)
+            {
+                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
+            }
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SaveAsync(string key)
+    {
+        var value = _editValues.GetValueOrDefault(key);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return;
+        }
+
+        if (await AdminClient.UpdateSystemSettingAsync(key, value, CancellationToken.None))
+        {
+            await LoadAsync();
+        }
+        else
+        {
+            _errorMessage = $"{key} güncellenemedi.";
+        }
+    }
+}
