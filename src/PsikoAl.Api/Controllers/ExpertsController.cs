@@ -6,6 +6,8 @@ using PsikoAl.Common.Constants;
 using PsikoAl.Common.Dtos.Expert;
 using PsikoAl.Common.Dtos.Expert.Create;
 using PsikoAl.Common.Dtos.Expert.Update;
+using PsikoAl.Common.Dtos.Review;
+using PsikoAl.Common.Dtos.Review.Create;
 using PsikoAl.Common.Exceptions;
 using PsikoAl.Services.Abstractions;
 
@@ -15,7 +17,8 @@ namespace PsikoAl.Api.Controllers;
 [Route("experts")]
 public sealed class ExpertsController(
     IExpertService expertService,
-    IUploadService uploadService) : ControllerBase
+    IUploadService uploadService,
+    IReviewService reviewService) : ControllerBase
 {
     [Authorize]
     [HttpPost("profile")]
@@ -53,6 +56,16 @@ public sealed class ExpertsController(
         var certificates = await uploadService.UploadCertificateAsync(this.CurrentUserId(), content, file.ContentType, cancellationToken);
         return Ok(new { certificates });
     }
+
+    [Authorize]
+    [HttpGet("{id:guid}/reviews")]
+    public Task<IReadOnlyList<ReviewDto>> GetReviews(Guid id, CancellationToken cancellationToken)
+        => reviewService.ListApprovedForExpertAsync(id, cancellationToken);
+
+    [Authorize]
+    [HttpPost("{id:guid}/reviews")]
+    public Task<ReviewDto> CreateReview(Guid id, CreateReviewDto request, CancellationToken cancellationToken)
+        => reviewService.CreateAsync(this.CurrentUserId(), id, request, cancellationToken);
 
     private static Stream OpenValidatedStream(IFormFile? file)
         => file is null or { Length: 0 }

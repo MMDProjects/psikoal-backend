@@ -51,8 +51,11 @@ public sealed class AdminExpertService(
             ? null
             : JsonSerializer.Deserialize<UpdateExpertProfileDto>(expert.PendingRevision, RevisionJsonOptions);
 
+        var rating = await unitOfWork.Reviews.GetRatingAsync(expert.Id, cancellationToken);
+        var reviewCount = await unitOfWork.Reviews.GetReviewCountAsync(expert.Id, cancellationToken);
+
         return new AdminExpertDetailDto(
-            ExpertMapper.ToExpertDto(expert, profile, rating: 0, reviewCount: 0),
+            ExpertMapper.ToExpertDto(expert, profile, rating, reviewCount),
             profile.Email,
             expert.RejectionReason,
             expert.ApprovedAt,
