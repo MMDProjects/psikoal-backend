@@ -42,6 +42,24 @@ public interface IAdminClientService
     Task<bool> ApproveReviewAsync(Guid reviewId, CancellationToken cancellationToken);
 
     Task<bool> RejectReviewAsync(Guid reviewId, string reason, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<AdminListingListItemDto>?> ListListingsAsync(string? status, CancellationToken cancellationToken);
+
+    Task<AdminListingDetailDto?> GetListingDetailAsync(Guid listingId, CancellationToken cancellationToken);
+
+    Task<bool> ApproveListingAsync(Guid listingId, CancellationToken cancellationToken);
+
+    Task<bool> RejectListingAsync(Guid listingId, string reason, CancellationToken cancellationToken);
+
+    Task<bool> CloseListingAsync(Guid listingId, CancellationToken cancellationToken);
+
+    Task<bool> ExtendListingAsync(Guid listingId, int additionalDays, CancellationToken cancellationToken);
+
+    Task<bool> ReopenListingAsync(Guid listingId, string reason, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<SystemSettingDto>?> ListSystemSettingsAsync(CancellationToken cancellationToken);
+
+    Task<bool> UpdateSystemSettingAsync(string key, string value, CancellationToken cancellationToken);
 }
 
 public sealed record AdminExpertDocumentUrls(string? CvUrl, IReadOnlyList<string> CertificateUrls);

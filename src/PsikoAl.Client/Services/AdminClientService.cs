@@ -183,6 +183,82 @@ public sealed class AdminClientService(HttpClient httpClient, AdminSessionState 
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<IReadOnlyList<AdminListingListItemDto>?> ListListingsAsync(string? status, CancellationToken cancellationToken)
+    {
+        var url = "admin/listings" + (string.IsNullOrWhiteSpace(status) ? string.Empty : $"?status={Uri.EscapeDataString(status)}");
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, url);
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<AdminListingListItemDto>>(cancellationToken)
+            : null;
+    }
+
+    public async Task<AdminListingDetailDto?> GetListingDetailAsync(Guid listingId, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/listings/{listingId}");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<AdminListingDetailDto>(cancellationToken)
+            : null;
+    }
+
+    public async Task<bool> ApproveListingAsync(Guid listingId, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/approve");
+        request.Content = JsonContent.Create(new { });
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> RejectListingAsync(Guid listingId, string reason, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/reject");
+        request.Content = JsonContent.Create(new AdminActionReasonDto(reason));
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> CloseListingAsync(Guid listingId, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/close");
+        request.Content = JsonContent.Create(new { });
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> ExtendListingAsync(Guid listingId, int additionalDays, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/extend");
+        request.Content = JsonContent.Create(new AdminExtendListingDto(additionalDays));
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> ReopenListingAsync(Guid listingId, string reason, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/reopen");
+        request.Content = JsonContent.Create(new AdminActionReasonDto(reason));
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<IReadOnlyList<SystemSettingDto>?> ListSystemSettingsAsync(CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/system-settings");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<SystemSettingDto>>(cancellationToken)
+            : null;
+    }
+
+    public async Task<bool> UpdateSystemSettingAsync(string key, string value, CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/system-settings/{key}");
+        request.Content = JsonContent.Create(new UpdateSystemSettingDto(value));
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        return response.IsSuccessStatusCode;
+    }
+
     private HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url)
     {
         var request = new HttpRequestMessage(method, url);

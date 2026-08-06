@@ -27,6 +27,15 @@ public static class ErrorKeys
     public const string ReviewAlreadyExists = "REVIEW_ALREADY_EXISTS";
     public const string ReviewClientRoleRequired = "REVIEW_CLIENT_ROLE_REQUIRED";
     public const string ReviewRejectionReasonRequired = "REVIEW_REJECTION_REASON_REQUIRED";
+    public const string ListingNotFound = "LISTING_NOT_FOUND";
+    public const string ListingClientRoleRequired = "LISTING_CLIENT_ROLE_REQUIRED";
+    public const string ListingMaxActiveExceeded = "LISTING_MAX_ACTIVE_EXCEEDED";
+    public const string ListingNotOpen = "LISTING_NOT_OPEN";
+    public const string ListingNotPendingApproval = "LISTING_NOT_PENDING_APPROVAL";
+    public const string ListingRejectionReasonRequired = "LISTING_REJECTION_REASON_REQUIRED";
+    public const string ListingReopenNotExpired = "LISTING_REOPEN_NOT_EXPIRED";
+    public const string ListingReopenReasonRequired = "LISTING_REOPEN_REASON_REQUIRED";
+    public const string SystemSettingNotFound = "SYSTEM_SETTING_NOT_FOUND";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string InternalError = "INTERNAL_ERROR";
 }
