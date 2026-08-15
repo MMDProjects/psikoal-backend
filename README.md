@@ -25,9 +25,12 @@ dotnet test  src/PsikoAl.slnx
 dotnet run --project src/PsikoAl.Api
 ```
 
-Supabase anahtarları `src/PsikoAl.Api/appsettings.Local.json` dosyasına yazılır (gitignore'da). Şablon için `docs/SETUP.md`.
+Supabase anahtarları **`dotnet user-secrets`** ile verilir; `src/PsikoAl.Api/appsettings.Local.example.json` şablonundaki komutları izleyin. `appsettings.Local.json` gitignore'dadır ve düz metin prod anahtarı TUTMAMALIDIR (bkz. `docs/DEVOPS-PSIKOAL.md`, Faz 0 / adım 3).
 
 ## Sözleşme Kaynakları
 
-- `psikoal-app` reposu: `docs/BACKEND_REQUIREMENTS.md`, `docs/ADMIN_PANEL_REQUIREMENTS.md`
-- Davranış referansı: `mock-db/handlers/`, tablo referansı: `mock-db/data/*.json`
+- Bu repo (kanonik): `docs/BACKEND_REQUIREMENTS.md`, `docs/ADMIN_PANEL_REQUIREMENTS.md`
+- Davranış/tablo referansı: `psikoal-app` reposu -> `mock-db/handlers/`, `mock-db/data/*.json`
+- DevOps planı: `docs/DEVOPS-PSIKOAL.md`; dal ve commit sözleşmesi: `docs/conventions/`
+
+> `Backend-Referance-PsikoApp` reposu ARŞİVLENMİŞTİR — sözleşme kaynağı değildir, referans alınmaz.
