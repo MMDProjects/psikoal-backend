@@ -1,0 +1,34 @@
+<Project>
+
+  <!--
+    Lokal build = CI kapısı. CI'da `dotnet build -warnaserror` koşuyor; bu dosya olmadan
+    lokal build uyarıları sessizce geçiyor ve hata ilk kez PR'da görünüyordu.
+    Bkz. docs/DEVOPS-PSIKOAL.md, Faz 2 / adım 18.
+  -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!--
+      Bilinçli olarak kapatılan analyzer kuralları (her biri gerekçeli):
+        CA1848 — LoggerMessage delegate zorunluluğu. Bu ölçekte log yolu sıcak yol değil;
+                 kaynak-üretimli delegate'ler okunabilirliği düşürür, kazanç ölçülemez.
+        CA1416 — platform uyumluluğu; tek hedef (linux/win container) var.
+    -->
+    <NoWarn>$(NoWarn);CA1848</NoWarn>
+  </PropertyGroup>
+
+  <!--
+    Test projeleri: xUnit analyzer'ları ve test kalıpları (public sınıf, async void yok vb.)
+    üretim kodu kurallarıyla birebir örtüşmüyor. Kapıyı test projelerinde gevşetiyoruz ki
+    üretim kodundaki gerçek uyarılar gürültüye boğulmasın.
+  -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
+    <NoWarn>$(NoWarn);CA1707;CA1861;CA2007;CA1515;xUnit1041</NoWarn>
+  </PropertyGroup>
+
+</Project>
