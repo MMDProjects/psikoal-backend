@@ -1,0 +1,11 @@
+<div class="skeleton-stack">
+    @for (var row = 0; row < Rows; row++)
+    {
+        <Skeleton Class="h-10 w-full" />
+    }
+</div>
+
+@code {
+    [Parameter]
+    public int Rows { get; set; } = 5;
+}

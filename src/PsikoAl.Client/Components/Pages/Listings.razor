@@ -1,143 +1,179 @@
 @page "/listings"
-@rendermode InteractiveServer
 @inject IAdminClientService AdminClient
 @inject AdminSessionState Session
 @inject NavigationManager Navigation
 
 <PageTitle>İlanlar — PsikoAl Admin</PageTitle>
 
-<div class="page-shell">
-    <header class="page-header">
-        <div>
-            <span class="page-eyebrow">PsikoAl Admin</span>
-            <h1 class="page-title">İlan Onayları</h1>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn-ghost" href="/users">Kullanıcılar</a>
-            <a class="btn-ghost" href="/experts">Uzmanlar</a>
-            <a class="btn-ghost" href="/categories">Kategoriler</a>
-            <a class="btn-ghost" href="/reviews">Yorumlar</a>
-            <a class="btn-ghost" href="/settings">Sistem Ayarları</a>
-            <a class="btn-ghost" href="/matches">Eşleşmeler</a>
-            <a class="btn-ghost" href="/notifications">Bildirimler</a>
-            <a class="btn-ghost" href="/assessments">Testler</a>
-            <span class="muted">@Session.Email</span>
-        </div>
-    </header>
+<PageHeader Title="İlan Onayları"
+            Description="Onaylanmayan ilanlar uzman feed'ine düşmez. Red ve yeniden açma işlemleri sebep ister." />
 
-    <div class="toolbar">
-        <select class="field-input toolbar-select" @bind="_status">
-            <option value="PENDING_APPROVAL">Onay Bekleyen</option>
-            <option value="OPEN">Yayında</option>
-            <option value="MATCHED">Eşleşildi</option>
-            <option value="CLOSED">Kapalı</option>
-            <option value="EXPIRED">Süresi Doldu</option>
-            <option value="REJECTED_BY_ADMIN">Reddedildi</option>
-            <option value="">Tümü</option>
-        </select>
-        <button class="btn-primary" disabled="@_isLoading" @onclick="LoadAsync">Filtrele</button>
-    </div>
+<div class="toolbar">
+    <Select Class="toolbar-select" @bind-Value="_status">
+        <option value="PENDING_APPROVAL">Onay Bekleyen</option>
+        <option value="OPEN">Yayında</option>
+        <option value="MATCHED">Eşleşildi</option>
+        <option value="CLOSED">Kapalı</option>
+        <option value="EXPIRED">Süresi Doldu</option>
+        <option value="REJECTED_BY_ADMIN">Reddedildi</option>
+        <option value="">Tümü</option>
+    </Select>
+    <Button Disabled="_isLoading" OnClick="LoadAsync">Filtrele</Button>
+</div>
 
-    @if (_errorMessage is not null)
-    {
-        <p class="form-error">@_errorMessage</p>
-    }
+@if (_errorMessage is not null)
+{
+    <Alert Variant="AlertVariant.Destructive" Class="mb-4">
+        <AlertDescription>@_errorMessage</AlertDescription>
+    </Alert>
+}
 
+<Card Class="table-card">
     @if (_isLoading)
     {
-        <p class="muted">Yükleniyor...</p>
+        <LoadingSkeleton />
     }
     else if (_listings is { Count: 0 })
     {
-        <p class="muted">Kayıt bulunamadı.</p>
+        <EmptyState Title="İlan bulunamadı" Description="Seçtiğiniz durumda ilan yok." />
     }
     else if (_listings is not null)
     {
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Danışan</th>
-                    <th>Başlık</th>
-                    <th>Bütçe</th>
-                    <th>Durum</th>
-                    <th>Kayıt</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Danışan</TableHead>
+                    <TableHead>Başlık</TableHead>
+                    <TableHead>Bütçe</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead>Kayıt</TableHead>
+                    <TableHead Class="text-right">İşlem</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
                 @foreach (var listing in _listings)
                 {
-                    <tr>
-                        <td>
+                    <TableRow>
+                        <TableCell>
                             @listing.ClientFullName
                             <div class="muted">@listing.ClientEmail</div>
-                        </td>
-                        <td style="max-width:260px">@listing.Title</td>
-                        <td class="muted">@listing.BudgetLabel</td>
-                        <td><span class="chip @StatusChipClass(listing.Status)">@StatusLabel(listing.Status)</span></td>
-                        <td class="muted">@listing.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
-                        <td class="cell-actions">
-                            <button class="btn-ghost" @onclick="() => ToggleDetailAsync(listing.Id)">
+                        </TableCell>
+                        <TableCell Class="max-w-sm">@listing.Title</TableCell>
+                        <TableCell Class="text-muted-foreground">@listing.BudgetLabel</TableCell>
+                        <TableCell><StatusChip Status="@listing.Status" /></TableCell>
+                        <TableCell Class="text-muted-foreground">@listing.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</TableCell>
+                        <TableCell Class="cell-actions">
+                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                    OnClick="() => ToggleDetailAsync(listing.Id)">
                                 @(_openListingId == listing.Id ? "Kapat" : "İncele")
-                            </button>
-                        </td>
-                    </tr>
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+
                     @if (_openListingId == listing.Id && _detail is not null)
                     {
-                        <tr>
-                            <td colspan="6">
+                        <TableRow>
+                            <TableCell Class="detail-cell" colspan="6">
                                 <div class="detail-panel">
                                     <dl class="detail-list">
-                                        <dt>Açıklama</dt><dd>@_detail.Description</dd>
-                                        <dt>Uzmanlıklar</dt><dd>@string.Join(", ", _detail.Specialization)</dd>
-                                        <dt>Seans Tipi</dt><dd>@_detail.PreferredSessionType</dd>
-                                        <dt>Şehir</dt><dd>@(_detail.City ?? "—")</dd>
-                                        <dt>Bitiş</dt><dd>@(_detail.ExpiresAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "—")</dd>
+                                        <dt>Açıklama</dt>
+                                        <dd>@_detail.Description</dd>
+                                        <dt>Uzmanlıklar</dt>
+                                        <dd>@string.Join(", ", _detail.Specialization)</dd>
+                                        <dt>Seans Tipi</dt>
+                                        <dd>@_detail.PreferredSessionType</dd>
+                                        <dt>Şehir</dt>
+                                        <dd>@(_detail.City ?? "—")</dd>
+                                        <dt>Bitiş</dt>
+                                        <dd>@(_detail.ExpiresAt?.ToLocalTime().ToString("dd.MM.yyyy") ?? "—")</dd>
                                     </dl>
 
                                     @if (_detail.RejectionReason is not null)
                                     {
-                                        <p class="form-error">Red sebebi: @_detail.RejectionReason</p>
+                                        <Alert Variant="AlertVariant.Destructive">
+                                            <AlertDescription>Red sebebi: @_detail.RejectionReason</AlertDescription>
+                                        </Alert>
                                     }
 
                                     <div class="detail-actions">
-                                        <input class="field-input detail-reason" placeholder="Sebep (red/yeniden aç için zorunlu)"
-                                               @bind="_reason" @bind:event="oninput" />
-                                        @if (_detail.Status == "PENDING_APPROVAL")
+                                        @if (_detail.Status == ListingStatusPendingApproval)
                                         {
-                                            <button class="btn-primary" @onclick="() => ApproveAsync(listing.Id)">Onayla</button>
-                                            <button class="btn-ghost btn-danger-ghost" @onclick="() => RejectAsync(listing.Id)">Reddet</button>
+                                            <Button Size="ButtonSize.Sm" OnClick="() => ApproveAsync(listing.Id)">Onayla</Button>
+                                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                                    OnClick="() => AskReason(listing.Id, ListingAction.Reject)">
+                                                Reddet
+                                            </Button>
                                         }
-                                        @if (_detail.Status == "OPEN")
+                                        @if (_detail.Status == ListingStatusOpen)
                                         {
-                                            <button class="btn-ghost btn-danger-ghost" @onclick="() => CloseAsync(listing.Id)">Kapat</button>
-                                            <input class="field-input" style="width:110px" type="number" min="1" placeholder="Gün" @bind="_extendDays" />
-                                            <button class="btn-ghost" @onclick="() => ExtendAsync(listing.Id)">Süre Uzat</button>
+                                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                                    OnClick="() => CloseAsync(listing.Id)">
+                                                Kapat
+                                            </Button>
+                                            <Input Class="w-24" Type="number" @bind-Value="_extendDays" />
+                                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                                    OnClick="() => ExtendAsync(listing.Id)">
+                                                Süre Uzat
+                                            </Button>
                                         }
-                                        @if (_detail.Status == "EXPIRED")
+                                        @if (_detail.Status == ListingStatusExpired)
                                         {
-                                            <button class="btn-ghost" @onclick="() => ReopenAsync(listing.Id)">Yeniden Aç (istisnai)</button>
+                                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                                    OnClick="() => AskReason(listing.Id, ListingAction.Reopen)">
+                                                Yeniden Aç (istisnai)
+                                            </Button>
                                         }
                                     </div>
                                 </div>
-                            </td>
-                        </tr>
+                            </TableCell>
+                        </TableRow>
                     }
                 }
-            </tbody>
-        </table>
+            </TableBody>
+        </Table>
     }
-</div>
+</Card>
+
+<ReasonDialog Open="_isReasonDialogOpen"
+              OpenChanged="value => _isReasonDialogOpen = value"
+              Title="@ReasonDialogTitle"
+              Description="@ReasonDialogDescription"
+              ReasonLabel="Sebep"
+              ConfirmLabel="@ReasonDialogConfirmLabel"
+              OnConfirm="ReasonConfirmedAsync" />
 
 @code {
+    private const string ListingStatusPendingApproval = "PENDING_APPROVAL";
+    private const string ListingStatusOpen = "OPEN";
+    private const string ListingStatusExpired = "EXPIRED";
+
+    private enum ListingAction
+    {
+        Reject,
+        Reopen,
+    }
+
     private IReadOnlyList<AdminListingListItemDto>? _listings;
     private AdminListingDetailDto? _detail;
     private Guid? _openListingId;
     private string _status = "PENDING_APPROVAL";
-    private string _reason = string.Empty;
-    private int _extendDays = 7;
-    private bool _isLoading;
+    private string _extendDays = "7";
+    private bool _isLoading = true;
     private string? _errorMessage;
+
+    private bool _isReasonDialogOpen;
+    private Guid? _pendingListingId;
+    private ListingAction _pendingAction;
+
+    private string ReasonDialogTitle =>
+        _pendingAction == ListingAction.Reject ? "İlanı reddet" : "İlanı yeniden aç";
+
+    private string ReasonDialogDescription => _pendingAction == ListingAction.Reject
+        ? "Red sebebi danışana bildirilir; ilan düzenlenip tekrar onaya gönderilebilir."
+        : "Süresi dolmuş ilanı yeniden açmak istisnai bir işlemdir ve audit log'a yazılır.";
+
+    private string ReasonDialogConfirmLabel =>
+        _pendingAction == ListingAction.Reject ? "Reddet" : "Yeniden Aç";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -185,27 +221,39 @@
         }
 
         _openListingId = listingId;
-        _reason = string.Empty;
         _detail = await AdminClient.GetListingDetailAsync(listingId, CancellationToken.None);
     }
 
-    private async Task ApproveAsync(Guid listingId)
+    private void AskReason(Guid listingId, ListingAction action)
     {
-        if (await AdminClient.ApproveListingAsync(listingId, CancellationToken.None))
+        _pendingListingId = listingId;
+        _pendingAction = action;
+        _isReasonDialogOpen = true;
+    }
+
+    private async Task ReasonConfirmedAsync(string reason)
+    {
+        if (_pendingListingId is not { } listingId)
+        {
+            return;
+        }
+
+        var action = _pendingAction;
+        _pendingListingId = null;
+
+        var succeeded = action == ListingAction.Reject
+            ? await AdminClient.RejectListingAsync(listingId, reason, CancellationToken.None)
+            : await AdminClient.ReopenListingAsync(listingId, reason, CancellationToken.None);
+
+        if (succeeded)
         {
             await LoadAsync();
         }
     }
 
-    private async Task RejectAsync(Guid listingId)
+    private async Task ApproveAsync(Guid listingId)
     {
-        if (string.IsNullOrWhiteSpace(_reason))
-        {
-            _errorMessage = "Reddetmek için sebep girmelisiniz.";
-            return;
-        }
-
-        if (await AdminClient.RejectListingAsync(listingId, _reason, CancellationToken.None))
+        if (await AdminClient.ApproveListingAsync(listingId, CancellationToken.None))
         {
             await LoadAsync();
         }
@@ -221,44 +269,15 @@
 
     private async Task ExtendAsync(Guid listingId)
     {
-        if (await AdminClient.ExtendListingAsync(listingId, _extendDays, CancellationToken.None))
+        if (!int.TryParse(_extendDays, out var days) || days < 1)
         {
-            await LoadAsync();
-        }
-    }
-
-    private async Task ReopenAsync(Guid listingId)
-    {
-        if (string.IsNullOrWhiteSpace(_reason))
-        {
-            _errorMessage = "Yeniden açmak için sebep girmelisiniz.";
+            _errorMessage = "Süre uzatmak için 1 veya daha büyük bir gün sayısı girin.";
             return;
         }
 
-        if (await AdminClient.ReopenListingAsync(listingId, _reason, CancellationToken.None))
+        if (await AdminClient.ExtendListingAsync(listingId, days, CancellationToken.None))
         {
             await LoadAsync();
         }
     }
-
-    private static string StatusLabel(string status) => status switch
-    {
-        "PENDING_APPROVAL" => "Onay Bekliyor",
-        "OPEN" => "Yayında",
-        "MATCHED" => "Eşleşildi",
-        "CLOSED" => "Kapalı",
-        "EXPIRED" => "Süresi Doldu",
-        "REJECTED_BY_ADMIN" => "Reddedildi",
-        _ => status,
-    };
-
-    private static string StatusChipClass(string status) => status switch
-    {
-        "OPEN" => "chip-active",
-        "PENDING_APPROVAL" => "chip-frozen",
-        "MATCHED" => "chip-role",
-        "REJECTED_BY_ADMIN" => "chip-deleted",
-        "CLOSED" or "EXPIRED" => "chip-deleted",
-        _ => string.Empty,
-    };
 }

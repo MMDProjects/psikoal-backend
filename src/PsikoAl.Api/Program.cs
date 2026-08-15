@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PsikoAl.Api.Authorization;
 using PsikoAl.Api.Middleware;
+using PsikoAl.Api.Serialization;
 using PsikoAl.Data;
 using PsikoAl.Data.Repositories;
 using PsikoAl.Data.Repositories.Abstractions;
@@ -91,6 +92,7 @@ builder.Services.AddScoped<IExpertService, ExpertService>();
 builder.Services.AddScoped<IUploadService, UploadService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<IReviewService, ReviewService>();
+builder.Services.AddScoped<IAdminDashboardService, AdminDashboardService>();
 builder.Services.AddScoped<IAdminUserService, AdminUserService>();
 builder.Services.AddScoped<IAdminExpertService, AdminExpertService>();
 builder.Services.AddScoped<IAdminCategoryService, AdminCategoryService>();
@@ -161,7 +163,8 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddFluentValidationAutoValidation();
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetJsonConverter()));
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();

@@ -1,0 +1,79 @@
+@* Sebep zorunlu aksiyonlar (red, dondurma, sonlandırma) için ortak diyalog. *@
+<Dialog Open="Open" OpenChanged="OnOpenChanged">
+    <DialogContent Size="DialogSize.Md">
+        <DialogHeader>
+            <DialogTitle>@Title</DialogTitle>
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <DialogDescription>@Description</DialogDescription>
+            }
+        </DialogHeader>
+
+        <div class="field">
+            <Label>@ReasonLabel</Label>
+            <Textarea Rows="4" @bind-Value="_reason" Placeholder="@Placeholder" />
+        </div>
+
+        <DialogFooter>
+            <Button Variant="ButtonVariant.Outline" OnClick="CloseAsync">Vazgeç</Button>
+            <Button Variant="@ConfirmVariant" Disabled="IsReasonMissing" OnClick="ConfirmAsync">@ConfirmLabel</Button>
+        </DialogFooter>
+    </DialogContent>
+</Dialog>
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Sebep belirtin";
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public string ReasonLabel { get; set; } = "Sebep";
+
+    [Parameter]
+    public string Placeholder { get; set; } = "Kararınızın gerekçesini yazın...";
+
+    [Parameter]
+    public string ConfirmLabel { get; set; } = "Onayla";
+
+    [Parameter]
+    public ButtonVariant ConfirmVariant { get; set; } = ButtonVariant.Destructive;
+
+    [Parameter]
+    public EventCallback<string> OnConfirm { get; set; }
+
+    private string _reason = string.Empty;
+
+    private bool IsReasonMissing => string.IsNullOrWhiteSpace(_reason);
+
+    private async Task OnOpenChanged(bool open)
+    {
+        if (!open)
+        {
+            _reason = string.Empty;
+        }
+
+        await OpenChanged.InvokeAsync(open);
+    }
+
+    private Task CloseAsync() => OnOpenChanged(false);
+
+    private async Task ConfirmAsync()
+    {
+        if (IsReasonMissing)
+        {
+            return;
+        }
+
+        var reason = _reason.Trim();
+        await OnConfirm.InvokeAsync(reason);
+        await OnOpenChanged(false);
+    }
+}
