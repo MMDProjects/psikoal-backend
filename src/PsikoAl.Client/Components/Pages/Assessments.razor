@@ -1,122 +1,155 @@
 @page "/assessments"
-@rendermode InteractiveServer
 @inject IAdminClientService AdminClient
 @inject AdminSessionState Session
 @inject NavigationManager Navigation
 
 <PageTitle>Testler — PsikoAl Admin</PageTitle>
 
-<div class="page-shell">
-    <header class="page-header">
-        <div>
-            <span class="page-eyebrow">PsikoAl Admin</span>
-            <h1 class="page-title">Psikolojik Testler</h1>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn-ghost" href="/users">Kullanıcılar</a>
-            <a class="btn-ghost" href="/experts">Uzmanlar</a>
-            <a class="btn-ghost" href="/categories">Kategoriler</a>
-            <a class="btn-ghost" href="/reviews">Yorumlar</a>
-            <a class="btn-ghost" href="/listings">İlanlar</a>
-            <a class="btn-ghost" href="/matches">Eşleşmeler</a>
-            <a class="btn-ghost" href="/settings">Sistem Ayarları</a>
-            <a class="btn-ghost" href="/notifications">Bildirimler</a>
-            <span class="muted">@Session.Email</span>
-        </div>
-    </header>
+<PageHeader Title="Psikolojik Testler"
+            Description="Sorular yalnızca görüntülenir (düzenleme için migration gerekir). Başlık, açıklama, aktiflik ve puan bantlarının metinleri buradan düzenlenir." />
 
-    <p class="muted">
-        Sorular sadece görüntülenir (düzenleme için migration gerekir). Başlık/açıklama/aktiflik ve puan
-        bantlarının özet/öneri metinleri buradan düzenlenebilir.
-    </p>
+@if (_errorMessage is not null)
+{
+    <Alert Variant="AlertVariant.Destructive" Class="mb-4">
+        <AlertDescription>@_errorMessage</AlertDescription>
+    </Alert>
+}
 
-    @if (_errorMessage is not null)
-    {
-        <p class="form-error">@_errorMessage</p>
-    }
-
+<Card Class="table-card">
     @if (_isLoading)
     {
-        <p class="muted">Yükleniyor...</p>
+        <LoadingSkeleton />
+    }
+    else if (_assessments is { Count: 0 })
+    {
+        <EmptyState Title="Test bulunamadı" Description="Henüz tanımlı bir psikolojik test yok." />
     }
     else if (_assessments is not null)
     {
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Sıra</th>
-                    <th>Başlık</th>
-                    <th>Kategori</th>
-                    <th>Soru</th>
-                    <th>Durum</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Sıra</TableHead>
+                    <TableHead>Başlık</TableHead>
+                    <TableHead>Kategori</TableHead>
+                    <TableHead>Soru</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead Class="text-right">İşlem</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
                 @foreach (var assessment in _assessments)
                 {
-                    <tr>
-                        <td>@assessment.SortOrder</td>
-                        <td>@assessment.Title</td>
-                        <td class="muted">@assessment.Category</td>
-                        <td class="muted">@assessment.QuestionCount</td>
-                        <td>
-                            <span class="chip @(assessment.IsActive ? "chip-active" : "chip-frozen")">
-                                @(assessment.IsActive ? "Aktif" : "Pasif")
-                            </span>
-                        </td>
-                        <td class="cell-actions">
-                            <button class="btn-ghost" @onclick="() => ToggleDetailAsync(assessment.Id)">
+                    <TableRow>
+                        <TableCell>@assessment.SortOrder</TableCell>
+                        <TableCell>@assessment.Title</TableCell>
+                        <TableCell Class="text-muted-foreground">@assessment.Category</TableCell>
+                        <TableCell Class="text-muted-foreground">@assessment.QuestionCount</TableCell>
+                        <TableCell>
+                            <StatusChip Status="@(assessment.IsActive ? "active" : "frozen")"
+                                        Label="@(assessment.IsActive ? "Aktif" : "Pasif")" />
+                        </TableCell>
+                        <TableCell Class="cell-actions">
+                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                    OnClick="() => ToggleDetailAsync(assessment.Id)">
                                 @(_openId == assessment.Id ? "Kapat" : "Düzenle")
-                            </button>
-                        </td>
-                    </tr>
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+
                     @if (_openId == assessment.Id && _detail is not null)
                     {
-                        <tr>
-                            <td colspan="6">
+                        <TableRow>
+                            <TableCell Class="detail-cell" colspan="6">
                                 <div class="detail-panel">
-                                    <h3 class="detail-heading">Test Bilgisi</h3>
-                                    <label>Başlık</label>
-                                    <input class="field-input" style="width:100%" @bind="_editTitle" />
-                                    <label>Açıklama</label>
-                                    <input class="field-input" style="width:100%" @bind="_editDescription" />
-                                    <div class="toolbar">
-                                        <input class="field-input" style="width:140px" placeholder="Kategori" @bind="_editCategory" />
-                                        <input class="field-input" style="width:100px" type="number" placeholder="Dakika" @bind="_editMinutes" />
-                                        <input class="field-input" style="width:100px" type="number" placeholder="Sıra" @bind="_editSortOrder" />
-                                        <label><input type="checkbox" @bind="_editActive" /> Aktif</label>
-                                        <button class="btn-primary" @onclick="() => SaveAssessmentAsync(assessment.Id)">Kaydet</button>
-                                    </div>
-
-                                    <h3 class="detail-heading">Puan Bantları</h3>
-                                    @foreach (var rule in _detail.ScoreRules)
-                                    {
-                                        <div class="detail-panel">
-                                            <p class="muted">@rule.MinScore–@rule.MaxScore puan → @rule.Level</p>
-                                            <input class="field-input" style="width:100%" value="@rule.Summary"
-                                                   @onchange="@(e => _ruleSummaryEdits[rule.Id] = e.Value?.ToString() ?? string.Empty)" />
-                                            <input class="field-input" style="width:100%" value="@string.Join(" | ", rule.Suggestions)"
-                                                   placeholder="Öneriler ( | ile ayırın)"
-                                                   @onchange="@(e => _ruleSuggestionsEdits[rule.Id] = e.Value?.ToString() ?? string.Empty)" />
-                                            <button class="btn-ghost" @onclick="() => SaveScoreRuleAsync(rule.Id)">Bandı Kaydet</button>
+                                    <section>
+                                        <h3 class="detail-heading">Test Bilgisi</h3>
+                                        <div class="stack-3">
+                                            <div class="field">
+                                                <Label>Başlık</Label>
+                                                <Input @bind-Value="_editTitle" />
+                                            </div>
+                                            <div class="field">
+                                                <Label>Açıklama</Label>
+                                                <Textarea Rows="2" @bind-Value="_editDescription" />
+                                            </div>
+                                            <div class="form-grid">
+                                                <div class="field">
+                                                    <Label>Kategori</Label>
+                                                    <Input @bind-Value="_editCategory" />
+                                                </div>
+                                                <div class="field">
+                                                    <Label>Süre (dakika)</Label>
+                                                    <Input Type="number" @bind-Value="_editMinutes" />
+                                                </div>
+                                                <div class="field">
+                                                    <Label>Sıra</Label>
+                                                    <Input Type="number" @bind-Value="_editSortOrder" />
+                                                </div>
+                                            </div>
+                                            <div class="switch-field">
+                                                <Switch @bind-Checked="_editActive" />
+                                                <span>Yayında</span>
+                                            </div>
+                                            <div>
+                                                <Button Size="ButtonSize.Sm" OnClick="() => SaveAssessmentAsync(assessment.Id)">
+                                                    Kaydet
+                                                </Button>
+                                            </div>
                                         </div>
-                                    }
+                                    </section>
 
-                                    <h3 class="detail-heading">Sorular (@_detail.Questions.Count)</h3>
-                                    @foreach (var question in _detail.Questions)
-                                    {
-                                        <p class="muted">@question.Text</p>
-                                    }
+                                    <Separator />
+
+                                    <section>
+                                        <h3 class="detail-heading">Puan Bantları</h3>
+                                        <div class="stack-3">
+                                            @foreach (var rule in _detail.ScoreRules)
+                                            {
+                                                <Card>
+                                                    <CardContent Class="p-4 space-y-3">
+                                                        <p class="muted">@rule.MinScore–@rule.MaxScore puan → @rule.Level</p>
+                                                        <div class="field">
+                                                            <Label>Sonuç özeti</Label>
+                                                            <Textarea Rows="2"
+                                                                      Value="@_ruleSummaryEdits.GetValueOrDefault(rule.Id, rule.Summary)"
+                                                                      ValueChanged="value => _ruleSummaryEdits[rule.Id] = value" />
+                                                        </div>
+                                                        <div class="field">
+                                                            <Label>Öneriler ( | ile ayırın)</Label>
+                                                            <Input Value="@_ruleSuggestionsEdits.GetValueOrDefault(rule.Id, string.Join(" | ", rule.Suggestions))"
+                                                                   ValueChanged="value => _ruleSuggestionsEdits[rule.Id] = value" />
+                                                        </div>
+                                                        <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                                                OnClick="() => SaveScoreRuleAsync(rule.Id)">
+                                                            Bandı Kaydet
+                                                        </Button>
+                                                    </CardContent>
+                                                </Card>
+                                            }
+                                        </div>
+                                    </section>
+
+                                    <Separator />
+
+                                    <section>
+                                        <h3 class="detail-heading">Sorular (@_detail.Questions.Count)</h3>
+                                        <ol class="question-list">
+                                            @foreach (var question in _detail.Questions)
+                                            {
+                                                <li>@question.Text</li>
+                                            }
+                                        </ol>
+                                    </section>
                                 </div>
-                            </td>
-                        </tr>
+                            </TableCell>
+                        </TableRow>
                     }
                 }
-            </tbody>
-        </table>
+            </TableBody>
+        </Table>
     }
-</div>
+</Card>
 
 @code {
     private IReadOnlyList<AdminAssessmentListItemDto>? _assessments;
@@ -128,11 +161,11 @@
     private string _editTitle = string.Empty;
     private string _editDescription = string.Empty;
     private string _editCategory = string.Empty;
-    private int _editMinutes = 3;
-    private int _editSortOrder;
+    private string _editMinutes = "3";
+    private string _editSortOrder = "0";
     private bool _editActive;
 
-    private bool _isLoading;
+    private bool _isLoading = true;
     private string? _errorMessage;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -186,8 +219,8 @@
             _editTitle = _detail.Title;
             _editDescription = _detail.Description;
             _editCategory = _detail.Category;
-            _editMinutes = _detail.EstimatedMinutes;
-            _editSortOrder = _detail.SortOrder;
+            _editMinutes = _detail.EstimatedMinutes.ToString();
+            _editSortOrder = _detail.SortOrder.ToString();
             _editActive = _detail.IsActive;
             _ruleSummaryEdits.Clear();
             _ruleSuggestionsEdits.Clear();
@@ -196,9 +229,15 @@
 
     private async Task SaveAssessmentAsync(Guid assessmentId)
     {
+        if (!int.TryParse(_editMinutes, out var minutes) || !int.TryParse(_editSortOrder, out var sortOrder))
+        {
+            _errorMessage = "Süre ve sıra sayısal olmalıdır.";
+            return;
+        }
+
         var success = await AdminClient.UpdateAssessmentAsync(
             assessmentId,
-            new UpdateAdminAssessmentDto(_editTitle, _editDescription, _editCategory, _editMinutes, _editActive, _editSortOrder),
+            new UpdateAdminAssessmentDto(_editTitle, _editDescription, _editCategory, minutes, _editActive, sortOrder),
             CancellationToken.None);
 
         if (success)
@@ -219,7 +258,7 @@
             return;
         }
 
-        var rule = _detail.ScoreRules.First(r => r.Id == ruleId);
+        var rule = _detail.ScoreRules.First(scoreRule => scoreRule.Id == ruleId);
         var summary = _ruleSummaryEdits.GetValueOrDefault(ruleId, rule.Summary);
         var suggestionsRaw = _ruleSuggestionsEdits.GetValueOrDefault(ruleId, string.Join(" | ", rule.Suggestions));
         var suggestions = suggestionsRaw.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);

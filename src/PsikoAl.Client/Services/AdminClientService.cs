@@ -29,6 +29,18 @@ public sealed class AdminClientService(HttpClient httpClient, AdminSessionState 
         return true;
     }
 
+    public async Task<AdminDashboardStatsDto?> GetDashboardStatsAsync(CancellationToken cancellationToken)
+    {
+        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/dashboard/stats");
+        var response = await httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            return null;
+        }
+
+        return await response.Content.ReadFromJsonAsync<AdminDashboardStatsDto>(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<AdminUserListItemDto>?> ListUsersAsync(
         string? search,
         string? role,

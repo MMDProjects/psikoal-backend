@@ -1,9 +1,123 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject AdminSessionState Session
 
-@Body
+<div class="app-shell">
+    <Sidebar Collapsible="true" Collapsed="_isSidebarCollapsed" CollapsedChanged="OnSidebarCollapsedChanged">
+        <SidebarHeader>
+            <div class="sidebar-brand">
+                <span class="sidebar-brand-mark">PA</span>
+                <span class="sidebar-brand-text">
+                    <span class="sidebar-brand-name">PsikoAl</span>
+                    <span class="sidebar-brand-sub">Yönetim</span>
+                </span>
+            </div>
+        </SidebarHeader>
+
+        <SidebarContent>
+            <SidebarGroup>
+                <SidebarGroupLabel>Yönetim</SidebarGroupLabel>
+                <SidebarGroupContent>
+                    <SidebarMenu>
+                        @foreach (var item in AdminNavigation.Items)
+                        {
+                            <SidebarMenuItem Href="@item.Href" Active="IsActive(item.Href)" Title="@item.Label">
+                                <Icon><NavIcon Name="@item.Icon" /></Icon>
+                                <ChildContent>@item.Label</ChildContent>
+                            </SidebarMenuItem>
+                        }
+                    </SidebarMenu>
+                </SidebarGroupContent>
+            </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter>
+            @if (Session.Email is not null)
+            {
+                <div class="sidebar-user" title="@Session.Email">@Session.Email</div>
+            }
+        </SidebarFooter>
+    </Sidebar>
+
+    <div class="app-main">
+        <header class="app-topbar">
+            <div class="flex items-center gap-3">
+                <Button Variant="ButtonVariant.Ghost" Size="ButtonSize.Icon" OnClick="ToggleSidebar" aria-label="Menüyü aç/kapat">
+                    <NavIcon Name="menu" />
+                </Button>
+                <h1 class="app-topbar-title">@_pageTitle</h1>
+            </div>
+            <div class="app-topbar-actions">
+                <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" OnClick="SignOut">Çıkış</Button>
+            </div>
+        </header>
+
+        <main class="app-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+<Sonner Position="SonnerPosition.BottomRight" />
+<DialogProvider />
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    Beklenmeyen bir hata oluştu.
+    <a href="." class="reload">Yeniden yükle</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private bool _isSidebarCollapsed;
+    private string _pageTitle = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        Session.Changed += OnSessionChanged;
+        UpdatePageTitle();
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+    {
+        UpdatePageTitle();
+        StateHasChanged();
+    }
+
+    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+
+    private void UpdatePageTitle()
+    {
+        _pageTitle = AdminNavigation.TitleFor(CurrentRelativePath());
+    }
+
+    private string CurrentRelativePath()
+    {
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var queryIndex = relative.IndexOf('?');
+        return queryIndex >= 0 ? relative[..queryIndex] : relative;
+    }
+
+    private bool IsActive(string href)
+    {
+        var current = "/" + CurrentRelativePath().Trim('/');
+        return string.Equals(current, href, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ToggleSidebar() => _isSidebarCollapsed = !_isSidebarCollapsed;
+
+    private void OnSidebarCollapsedChanged(bool collapsed) => _isSidebarCollapsed = collapsed;
+
+    private void SignOut()
+    {
+        Session.SignOut();
+        Navigation.NavigateTo("/login");
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        Session.Changed -= OnSessionChanged;
+    }
+}

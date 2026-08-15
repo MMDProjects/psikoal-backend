@@ -1,0 +1,37 @@
+@if (Href is not null)
+{
+    <a class="stat-card-link" href="@Href">
+        <Card>
+            <CardContent Class="p-4">@Body</CardContent>
+        </Card>
+    </a>
+}
+else
+{
+    <Card>
+        <CardContent Class="p-4">@Body</CardContent>
+    </Card>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Value { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Hint { get; set; }
+
+    [Parameter]
+    public string? Href { get; set; }
+
+    private RenderFragment Body => @<text>
+        <div class="stat-card-label">@Label</div>
+        <div class="stat-card-value">@Value</div>
+        @if (!string.IsNullOrWhiteSpace(Hint))
+        {
+            <div class="stat-card-hint">@Hint</div>
+        }
+    </text>;
+}

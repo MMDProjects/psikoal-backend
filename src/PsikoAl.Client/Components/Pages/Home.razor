@@ -1,10 +1,161 @@
 @page "/"
+@inject IAdminClientService AdminClient
 @inject AdminSessionState Session
 @inject NavigationManager Navigation
 
-<PageTitle>PsikoAl Admin</PageTitle>
+<PageTitle>Dashboard — PsikoAl Admin</PageTitle>
+
+<PageHeader Title="Genel Bakış" Description="Bekleyen onaylar ve günlük platform hareketleri." />
+
+@if (_errorMessage is not null)
+{
+    <Alert Variant="AlertVariant.Destructive" Class="mb-4">
+        <AlertDescription>@_errorMessage</AlertDescription>
+    </Alert>
+}
+
+@if (_isLoading)
+{
+    <div class="stat-grid">
+        @for (var placeholder = 0; placeholder < 3; placeholder++)
+        {
+            <Card><CardContent Class="p-4"><Skeleton Class="h-16 w-full" /></CardContent></Card>
+        }
+    </div>
+}
+else if (_stats is not null)
+{
+    <section class="stat-grid">
+        <StatCard Label="Bekleyen İlanlar" Value="@_stats.PendingListings.ToString()"
+                  Hint="Onay kuyruğuna git" Href="/listings" />
+        <StatCard Label="Bekleyen Uzmanlar" Value="@_stats.PendingExperts.ToString()"
+                  Hint="Onay kuyruğuna git" Href="/experts" />
+        <StatCard Label="Bekleyen Yorumlar" Value="@_stats.PendingReviews.ToString()"
+                  Hint="Onay kuyruğuna git" Href="/reviews" />
+    </section>
+
+    <section class="stat-grid">
+        <StatCard Label="Toplam Kullanıcı" Value="@_stats.TotalUsers.ToString()" />
+        <StatCard Label="Yayındaki İlan" Value="@_stats.OpenListings.ToString()" />
+        <StatCard Label="Aktif Eşleşme" Value="@_stats.ActiveMatches.ToString()" />
+    </section>
+
+    <Card Class="mb-4">
+        <CardHeader>
+            <CardTitle>Bugün</CardTitle>
+            <CardDescription>Bugün (UTC) gerçekleşen hareketler.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div class="form-grid">
+                <div>
+                    <div class="stat-card-label">Yeni Danışan</div>
+                    <div class="stat-card-value">@_stats.TodayNewClients</div>
+                </div>
+                <div>
+                    <div class="stat-card-label">Yeni Uzman</div>
+                    <div class="stat-card-value">@_stats.TodayNewExperts</div>
+                </div>
+                <div>
+                    <div class="stat-card-label">Yeni İlan</div>
+                    <div class="stat-card-value">@_stats.TodayNewListings</div>
+                </div>
+                <div>
+                    <div class="stat-card-label">Yeni Teklif</div>
+                    <div class="stat-card-value">@_stats.TodayNewOffers</div>
+                </div>
+                <div>
+                    <div class="stat-card-label">Yeni Eşleşme</div>
+                    <div class="stat-card-value">@_stats.TodayNewMatches</div>
+                </div>
+                <div>
+                    <div class="stat-card-label">Çözülen Test</div>
+                    <div class="stat-card-value">@_stats.TodayCompletedAssessments</div>
+                </div>
+            </div>
+        </CardContent>
+    </Card>
+
+    <Card>
+        <CardHeader>
+            <CardTitle>Son 14 Gün</CardTitle>
+            <CardDescription>Yeni ilanlar ve oluşan eşleşmeler.</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div class="chart-card-body">
+                <ChartContainer Config="_chartConfig" Class="h-full w-full">
+                    <BarChart Data="_chartData" XDataKey="Gun">
+                        <CartesianGrid Vertical="false" />
+                        <XAxis DataKey="Gun" TickLine="false" AxisLine="false" TickMargin="8" />
+                        <YAxis TickLine="false" AxisLine="false" TickMargin="8" />
+                        @* Bar'lar SVG üretir, ChartTooltip/ChartLegend HTML div üretir. HTML ayrıştırıcısı
+                           <svg> içinde bir <div> görünce SVG'yi kapatır; div'lerden sonra gelen her SVG
+                           elemanı SVG bağlamı dışında kalıp hiç çizilmez. Bu yüzden sıra bozulmamalı. *@
+                        <Bar DataKey="Ilan" Fill="var(--color-Ilan)" Radius="4" />
+                        <Bar DataKey="Eslesme" Fill="var(--color-Eslesme)" Radius="4" />
+                        <ChartTooltip />
+                        <ChartLegend />
+                    </BarChart>
+                </ChartContainer>
+            </div>
+        </CardContent>
+    </Card>
+}
 
 @code {
-    protected override void OnInitialized()
-        => Navigation.NavigateTo(Session.IsAuthenticated ? "/users" : "/login");
+    private AdminDashboardStatsDto? _stats;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    private readonly ChartConfig _chartConfig = new()
+    {
+        ["Ilan"] = new ChartConfigEntry { Label = "İlan", Color = "hsl(var(--chart-1))" },
+        ["Eslesme"] = new ChartConfigEntry { Label = "Eşleşme", Color = "hsl(var(--chart-2))" },
+    };
+
+    private IReadOnlyList<object> _chartData = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        if (!Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadAsync();
+        StateHasChanged();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            _stats = await AdminClient.GetDashboardStatsAsync(CancellationToken.None);
+            if (_stats is null)
+            {
+                _errorMessage = "Özet veriler alınamadı. Admin yetkiniz olmayabilir.";
+                return;
+            }
+
+            _chartData = _stats.LastDays
+                .Select(point => (object)new
+                {
+                    Gun = point.Date.ToString("dd.MM"),
+                    Ilan = point.NewListings,
+                    Eslesme = point.NewMatches,
+                })
+                .ToList();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
 }

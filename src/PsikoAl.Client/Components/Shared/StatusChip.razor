@@ -1,0 +1,45 @@
+<span class="status-chip @ToneClass">@DisplayLabel</span>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Status { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Label { get; set; }
+
+    private string DisplayLabel => Label ?? Descriptors.GetValueOrDefault(Status)?.Label ?? Status;
+
+    private string ToneClass => "status-chip-" + (Descriptors.GetValueOrDefault(Status)?.Tone ?? "neutral");
+
+    private sealed record StatusDescriptor(string Tone, string Label);
+
+    private static readonly Dictionary<string, StatusDescriptor> Descriptors = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["active"] = new("success", "Aktif"),
+        ["frozen"] = new("warning", "Dondurulmuş"),
+        ["deleted"] = new("danger", "Silinmiş"),
+
+        ["expert"] = new("info", "Uzman"),
+        ["client"] = new("info", "Danışan"),
+
+        ["pending"] = new("warning", "Onay Bekliyor"),
+        ["approved"] = new("success", "Onaylı"),
+        ["rejected"] = new("danger", "Reddedildi"),
+
+        ["PENDING_APPROVAL"] = new("warning", "Onay Bekliyor"),
+        ["OPEN"] = new("success", "Yayında"),
+        ["MATCHED"] = new("info", "Eşleşti"),
+        ["CLOSED"] = new("neutral", "Kapatıldı"),
+        ["EXPIRED"] = new("neutral", "Süresi Doldu"),
+        ["REJECTED_BY_ADMIN"] = new("danger", "Reddedildi"),
+
+        ["PENDING"] = new("warning", "Beklemede"),
+        ["ACCEPTED"] = new("success", "Kabul Edildi"),
+        ["REJECTED"] = new("danger", "Reddedildi"),
+        ["WITHDRAWN"] = new("neutral", "Geri Çekildi"),
+
+        ["ACTIVE"] = new("success", "Aktif"),
+        ["COMPLETED"] = new("info", "Tamamlandı"),
+        ["RELEASED"] = new("neutral", "Sonlandırıldı"),
+    };
+}
