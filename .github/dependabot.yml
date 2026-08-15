@@ -1,0 +1,29 @@
+version: 2
+updates:
+  # DİKKAT — .slnx (yeni solution formatı) için NuGet updater desteği DOĞRULANMADI.
+  # İlk pazartesi PR gelmezse buradaki tek `/src` girdisini csproj bazlı yapılandırmayla
+  # değiştirin:
+  #   directories: ["/src/PsikoAl.Api", "/src/PsikoAl.Client", "/src/PsikoAl.Common",
+  #                 "/src/PsikoAl.Data", "/src/PsikoAl.Services",
+  #                 "/src/PsikoAl.Services.Tests", "/src/PsikoAl.Api.ContractTests"]
+  - package-ecosystem: nuget
+    directory: /src
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Europe/Istanbul
+    target-branch: dev
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    target-branch: dev
+    commit-message:
+      prefix: infra
