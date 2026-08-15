@@ -2,23 +2,20 @@
 [extend]
 useDefault = true
 
-[allowlist]
-description = """
-Yalnızca DOĞRULANMIŞ yanlış pozitifler. Buraya bir kayıt eklemeden önce bulguyu
-elle aç ve gerçek bir anahtar olmadığını kanıtla. Gerçek bir anahtar sızmışsa
-allowlist DEĞİL, ROTASYON gerekir — commit silmek yeterli değildir.
-"""
-
-# DEVOPS-PSIKOAL.md, denetim kanıtı olarak appsettings.Local.json'dan alıntı yapıyor.
-# Alıntılanan JWT'ler KISALTILMIŞ ön eklerdir ("<JWT — kısaltılmış>") — kullanılabilir
-# bir anahtar değil, JWT başlığının kendisi. Yine de metin sonraki commit'lerde
-# "<JWT — kısaltılmış>" ile değiştirildi; aşağıdaki parmak izi yalnız GEÇMİŞTEKİ
-# commit içindir.
+# Yalnızca DOĞRULANMIŞ yanlış pozitifler. Bir kayıt eklemeden önce bulguyu elle aç ve
+# gerçek bir anahtar olmadığını kanıtla. Gerçek bir anahtar sızmışsa allowlist DEĞİL,
+# ROTASYON gerekir — commit silmek yeterli değildir.
 #
-# NOT: aynı dosyada bulunan GERÇEK prod Postgres parolası repoya girmeden önce
-# redakte edildi ve rotasyon bekliyor (docs/DEVOPS-PSIKOAL.md, Faz 0 / adım 3).
-paths = []
-commits = []
-fingerprints = [
-  "7a3d1698c41be2e11446ae113711e0e3078d69b0:docs/DEVOPS-PSIKOAL.md:generic-api-key:805",
-]
+# Bu kayıt: DEVOPS-PSIKOAL.md, denetim kanıtı olarak appsettings.Local.json'dan alıntı
+# yapıyordu; alıntılanan JWT'ler KISALTILMIŞ ön eklerdi ("<JWT — kısaltılmış>"),
+# kullanılabilir anahtar değil. Metin sonraki commit'te temizlendi; muafiyet YALNIZ
+# o tek geçmiş commit + o tek dosya için geçerli (condition = AND). Dosyanın sonraki
+# sürümleri normal şekilde taranmaya devam eder.
+#
+# NOT: aynı dosyadaki GERÇEK prod Postgres parolası repoya girmeden redakte edildi ve
+# hâlâ ROTASYON bekliyor (docs/DEVOPS-PSIKOAL.md, Faz 0 / adım 3).
+[[allowlists]]
+description = "DEVOPS-PSIKOAL.md içindeki kısaltılmış JWT alıntıları (tek geçmiş commit)"
+condition = "AND"
+commits = ["7a3d1698c41be2e11446ae113711e0e3078d69b0"]
+paths = ['''docs/DEVOPS-PSIKOAL\.md''']
