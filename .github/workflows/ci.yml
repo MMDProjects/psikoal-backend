@@ -2,34 +2,196 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 'true'
 
 jobs:
   build-test:
+    name: Build + Test
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # SDK sürümü global.json'dan gelir — lokal build ile CI aynı derleyiciyi kullanır.
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
+
+      - name: NuGet cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/Directory.Build.props') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Restore
         run: dotnet restore src/PsikoAl.slnx
+
       - name: Build
         run: dotnet build src/PsikoAl.slnx --no-restore -warnaserror
+
+      # Blazor admin paneli publish edilebilir olmalı — bugün hiçbir kapı bunu doğrulamıyordu.
+      - name: Publish kapısı (PsikoAl.Client)
+        run: dotnet publish src/PsikoAl.Client/PsikoAl.Client.csproj --no-build -o /tmp/client-publish
+
       - name: Test
-        run: dotnet test src/PsikoAl.slnx --no-build
+        run: dotnet test src/PsikoAl.slnx --no-build --logger "trx;LogFilePrefix=test" --results-directory TestResults
+
+      # Test varlığı siperi: tüm .trx dosyalarının total'lerini TOPLAR.
+      # Sabit LogFileName kullanılsaydı iki test projesinden biri diğerini EZER ve
+      # silinen test paketi sessizce fark edilmezdi.
+      - name: Test sayısı siperi
+        run: |
+          set -euo pipefail
+          total=0
+          shopt -s nullglob
+          for trx in TestResults/*.trx; do
+            n=$(grep -o 'total="[0-9]*"' "$trx" | head -1 | grep -o '[0-9]*' || echo 0)
+            echo "$trx -> $n test"
+            total=$((total + n))
+          done
+          echo "Toplam: $total test"
+          if [ "$total" -lt 40 ]; then
+            echo "::error::Test sayısı beklenenin altında ($total < 40). Test paketi silinmiş veya koşmamış olabilir."
+            exit 1
+          fi
+
+      - name: Test sonuçları artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-results
+          path: TestResults/
+          retention-days: 7
+
+  gitleaks:
+    name: Secret taraması (gitleaks)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Repo PRIVATE olduğu için GitHub native secret scanning GHAS gerektiriyor;
+      # gitleaks ücretsiz alternatif. fetch-depth: 0 — tüm geçmiş taranır.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   migration-lint:
+    name: Migration lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      # fetch-depth: 0 ŞART — shallow checkout'ta `git diff origin/...` sessizce boş kalır
+      # ve içerik kontrolü hiçbir dosyayı görmeden yeşil döner (sahte yeşil kapı).
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
       - name: Migration dosya adı kontrolü
         run: |
+          set -euo pipefail
           for f in supabase/migrations/*.sql; do
             base=$(basename "$f")
             if ! echo "$base" | grep -Eq '^[0-9]{14}_[a-z0-9_]+\.sql$'; then
-              echo "Geçersiz migration adı: $base (beklenen: <14 haneli timestamp>_snake_case.sql)"
+              echo "::error::Geçersiz migration adı: $base (beklenen: <14 haneli timestamp>_snake_case.sql)"
               exit 1
             fi
           done
+
+      # İçerik kontrolü: YENİ migration'lar RLS'i açmalı ve policy'leri idempotent yazmalı.
+      # Sadece bu PR'da eklenen dosyalara bakar; mevcut 9 dosya geriye dönük denetlenmez.
+      - name: Yeni migration içerik kontrolü (RLS + idempotency)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin "$BASE"
+          new_files=$(git diff --name-only --diff-filter=A "origin/$BASE...HEAD" -- 'supabase/migrations/*.sql' || true)
+          if [ -z "$new_files" ]; then
+            echo "Yeni migration yok — kontrol atlanıyor."
+            exit 0
+          fi
+          fail=0
+          for f in $new_files; do
+            echo "Kontrol: $f"
+            if grep -qiE 'create table' "$f" && ! grep -qiE 'enable row level security' "$f"; then
+              echo "::error file=$f::Yeni tablo oluşturuluyor ama 'enable row level security' yok."
+              fail=1
+            fi
+            if grep -qiE '^\s*create policy' "$f" && ! grep -qiE 'drop policy if exists' "$f"; then
+              echo "::error file=$f::'create policy' öncesinde 'drop policy if exists' yok — migration tekrar koşunca patlar."
+              fail=1
+            fi
+            if grep -qiE '^\s*insert into' "$f" && ! grep -qiE 'on conflict' "$f"; then
+              echo "::error file=$f::Seed insert'ünde 'on conflict' yok — idempotent değil."
+              fail=1
+            fi
+          done
+          exit $fail
+
+  migration-apply:
+    name: Migration uygulanabilirlik (lokal Supabase)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # İLK SÜRÜM: kırmızı dönebilir. Gerçek bir FAIL üretip düzeltilene kadar
+    # required check YAPILMAZ ve bu satır KALDIRILMAZ.
+    # (docs/DEVOPS-PSIKOAL.md, Faz 3 / adım 25 + 30)
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
+        with:
+          version: latest
+
+      # Vanilla Postgres yetmez: migration'lar storage/auth şemalarına dokunuyor,
+      # bu yüzden gerçek lokal Supabase stack'i ayağa kaldırılır.
+      - name: Supabase start
+        run: supabase start
+
+      - name: Migration'ları temiz stack'e uygula
+        run: supabase db reset --no-seed
+
+      - name: pg_cron job kontrolü
+        run: |
+          supabase db psql -c "select jobname from cron.job;" || \
+            echo "::warning::pg_cron sorgulanamadı — 0006/0008'deki cron tanımları lokal stack'te desteklenmiyor olabilir."
+
+      - name: Supabase stop
+        if: always()
+        run: supabase stop --no-backup
+
+  enforce-promotion:
+    name: Terfi zinciri kontrolü
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      # BASE/HEAD env üzerinden geçirilir — doğrudan ${{ }} interpolasyonu script injection'dır.
+      - name: Kaynak dal kontrolü
+        env:
+          BASE: ${{ github.base_ref }}
+          HEAD: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          if [ "$BASE" = "main" ] && [ "$HEAD" != "dev" ] && [[ "$HEAD" != hotfix/* ]]; then
+            echo "::error::main'e yalnız 'dev' veya 'hotfix/*' dalından PR açılabilir (gelen: $HEAD)"
+            exit 1
+          fi
