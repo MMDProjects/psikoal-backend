@@ -1,6 +1,7 @@
 namespace PsikoAl.Common.Presentation;
 
-// Davranış referansı: mock-db/helpers.js maskFullName — "Zeynep Yılmaz" → "Zeynep Y.".
+// Davranış referansı: psikoal-app reposu, mock-db/helpers.js -> maskFullName ("Zeynep Yılmaz" → "Zeynep Y.").
+// Sözleşme, bu dosyanın unit testlerinde kilitlenir (PsikoAl.Services.Tests/Presentation).
 // Eşleşme öncesi uzmana danışanın tam adı hiç gönderilmemeli; bu yalnızca sunum katmanında
 // kullanılır, ham fullName API yanıtına asla eklenmez.
 public static class NameMasker

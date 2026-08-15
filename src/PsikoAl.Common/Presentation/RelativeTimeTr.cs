@@ -1,6 +1,7 @@
 namespace PsikoAl.Common.Presentation;
 
-// Davranış referansı: mock-db/helpers.js relativeTimeTR — birebir eşleşir.
+// Davranış referansı: psikoal-app reposu, mock-db/helpers.js -> relativeTimeTR (birebir eşleşir).
+// Sözleşme, bu dosyanın unit testlerinde kilitlenir (PsikoAl.Services.Tests/Presentation).
 public static class RelativeTimeTr
 {
     public static string From(DateTimeOffset value, DateTimeOffset? now = null)
