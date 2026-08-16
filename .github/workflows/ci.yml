@@ -164,10 +164,9 @@ jobs:
     name: Migration uygulanabilirlik (lokal Supabase)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # İLK SÜRÜM: kırmızı dönebilir. Gerçek bir FAIL üretip düzeltilene kadar
-    # required check YAPILMAZ ve bu satır KALDIRILMAZ.
-    # (docs/DEVOPS-PSIKOAL.md, Faz 3 / adım 25 + 30)
-    continue-on-error: true
+    # continue-on-error KALDIRILDI: bu job ilk koşumunda gerçek bir hata buldu
+    # (Supabase CLI *_init.sql adlı migration'ı sessizce atlıyordu, admin_users hiç
+    # oluşmuyordu) ve düzeltildikten sonra yeşile döndü. Artık gerçek bir kapı.
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
