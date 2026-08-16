@@ -33,4 +33,5 @@ Supabase anahtarları **`dotnet user-secrets`** ile verilir; `src/PsikoAl.Api/ap
 - Davranış/tablo referansı: `psikoal-app` reposu -> `mock-db/handlers/`, `mock-db/data/*.json`
 - DevOps planı: `docs/DEVOPS-PSIKOAL.md`; dal ve commit sözleşmesi: `docs/conventions/`
 
-> `Backend-Referance-PsikoApp` reposu ARŞİVLENMİŞTİR — sözleşme kaynağı değildir, referans alınmaz.
+> `MMDProjects/Backend-Reference-PsikoApp` reposu **arşivlenmiştir** (2026-08-17) —
+> sözleşme kaynağı değildir, referans alınmaz.
