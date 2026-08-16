@@ -17,6 +17,10 @@ using PsikoAl.Services.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// DİKKAT — öncelik sırası: bu satır CreateBuilder'dan SONRA geldiği için
+// appsettings.Local.json, user-secrets'ı EZER. Normal geliştirme akışı user-secrets'tır
+// (bkz. appsettings.Local.example.json); bu dosya yalnız container/mount senaryosu için
+// bir kaçış kapısı olarak duruyor. Düz metin prod anahtarı ASLA buraya yazılmaz.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
 builder.Services
