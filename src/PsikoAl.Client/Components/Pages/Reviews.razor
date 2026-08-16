@@ -1,106 +1,100 @@
 @page "/reviews"
-@rendermode InteractiveServer
 @inject IAdminClientService AdminClient
 @inject AdminSessionState Session
 @inject NavigationManager Navigation
 
 <PageTitle>Yorumlar — PsikoAl Admin</PageTitle>
 
-<div class="page-shell">
-    <header class="page-header">
-        <div>
-            <span class="page-eyebrow">PsikoAl Admin</span>
-            <h1 class="page-title">Yorum Moderasyonu</h1>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn-ghost" href="/users">Kullanıcılar</a>
-            <a class="btn-ghost" href="/experts">Uzman Onayları</a>
-            <a class="btn-ghost" href="/categories">Kategoriler</a>
-            <a class="btn-ghost" href="/listings">İlanlar</a>
-            <a class="btn-ghost" href="/matches">Eşleşmeler</a>
-            <a class="btn-ghost" href="/notifications">Bildirimler</a>
-            <a class="btn-ghost" href="/assessments">Testler</a>
-            <span class="muted">@Session.Email</span>
-        </div>
-    </header>
+<PageHeader Title="Yorum Moderasyonu"
+            Description="Yalnızca onaylanan yorumlar uzmanın puanına ve yorum sayısına dahil edilir." />
 
-    <p class="muted">Yalnızca onaylanan yorumlar uzmanın puanına ve yorum sayısına dahil edilir.</p>
+<div class="toolbar">
+    <Select Class="toolbar-select" @bind-Value="_status">
+        <option value="pending">Onay Bekleyen</option>
+        <option value="approved">Onaylı</option>
+        <option value="rejected">Reddedilmiş</option>
+        <option value="">Tümü</option>
+    </Select>
+    <Button Disabled="_isLoading" OnClick="LoadAsync">Filtrele</Button>
+</div>
 
-    <div class="toolbar">
-        <select class="field-input toolbar-select" @bind="_status">
-            <option value="pending">Onay Bekleyen</option>
-            <option value="approved">Onaylı</option>
-            <option value="rejected">Reddedilmiş</option>
-            <option value="">Tümü</option>
-        </select>
-        <button class="btn-primary" disabled="@_isLoading" @onclick="LoadAsync">Filtrele</button>
-    </div>
+@if (_errorMessage is not null)
+{
+    <Alert Variant="AlertVariant.Destructive" Class="mb-4">
+        <AlertDescription>@_errorMessage</AlertDescription>
+    </Alert>
+}
 
-    @if (_errorMessage is not null)
-    {
-        <p class="form-error">@_errorMessage</p>
-    }
-
+<Card Class="table-card">
     @if (_isLoading)
     {
-        <p class="muted">Yükleniyor...</p>
+        <LoadingSkeleton />
     }
     else if (_reviews is { Count: 0 })
     {
-        <p class="muted">Kayıt bulunamadı.</p>
+        <EmptyState Title="Yorum bulunamadı" Description="Seçtiğiniz durumda bekleyen bir yorum yok." />
     }
     else if (_reviews is not null)
     {
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Uzman</th>
-                    <th>Danışan</th>
-                    <th>Puan</th>
-                    <th>Yorum</th>
-                    <th>Durum</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Uzman</TableHead>
+                    <TableHead>Danışan</TableHead>
+                    <TableHead>Puan</TableHead>
+                    <TableHead>Yorum</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead Class="text-right">İşlem</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
                 @foreach (var review in _reviews)
                 {
-                    <tr>
-                        <td>@review.ExpertName</td>
-                        <td class="muted">@review.ClientName</td>
-                        <td>@review.Rating / 5</td>
-                        <td style="max-width:320px">
+                    <TableRow>
+                        <TableCell>@review.ExpertName</TableCell>
+                        <TableCell Class="text-muted-foreground">@review.ClientName</TableCell>
+                        <TableCell>@review.Rating / 5</TableCell>
+                        <TableCell Class="max-w-sm">
                             @review.Comment
                             @if (review.Status == "rejected" && review.RejectionReason is not null)
                             {
                                 <div class="muted">Red sebebi: @review.RejectionReason</div>
                             }
-                        </td>
-                        <td><span class="chip @StatusChipClass(review.Status)">@StatusLabel(review.Status)</span></td>
-                        <td class="cell-actions">
+                        </TableCell>
+                        <TableCell><StatusChip Status="@review.Status" /></TableCell>
+                        <TableCell Class="cell-actions">
                             @if (review.Status == "pending")
                             {
-                                <div class="detail-actions">
-                                    <input class="field-input detail-reason" placeholder="Red sebebi"
-                                           @bind="_rejectReasons[review.Id]" @bind:event="oninput" />
-                                    <button class="btn-primary" @onclick="() => ApproveAsync(review.Id)">Onayla</button>
-                                    <button class="btn-ghost btn-danger-ghost" @onclick="() => RejectAsync(review.Id)">Reddet</button>
-                                </div>
+                                <Button Size="ButtonSize.Sm" OnClick="() => ApproveAsync(review.Id)">Onayla</Button>
+                                <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                        OnClick="() => AskReject(review.Id)">
+                                    Reddet
+                                </Button>
                             }
-                        </td>
-                    </tr>
+                        </TableCell>
+                    </TableRow>
                 }
-            </tbody>
-        </table>
+            </TableBody>
+        </Table>
     }
-</div>
+</Card>
+
+<ReasonDialog Open="_isRejectDialogOpen"
+              OpenChanged="value => _isRejectDialogOpen = value"
+              Title="Yorumu reddet"
+              Description="Red sebebi danışana bildirim olarak iletilir."
+              ReasonLabel="Red sebebi"
+              Placeholder="Hakaret, kişisel veri, spam..."
+              ConfirmLabel="Reddet"
+              OnConfirm="RejectConfirmedAsync" />
 
 @code {
     private IReadOnlyList<AdminReviewListItemDto>? _reviews;
-    private readonly Dictionary<Guid, string> _rejectReasons = [];
     private string _status = "pending";
-    private bool _isLoading;
+    private bool _isLoading = true;
     private string? _errorMessage;
+    private bool _isRejectDialogOpen;
+    private Guid? _pendingRejectReviewId;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -145,34 +139,24 @@
         }
     }
 
-    private async Task RejectAsync(Guid reviewId)
+    private void AskReject(Guid reviewId)
     {
-        var reason = _rejectReasons.GetValueOrDefault(reviewId, string.Empty);
-        if (string.IsNullOrWhiteSpace(reason))
+        _pendingRejectReviewId = reviewId;
+        _isRejectDialogOpen = true;
+    }
+
+    private async Task RejectConfirmedAsync(string reason)
+    {
+        if (_pendingRejectReviewId is not { } reviewId)
         {
-            _errorMessage = "Reddetmek için sebep girmelisiniz.";
             return;
         }
+
+        _pendingRejectReviewId = null;
 
         if (await AdminClient.RejectReviewAsync(reviewId, reason, CancellationToken.None))
         {
             await LoadAsync();
         }
     }
-
-    private static string StatusLabel(string status) => status switch
-    {
-        "pending" => "Onay Bekliyor",
-        "approved" => "Onaylı",
-        "rejected" => "Reddedildi",
-        _ => status,
-    };
-
-    private static string StatusChipClass(string status) => status switch
-    {
-        "approved" => "chip-active",
-        "pending" => "chip-frozen",
-        "rejected" => "chip-deleted",
-        _ => string.Empty,
-    };
 }

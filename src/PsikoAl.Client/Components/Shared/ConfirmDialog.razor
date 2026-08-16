@@ -1,0 +1,38 @@
+<AlertDialog Open="Open" OpenChanged="OpenChanged">
+    <AlertDialogContent>
+        <AlertDialogHeader>
+            <AlertDialogTitle>@Title</AlertDialogTitle>
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <AlertDialogDescription>@Description</AlertDialogDescription>
+            }
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+            <AlertDialogCancel>Vazgeç</AlertDialogCancel>
+            <AlertDialogAction Variant="@ConfirmVariant" OnClick="OnConfirm">@ConfirmLabel</AlertDialogAction>
+        </AlertDialogFooter>
+    </AlertDialogContent>
+</AlertDialog>
+
+@code {
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public EventCallback<bool> OpenChanged { get; set; }
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public string ConfirmLabel { get; set; } = "Onayla";
+
+    [Parameter]
+    public ButtonVariant ConfirmVariant { get; set; } = ButtonVariant.Default;
+
+    [Parameter]
+    public EventCallback OnConfirm { get; set; }
+}

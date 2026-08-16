@@ -1,106 +1,107 @@
 @page "/users"
-@rendermode InteractiveServer
 @inject IAdminClientService AdminClient
 @inject AdminSessionState Session
 @inject NavigationManager Navigation
 
 <PageTitle>Kullanıcılar — PsikoAl Admin</PageTitle>
 
-<div class="page-shell">
-    <header class="page-header">
-        <div>
-            <span class="page-eyebrow">PsikoAl Admin</span>
-            <h1 class="page-title">Kullanıcılar</h1>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn-ghost" href="/experts">Uzman Onayları</a>
-            <a class="btn-ghost" href="/categories">Kategoriler</a>
-            <a class="btn-ghost" href="/reviews">Yorumlar</a>
-            <a class="btn-ghost" href="/listings">İlanlar</a>
-            <a class="btn-ghost" href="/matches">Eşleşmeler</a>
-            <a class="btn-ghost" href="/notifications">Bildirimler</a>
-            <a class="btn-ghost" href="/assessments">Testler</a>
-            <span class="muted">@Session.Email</span>
-            <button class="btn-ghost" @onclick="SignOut">Çıkış</button>
-        </div>
-    </header>
+<PageHeader Title="Kullanıcılar" Description="Tüm hesapları görüntüleyin, dondurun veya yeniden aktifleştirin." />
 
-    <div class="toolbar">
-        <input class="field-input toolbar-search" placeholder="E-posta veya isim ara..."
-               @bind="_search" @bind:event="oninput" @onkeyup="@(async e => { if (e.Key == "Enter") await LoadAsync(); })" />
-        <select class="field-input toolbar-select" @bind="_role">
-            <option value="">Tüm roller</option>
-            <option value="expert">Uzman</option>
-            <option value="client">Danışan</option>
-        </select>
-        <select class="field-input toolbar-select" @bind="_status">
-            <option value="">Tüm durumlar</option>
-            <option value="active">Aktif</option>
-            <option value="frozen">Dondurulmuş</option>
-            <option value="deleted">Silinmiş</option>
-        </select>
-        <button class="btn-primary" disabled="@_isLoading" @onclick="LoadAsync">Filtrele</button>
-    </div>
+<div class="toolbar">
+    <Input Class="toolbar-search" Placeholder="E-posta veya isim ara..." @bind-Value="_search" />
+    <Select Class="toolbar-select" @bind-Value="_role">
+        <option value="">Tüm roller</option>
+        <option value="expert">Uzman</option>
+        <option value="client">Danışan</option>
+    </Select>
+    <Select Class="toolbar-select" @bind-Value="_status">
+        <option value="">Tüm durumlar</option>
+        <option value="active">Aktif</option>
+        <option value="frozen">Dondurulmuş</option>
+        <option value="deleted">Silinmiş</option>
+    </Select>
+    <Button Disabled="_isLoading" OnClick="LoadAsync">Filtrele</Button>
+</div>
 
-    @if (_errorMessage is not null)
-    {
-        <p class="form-error">@_errorMessage</p>
-    }
+@if (_errorMessage is not null)
+{
+    <Alert Variant="AlertVariant.Destructive" Class="mb-4">
+        <AlertDescription>@_errorMessage</AlertDescription>
+    </Alert>
+}
 
+<Card Class="table-card">
     @if (_isLoading)
     {
-        <p class="muted">Yükleniyor...</p>
+        <LoadingSkeleton />
     }
     else if (_users is { Count: 0 })
     {
-        <p class="muted">Kayıt bulunamadı.</p>
+        <EmptyState Title="Kayıt bulunamadı"
+                    Description="Seçtiğiniz filtrelere uyan kullanıcı yok. Filtreleri değiştirip tekrar deneyin." />
     }
     else if (_users is not null)
     {
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>E-posta</th>
-                    <th>Ad Soyad</th>
-                    <th>Rol</th>
-                    <th>Durum</th>
-                    <th>Kayıt</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>E-posta</TableHead>
+                    <TableHead>Ad Soyad</TableHead>
+                    <TableHead>Rol</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead>Kayıt</TableHead>
+                    <TableHead Class="text-right">İşlem</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
                 @foreach (var user in _users)
                 {
-                    <tr>
-                        <td>@user.Email</td>
-                        <td>@user.FullName</td>
-                        <td><span class="chip chip-role">@RoleLabel(user.Role)</span></td>
-                        <td><span class="chip @StatusChipClass(user.Status)">@StatusLabel(user.Status)</span></td>
-                        <td class="muted">@user.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
-                        <td class="cell-actions">
+                    <TableRow>
+                        <TableCell>@user.Email</TableCell>
+                        <TableCell>@user.FullName</TableCell>
+                        <TableCell><StatusChip Status="@user.Role" /></TableCell>
+                        <TableCell><StatusChip Status="@user.Status" /></TableCell>
+                        <TableCell Class="text-muted-foreground">@user.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</TableCell>
+                        <TableCell Class="cell-actions">
                             @if (user.Status == "active")
                             {
-                                <button class="btn-ghost btn-danger-ghost" @onclick="() => FreezeAsync(user.Id)">Dondur</button>
+                                <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                        OnClick="() => AskFreeze(user.Id)">
+                                    Dondur
+                                </Button>
                             }
                             else if (user.Status == "frozen")
                             {
-                                <button class="btn-ghost" @onclick="() => UnfreezeAsync(user.Id)">Aktifleştir</button>
+                                <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                        OnClick="() => UnfreezeAsync(user.Id)">
+                                    Aktifleştir
+                                </Button>
                             }
-                        </td>
-                    </tr>
+                        </TableCell>
+                    </TableRow>
                 }
-            </tbody>
-        </table>
+            </TableBody>
+        </Table>
     }
-</div>
+</Card>
+
+<ConfirmDialog Open="_isFreezeDialogOpen"
+               OpenChanged="value => _isFreezeDialogOpen = value"
+               Title="Hesabı dondur"
+               Description="Dondurulan kullanıcı uygulamaya giriş yapamaz. Bu işlem geri alınabilir."
+               ConfirmLabel="Dondur"
+               ConfirmVariant="ButtonVariant.Destructive"
+               OnConfirm="FreezeConfirmedAsync" />
 
 @code {
     private IReadOnlyList<AdminUserListItemDto>? _users;
     private string _search = string.Empty;
     private string _role = string.Empty;
     private string _status = string.Empty;
-    private bool _isLoading;
+    private bool _isLoading = true;
     private string? _errorMessage;
+    private bool _isFreezeDialogOpen;
+    private Guid? _pendingFreezeUserId;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -137,8 +138,22 @@
         }
     }
 
-    private async Task FreezeAsync(Guid userId)
+    private void AskFreeze(Guid userId)
     {
+        _pendingFreezeUserId = userId;
+        _isFreezeDialogOpen = true;
+    }
+
+    private async Task FreezeConfirmedAsync()
+    {
+        if (_pendingFreezeUserId is not { } userId)
+        {
+            return;
+        }
+
+        _isFreezeDialogOpen = false;
+        _pendingFreezeUserId = null;
+
         if (await AdminClient.FreezeUserAsync(userId, null, CancellationToken.None))
         {
             await LoadAsync();
@@ -152,33 +167,4 @@
             await LoadAsync();
         }
     }
-
-    private void SignOut()
-    {
-        Session.SignOut();
-        Navigation.NavigateTo("/login");
-    }
-
-    private static string RoleLabel(string role) => role switch
-    {
-        "expert" => "Uzman",
-        "client" => "Danışan",
-        _ => role,
-    };
-
-    private static string StatusLabel(string status) => status switch
-    {
-        "active" => "Aktif",
-        "frozen" => "Dondurulmuş",
-        "deleted" => "Silinmiş",
-        _ => status,
-    };
-
-    private static string StatusChipClass(string status) => status switch
-    {
-        "active" => "chip-active",
-        "frozen" => "chip-frozen",
-        "deleted" => "chip-deleted",
-        _ => string.Empty,
-    };
 }

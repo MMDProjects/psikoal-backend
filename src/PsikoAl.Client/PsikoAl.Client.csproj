@@ -4,6 +4,10 @@
     <ProjectReference Include="..\PsikoAl.Common\PsikoAl.Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="ShadCn.Blazor.Components" Version="1.0.37" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>

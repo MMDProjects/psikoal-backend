@@ -1,4 +1,9 @@
--- 0001_init: temel altyapı tabloları (system_settings, audit_logs, admin_users)
+-- 0001_bootstrap: temel altyapı tabloları (system_settings, audit_logs, admin_users)
+--
+-- DİKKAT — dosya adı "init" OLAMAZ. Supabase CLI, adı `*_init.sql` olan migration'ı
+-- `supabase start` / `db reset` sırasında SESSİZCE ATLAR ("replace 'init' with a
+-- different file name to apply this migration"). Bu dosya atlandığında admin_users
+-- oluşmaz ve 0004_experts patlar. CI'daki migration-apply job'u tam olarak bunu yakaladı.
 -- Kaynak sözleşme: docs/ADMIN_PANEL_REQUIREMENTS.md §8
 
 create extension if not exists "pgcrypto";

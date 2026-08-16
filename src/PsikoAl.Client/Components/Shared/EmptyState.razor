@@ -1,0 +1,23 @@
+<div class="empty-state">
+    <NavIcon Name="@Icon" />
+    <p class="empty-state-title">@Title</p>
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p class="empty-state-text">@Description</p>
+    }
+    @Actions
+</div>
+
+@code {
+    [Parameter]
+    public string Title { get; set; } = "Kayıt bulunamadı";
+
+    [Parameter]
+    public string? Description { get; set; }
+
+    [Parameter]
+    public string Icon { get; set; } = "inbox";
+
+    [Parameter]
+    public RenderFragment? Actions { get; set; }
+}
