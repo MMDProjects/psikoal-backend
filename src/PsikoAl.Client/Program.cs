@@ -1,11 +1,13 @@
 using PsikoAl.Client.Components;
 using PsikoAl.Client.Services;
+using ShadCn.Blazor.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.Services.AddShadCnBlazorComponents();
 builder.Services.AddScoped<AdminSessionState>();
 builder.Services.AddHttpClient<IAdminClientService, AdminClientService>(client =>
 {

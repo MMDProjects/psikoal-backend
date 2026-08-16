@@ -1,3 +1,5 @@
+using System.Globalization;
+
 using Microsoft.EntityFrameworkCore;
 using PsikoAl.Common.Constants;
 using PsikoAl.Common.Exceptions;
@@ -16,7 +18,8 @@ public sealed class SystemSettingRepository(AppDbContext dbContext) : ISystemSet
     public async Task<int> GetIntAsync(string key, CancellationToken cancellationToken)
     {
         var setting = await GetAsync(key, cancellationToken) ?? throw new DomainException(ErrorKeys.SystemSettingNotFound, key);
-        return int.Parse(setting.Value);
+        // Ayar değerleri kültürden bağımsız saklanır; sunucunun locale'i sonucu değiştirmemeli.
+        return int.Parse(setting.Value, CultureInfo.InvariantCulture);
     }
 
     public async Task<bool> GetBoolAsync(string key, CancellationToken cancellationToken)

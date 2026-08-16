@@ -9,6 +9,8 @@ public interface IAdminClientService
 {
     Task<bool> LoginAsync(string email, string password, CancellationToken cancellationToken);
 
+    Task<AdminDashboardStatsDto?> GetDashboardStatsAsync(CancellationToken cancellationToken);
+
     Task<IReadOnlyList<AdminUserListItemDto>?> ListUsersAsync(
         string? search,
         string? role,

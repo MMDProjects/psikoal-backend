@@ -1,0 +1,46 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+  schedule:
+    # Haftalık tarama — yeni yayımlanan sorgular mevcut kodda da bulgu üretebilir.
+    - cron: '41 4 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (csharp)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - uses: github/codeql-action/init@f3712979fa5f215279b101dd0a2e3bdfb4353324 # v3
+        with:
+          languages: csharp
+          queries: security-and-quality
+          # Analyzer'lar CodeQL derlemesinde gürültü üretiyor; kapı zaten build-test job'unda.
+          build-mode: manual
+
+      # build-mode: manual — CodeQL'in kendi autobuild'i .slnx formatını tanımıyor.
+      - name: Build
+        run: dotnet build src/PsikoAl.slnx -p:TreatWarningsAsErrors=false
+
+      - uses: github/codeql-action/analyze@f3712979fa5f215279b101dd0a2e3bdfb4353324 # v3
+        with:
+          category: /language:csharp

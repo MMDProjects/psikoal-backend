@@ -1,133 +1,179 @@
 @page "/notifications"
-@rendermode InteractiveServer
 @inject IAdminClientService AdminClient
 @inject AdminSessionState Session
 @inject NavigationManager Navigation
 
 <PageTitle>Bildirimler — PsikoAl Admin</PageTitle>
 
-<div class="page-shell">
-    <header class="page-header">
-        <div>
-            <span class="page-eyebrow">PsikoAl Admin</span>
-            <h1 class="page-title">Bildirimler</h1>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn-ghost" href="/users">Kullanıcılar</a>
-            <a class="btn-ghost" href="/experts">Uzmanlar</a>
-            <a class="btn-ghost" href="/categories">Kategoriler</a>
-            <a class="btn-ghost" href="/reviews">Yorumlar</a>
-            <a class="btn-ghost" href="/listings">İlanlar</a>
-            <a class="btn-ghost" href="/matches">Eşleşmeler</a>
-            <a class="btn-ghost" href="/settings">Sistem Ayarları</a>
-            <span class="muted">@Session.Email</span>
-        </div>
-    </header>
+<PageHeader Title="Bildirimler"
+            Description="Şablon metinlerini düzenleyin veya bir segmente manuel duyuru gönderin." />
 
-    @if (_errorMessage is not null)
-    {
-        <p class="form-error">@_errorMessage</p>
-    }
+@if (_errorMessage is not null)
+{
+    <Alert Variant="AlertVariant.Destructive" Class="mb-4">
+        <AlertDescription>@_errorMessage</AlertDescription>
+    </Alert>
+}
 
-    @if (_infoMessage is not null)
-    {
-        <p class="muted">@_infoMessage</p>
-    }
+@if (_infoMessage is not null)
+{
+    <Alert Class="mb-4">
+        <AlertDescription>@_infoMessage</AlertDescription>
+    </Alert>
+}
 
-    <div class="detail-panel">
-        <h3 class="detail-heading">Manuel Bildirim Gönder</h3>
-        <div class="toolbar">
-            <select class="field-input toolbar-select" @bind="_targetType">
-                <option value="segment">Segment</option>
-                <option value="user">Tek Kullanıcı</option>
-            </select>
-            @if (_targetType == "segment")
+<Tabs DefaultValue="templates">
+    <TabsList>
+        <TabsTrigger Value="templates">Şablonlar</TabsTrigger>
+        <TabsTrigger Value="send">Manuel Gönder</TabsTrigger>
+    </TabsList>
+
+    <TabsContent Value="templates">
+        <Card Class="table-card">
+            @if (_isLoading)
             {
-                <select class="field-input toolbar-select" @bind="_segmentRole">
-                    <option value="client">Tüm Danışanlar</option>
-                    <option value="expert">Tüm Uzmanlar</option>
-                </select>
-                <input class="field-input" style="width:140px" placeholder="Şehir (opsiyonel)" @bind="_segmentCity" />
+                <LoadingSkeleton />
             }
-            else
+            else if (_templates is { Count: 0 })
             {
-                <input class="field-input" style="width:280px" placeholder="Kullanıcı ID (uuid)" @bind="_targetUserId" />
+                <EmptyState Title="Şablon bulunamadı" Description="Bildirim şablonları henüz tanımlanmamış." />
             }
-        </div>
-        <div class="toolbar">
-            <input class="field-input toolbar-search" placeholder="Başlık" @bind="_sendTitle" />
-        </div>
-        <div class="toolbar">
-            <input class="field-input toolbar-search" placeholder="Mesaj" @bind="_sendBody" />
-            <button class="btn-primary" disabled="@_isSending" @onclick="SendAsync">Gönder</button>
-        </div>
-    </div>
+            else if (_templates is not null)
+            {
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Tip</TableHead>
+                            <TableHead>Başlık</TableHead>
+                            <TableHead>Kanallar</TableHead>
+                            <TableHead>Durum</TableHead>
+                            <TableHead Class="text-right">İşlem</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        @foreach (var template in _templates)
+                        {
+                            <TableRow>
+                                <TableCell Class="text-muted-foreground font-mono text-xs">@template.Type</TableCell>
+                                <TableCell>@template.Title</TableCell>
+                                <TableCell Class="text-muted-foreground text-xs">@ChannelLabel(template)</TableCell>
+                                <TableCell>
+                                    <StatusChip Status="@(template.IsActive ? "active" : "frozen")"
+                                                Label="@(template.IsActive ? "Aktif" : "Pasif")" />
+                                </TableCell>
+                                <TableCell Class="cell-actions">
+                                    <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                            OnClick="() => ToggleEdit(template)">
+                                        @(_editingType == template.Type ? "Kapat" : "Düzenle")
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
 
-    @if (_isLoading)
-    {
-        <p class="muted">Yükleniyor...</p>
-    }
-    else if (_templates is not null)
-    {
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Tip</th>
-                    <th>Başlık</th>
-                    <th>Kanallar</th>
-                    <th>Durum</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var template in _templates)
-                {
-                    <tr>
-                        <td class="muted">@template.Type</td>
-                        <td>@template.Title</td>
-                        <td class="muted">
-                            @(template.InAppEnabled ? "in-app " : "")@(template.PushEnabled ? "push " : "")@(template.EmailEnabled ? "email" : "")
-                        </td>
-                        <td>
-                            <span class="chip @(template.IsActive ? "chip-active" : "chip-frozen")">
-                                @(template.IsActive ? "Aktif" : "Pasif")
-                            </span>
-                        </td>
-                        <td class="cell-actions">
-                            <button class="btn-ghost" @onclick="() => ToggleEditAsync(template)">
-                                @(_editingType == template.Type ? "Kapat" : "Düzenle")
-                            </button>
-                        </td>
-                    </tr>
-                    @if (_editingType == template.Type)
+                            @if (_editingType == template.Type)
+                            {
+                                <TableRow>
+                                    <TableCell Class="detail-cell" colspan="5">
+                                        <div class="stack-3">
+                                            <div class="field">
+                                                <Label>Başlık</Label>
+                                                <Input @bind-Value="_editTitle" />
+                                            </div>
+                                            <div class="field">
+                                                <Label>Gövde — {değişken} yer tutucuları kullanılabilir</Label>
+                                                <Textarea Rows="3" @bind-Value="_editBody" />
+                                            </div>
+                                            <div class="field">
+                                                <Label>HTML gövde (e-posta) — boş bırakılırsa gövde otomatik sarmalanır</Label>
+                                                <Textarea Rows="3" Value="@(_editHtmlBody ?? string.Empty)"
+                                                          ValueChanged="value => _editHtmlBody = value" />
+                                            </div>
+                                            <div class="detail-actions">
+                                                <div class="switch-field">
+                                                    <Switch @bind-Checked="_editInApp" /><span>In-app</span>
+                                                </div>
+                                                <div class="switch-field">
+                                                    <Switch @bind-Checked="_editPush" /><span>Push</span>
+                                                </div>
+                                                <div class="switch-field">
+                                                    <Switch @bind-Checked="_editEmail" /><span>E-posta</span>
+                                                </div>
+                                                <div class="switch-field">
+                                                    <Switch @bind-Checked="_editActive" /><span>Aktif</span>
+                                                </div>
+                                                <Button Size="ButtonSize.Sm" OnClick="() => SaveTemplateAsync(template.Type)">
+                                                    Kaydet
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            }
+                        }
+                    </TableBody>
+                </Table>
+            }
+        </Card>
+    </TabsContent>
+
+    <TabsContent Value="send">
+        <Card>
+            <CardHeader>
+                <CardTitle>Manuel Bildirim</CardTitle>
+                <CardDescription>Tek bir kullanıcıya veya bir segmente SYSTEM tipinde duyuru gönderir.</CardDescription>
+            </CardHeader>
+            <CardContent Class="space-y-4">
+                <div class="form-grid">
+                    <div class="field">
+                        <Label>Hedef</Label>
+                        <Select @bind-Value="_targetType">
+                            <option value="segment">Segment</option>
+                            <option value="user">Tek Kullanıcı</option>
+                        </Select>
+                    </div>
+
+                    @if (_targetType == TargetTypeSegment)
                     {
-                        <tr>
-                            <td colspan="5">
-                                <div class="detail-panel">
-                                    <label>Başlık</label>
-                                    <input class="field-input" style="width:100%" @bind="_editTitle" />
-                                    <label>Gövde ({değişken} yer tutucuları kullanılabilir)</label>
-                                    <input class="field-input" style="width:100%" @bind="_editBody" />
-                                    <label>HTML Gövde (e-posta için, boş bırakılırsa gövde otomatik sarmalanır)</label>
-                                    <input class="field-input" style="width:100%" @bind="_editHtmlBody" />
-                                    <div class="toolbar">
-                                        <label><input type="checkbox" @bind="_editInApp" /> In-app</label>
-                                        <label><input type="checkbox" @bind="_editPush" /> Push</label>
-                                        <label><input type="checkbox" @bind="_editEmail" /> E-posta</label>
-                                        <label><input type="checkbox" @bind="_editActive" /> Aktif</label>
-                                        <button class="btn-primary" @onclick="() => SaveTemplateAsync(template.Type)">Kaydet</button>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
+                        <div class="field">
+                            <Label>Rol</Label>
+                            <Select @bind-Value="_segmentRole">
+                                <option value="client">Tüm Danışanlar</option>
+                                <option value="expert">Tüm Uzmanlar</option>
+                            </Select>
+                        </div>
+                        <div class="field">
+                            <Label>Şehir (opsiyonel)</Label>
+                            <Input Placeholder="İstanbul" @bind-Value="_segmentCity" />
+                        </div>
                     }
-                }
-            </tbody>
-        </table>
-    }
-</div>
+                    else
+                    {
+                        <div class="field">
+                            <Label>Kullanıcı ID</Label>
+                            <Input Placeholder="uuid" @bind-Value="_targetUserId" />
+                        </div>
+                    }
+                </div>
+
+                <div class="field">
+                    <Label>Başlık</Label>
+                    <Input @bind-Value="_sendTitle" />
+                </div>
+                <div class="field">
+                    <Label>Mesaj</Label>
+                    <Textarea Rows="3" @bind-Value="_sendBody" />
+                </div>
+            </CardContent>
+            <CardFooter>
+                <Button Disabled="_isSending" IsLoading="_isSending" OnClick="SendAsync">Gönder</Button>
+            </CardFooter>
+        </Card>
+    </TabsContent>
+</Tabs>
 
 @code {
+    private const string TargetTypeSegment = "segment";
+    private const string TargetTypeUser = "user";
+
     private IReadOnlyList<AdminNotificationTemplateDto>? _templates;
     private string? _editingType;
     private string _editTitle = string.Empty;
@@ -138,7 +184,7 @@
     private bool _editEmail;
     private bool _editActive;
 
-    private string _targetType = "segment";
+    private string _targetType = TargetTypeSegment;
     private string _segmentRole = "client";
     private string _segmentCity = string.Empty;
     private string _targetUserId = string.Empty;
@@ -146,7 +192,7 @@
     private string _sendBody = string.Empty;
     private bool _isSending;
 
-    private bool _isLoading;
+    private bool _isLoading = true;
     private string? _errorMessage;
     private string? _infoMessage;
 
@@ -185,7 +231,28 @@
         }
     }
 
-    private void ToggleEditAsync(AdminNotificationTemplateDto template)
+    private static string ChannelLabel(AdminNotificationTemplateDto template)
+    {
+        var channels = new List<string>();
+        if (template.InAppEnabled)
+        {
+            channels.Add("in-app");
+        }
+
+        if (template.PushEnabled)
+        {
+            channels.Add("push");
+        }
+
+        if (template.EmailEnabled)
+        {
+            channels.Add("e-posta");
+        }
+
+        return channels.Count > 0 ? string.Join(", ", channels) : "—";
+    }
+
+    private void ToggleEdit(AdminNotificationTemplateDto template)
     {
         if (_editingType == template.Type)
         {
@@ -233,7 +300,7 @@
         }
 
         Guid? userId = null;
-        if (_targetType == "user")
+        if (_targetType == TargetTypeUser)
         {
             if (!Guid.TryParse(_targetUserId, out var parsed))
             {
@@ -250,8 +317,8 @@
             var request = new AdminSendNotificationDto(
                 _targetType,
                 userId,
-                _targetType == "segment" ? _segmentRole : null,
-                _targetType == "segment" && !string.IsNullOrWhiteSpace(_segmentCity) ? _segmentCity : null,
+                _targetType == TargetTypeSegment ? _segmentRole : null,
+                _targetType == TargetTypeSegment && !string.IsNullOrWhiteSpace(_segmentCity) ? _segmentCity : null,
                 null,
                 _sendTitle,
                 _sendBody);

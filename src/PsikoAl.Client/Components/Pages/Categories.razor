@@ -1,101 +1,106 @@
 @page "/categories"
-@rendermode InteractiveServer
 @inject IAdminClientService AdminClient
 @inject AdminSessionState Session
 @inject NavigationManager Navigation
 
 <PageTitle>Kategoriler — PsikoAl Admin</PageTitle>
 
-<div class="page-shell">
-    <header class="page-header">
-        <div>
-            <span class="page-eyebrow">PsikoAl Admin</span>
-            <h1 class="page-title">Kategoriler</h1>
-        </div>
-        <div class="page-header-actions">
-            <a class="btn-ghost" href="/users">Kullanıcılar</a>
-            <a class="btn-ghost" href="/experts">Uzman Onayları</a>
-            <a class="btn-ghost" href="/reviews">Yorumlar</a>
-            <a class="btn-ghost" href="/listings">İlanlar</a>
-            <a class="btn-ghost" href="/matches">Eşleşmeler</a>
-            <a class="btn-ghost" href="/notifications">Bildirimler</a>
-            <a class="btn-ghost" href="/assessments">Testler</a>
-            <span class="muted">@Session.Email</span>
-        </div>
-    </header>
+<PageHeader Title="Kategoriler"
+            Description="Uzmanlık alanlarının ve ilan filtrelerinin tek kaynağı — burada eklenen veya pasifleştirilen her kategori uygulamadaki uzmanlık seçimini doğrudan etkiler." />
 
-    <p class="muted">
-        Bu liste, uzman uzmanlık alanlarının ve ilan filtrelerinin tek kaynağıdır — burada eklenen/pasifleştirilen
-        her kategori, uygulamadaki uzmanlık seçimini doğrudan etkiler.
-    </p>
+@if (_errorMessage is not null)
+{
+    <Alert Variant="AlertVariant.Destructive" Class="mb-4">
+        <AlertDescription>@_errorMessage</AlertDescription>
+    </Alert>
+}
 
-    @if (_errorMessage is not null)
-    {
-        <p class="form-error">@_errorMessage</p>
-    }
-
-    <div class="detail-panel">
-        <h3 class="detail-heading">Yeni Kategori</h3>
-        <div class="toolbar">
-            <input class="field-input" style="width:140px" placeholder="slug (ör. anksiyete)" @bind="_newSlug" />
-            <input class="field-input" style="width:200px" placeholder="Ad (ör. Anksiyete ve Kaygı)" @bind="_newName" />
-            <input class="field-input" style="width:120px" placeholder="İkon (Lucide)" @bind="_newIcon" />
-            <input class="field-input toolbar-search" placeholder="Kısa özet" @bind="_newSummary" />
+<Card Class="mb-4">
+    <CardHeader>
+        <CardTitle>Yeni Kategori</CardTitle>
+        <CardDescription>Tüm alanlar zorunludur.</CardDescription>
+    </CardHeader>
+    <CardContent>
+        <div class="form-grid">
+            <div class="field">
+                <Label>Slug</Label>
+                <Input Placeholder="anksiyete" @bind-Value="_newSlug" />
+            </div>
+            <div class="field">
+                <Label>Ad</Label>
+                <Input Placeholder="Anksiyete ve Kaygı" @bind-Value="_newName" />
+            </div>
+            <div class="field">
+                <Label>İkon (Lucide)</Label>
+                <Input Placeholder="brain" @bind-Value="_newIcon" />
+            </div>
+            <div class="field">
+                <Label>Blog etiketi</Label>
+                <Input Placeholder="anksiyete" @bind-Value="_newBlogTag" />
+            </div>
+            <div class="field">
+                <Label>Kısa özet</Label>
+                <Input Placeholder="Tek cümlelik özet" @bind-Value="_newSummary" />
+            </div>
+            <div class="field">
+                <Label>Açıklama</Label>
+                <Input Placeholder="Detaylı açıklama" @bind-Value="_newDescription" />
+            </div>
         </div>
-        <div class="toolbar">
-            <input class="field-input toolbar-search" placeholder="Açıklama" @bind="_newDescription" />
-            <input class="field-input" style="width:140px" placeholder="Blog etiketi" @bind="_newBlogTag" />
-            <button class="btn-primary" disabled="@_isCreating" @onclick="CreateAsync">Ekle</button>
-        </div>
-    </div>
+    </CardContent>
+    <CardFooter>
+        <Button Disabled="_isCreating" IsLoading="_isCreating" OnClick="CreateAsync">Ekle</Button>
+    </CardFooter>
+</Card>
 
+<Card Class="table-card">
     @if (_isLoading)
     {
-        <p class="muted">Yükleniyor...</p>
+        <LoadingSkeleton />
     }
     else if (_categories is { Count: 0 })
     {
-        <p class="muted">Kayıt bulunamadı.</p>
+        <EmptyState Title="Kategori yok" Description="Yukarıdaki formdan ilk kategoriyi ekleyebilirsiniz." />
     }
     else if (_categories is not null)
     {
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>Sıra</th>
-                    <th>Ad</th>
-                    <th>Slug</th>
-                    <th>Durum</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Sıra</TableHead>
+                    <TableHead>Ad</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead Class="text-right">İşlem</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
                 @foreach (var category in _categories)
                 {
-                    <tr>
-                        <td>@category.SortOrder</td>
-                        <td>@category.Name</td>
-                        <td class="muted">@category.Slug</td>
-                        <td>
-                            <span class="chip @(category.IsActive ? "chip-active" : "chip-frozen")">
-                                @(category.IsActive ? "Aktif" : "Pasif")
-                            </span>
-                        </td>
-                        <td class="cell-actions">
-                            <button class="btn-ghost" @onclick="() => ToggleActiveAsync(category)">
+                    <TableRow>
+                        <TableCell>@category.SortOrder</TableCell>
+                        <TableCell>@category.Name</TableCell>
+                        <TableCell Class="text-muted-foreground">@category.Slug</TableCell>
+                        <TableCell>
+                            <StatusChip Status="@(category.IsActive ? "active" : "frozen")"
+                                        Label="@(category.IsActive ? "Aktif" : "Pasif")" />
+                        </TableCell>
+                        <TableCell Class="cell-actions">
+                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                    OnClick="() => ToggleActiveAsync(category)">
                                 @(category.IsActive ? "Pasifleştir" : "Aktifleştir")
-                            </button>
-                        </td>
-                    </tr>
+                            </Button>
+                        </TableCell>
+                    </TableRow>
                 }
-            </tbody>
-        </table>
+            </TableBody>
+        </Table>
     }
-</div>
+</Card>
 
 @code {
     private IReadOnlyList<AdminCategoryListItemDto>? _categories;
-    private bool _isLoading;
+    private bool _isLoading = true;
     private bool _isCreating;
     private string? _errorMessage;
 

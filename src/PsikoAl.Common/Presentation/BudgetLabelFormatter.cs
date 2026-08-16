@@ -2,7 +2,8 @@ using System.Globalization;
 
 namespace PsikoAl.Common.Presentation;
 
-// Davranış referansı: mock-db/helpers.js formatTRY + budgetLabelOf.
+// Davranış referansı: psikoal-app reposu, mock-db/helpers.js -> formatTRY + budgetLabelOf.
+// Sözleşme, bu dosyanın unit testlerinde kilitlenir (PsikoAl.Services.Tests/Presentation).
 public static class BudgetLabelFormatter
 {
     private static readonly CultureInfo TurkishCulture = CultureInfo.GetCultureInfo("tr-TR");
