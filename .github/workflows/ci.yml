@@ -84,8 +84,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      # Repo PRIVATE olduğu için GitHub native secret scanning GHAS gerektiriyor;
-      # gitleaks ücretsiz alternatif. fetch-depth: 0 — tüm geçmiş taranır.
+      # GitHub'ın native secret scanning'i push anında çalışır ve yalnız yeni içeriğe bakar;
+      # gitleaks TÜM GEÇMİŞİ her PR'da yeniden tarar ve merge'ü bloklayabilir. İkisi
+      # birbirinin yerine değil, üstüne geçer. fetch-depth: 0 — tüm geçmiş taranır.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
