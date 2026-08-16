@@ -5,12 +5,11 @@ işler. Güvenlik açığı bildirimlerini ciddiye alıyoruz.
 
 ## Açık bildirimi
 
+- **Tercih edilen kanal:** GitHub Security → *Report a vulnerability*
+  (private vulnerability reporting bu repoda açıktır)
 - **E-posta:** yazilimuygun@gmail.com — konu satırına `[GÜVENLİK]` yazın
 
-> Bu repo PRIVATE'tır ve GitHub private vulnerability reporting özelliği GitHub Advanced
-> Security gerektirdiği için **kapalıdır**. Tek geçerli kanal yukarıdaki e-postadır.
-
-Açığı herkese açık bir yerde paylaşmayın.
+Açığı **herkese açık issue olarak açmayın.**
 
 ## Taahhüdümüz
 
@@ -20,13 +19,25 @@ Açığı herkese açık bir yerde paylaşmayın.
 | Etki değerlendirmesi | 7 gün içinde |
 | Düzeltme planı | 14 gün içinde |
 
-## Secret yönetimi
+## Kapsam
 
-- Lokal geliştirmede anahtarlar **`dotnet user-secrets`** ile verilir;
+Bu repo PUBLIC'tir ve veritabanı şeması, RLS politikaları ile admin panel kodu herkese
+açıktır. Bu bilinçli bir tercihtir; güvenlik gizliliğe değil, katmanlara dayanır:
+
+- `service_role` anahtarı ve Postgres parolası hiçbir koşulda repoda, log'da veya
+  istemcide bulunmaz. Lokal geliştirmede **`dotnet user-secrets`** kullanılır;
   şablon: `src/PsikoAl.Api/appsettings.Local.example.json`.
-- `service_role` anahtarı ve Postgres parolası **hiçbir koşulda** repoya, log'a veya
-  istemciye girmez.
-- CI'da `gitleaks` job'u tüm geçmişi tarar. Sızmış bir anahtar bulunursa yapılacak:
-  önce **rotate**, sonra geçmiş temizliği. Sadece commit silmek yeterli değildir.
-- Supabase legacy JWT rotasyonu `anon` anahtarını da geçersiz kılar — ikisi birden
-  yeniden dağıtılmalıdır (mobil istemci dahil).
+- Supabase `anon` anahtarı mobil bundle içinde bulunur — tanım gereği geneldir.
+  Veri erişimini **RLS politikaları** korur. Politikalar bu repoda okunabilir olduğu için
+  **RLS'i atlatan her bulgu yüksek öncelikli geçerli bir bildirimdir**, lütfen iletin.
+- Supabase proje referansı bir kimlik bilgisi değildir; her istek ayrıca kimlik doğrular.
+- CI'da her PR'da: `gitleaks` (tüm geçmiş), CodeQL (`csharp`), NetAnalyzers.
+
+Mobil istemci `MMDProjects/psikoal-app` reposundadır.
+
+## Secret sızıntısında yapılacak
+
+Sırayla: **1)** anahtarı rotate et, **2)** sonra geçmişi temizle.
+Sadece commit silmek yeterli DEĞİLDİR — public bir repoda içerik zaten kopyalanmış
+sayılır. Supabase legacy JWT rotasyonu `anon` anahtarını da geçersiz kılar; ikisi
+birden yeniden dağıtılmalıdır (mobil istemci dahil).
