@@ -145,15 +145,19 @@ jobs:
           fail=0
           for f in $new_files; do
             echo "Kontrol: $f"
-            if grep -qiE 'create table' "$f" && ! grep -qiE 'enable row level security' "$f"; then
+            # SQL yorumları ÇIKARILIR. Aksi hâlde "-- RLS bilerek yok" gibi bir yorum
+            # satırı grep'i tatmin eder ve kapı sessizce yeşil döner (yanlış negatif).
+            body=$(perl -0777 -pe 's{/\*.*?\*/}{}gs' "$f" | sed -E 's/--.*$//')
+
+            if echo "$body" | grep -qiE 'create +table' && ! echo "$body" | grep -qiE 'enable +row +level +security'; then
               echo "::error file=$f::Yeni tablo oluşturuluyor ama 'enable row level security' yok."
               fail=1
             fi
-            if grep -qiE '^\s*create policy' "$f" && ! grep -qiE 'drop policy if exists' "$f"; then
+            if echo "$body" | grep -qiE '(^|;)[[:space:]]*create +policy' && ! echo "$body" | grep -qiE 'drop +policy +if +exists'; then
               echo "::error file=$f::'create policy' öncesinde 'drop policy if exists' yok — migration tekrar koşunca patlar."
               fail=1
             fi
-            if grep -qiE '^\s*insert into' "$f" && ! grep -qiE 'on conflict' "$f"; then
+            if echo "$body" | grep -qiE '(^|;)[[:space:]]*insert +into' && ! echo "$body" | grep -qiE 'on +conflict'; then
               echo "::error file=$f::Seed insert'ünde 'on conflict' yok — idempotent değil."
               fail=1
             fi
@@ -164,10 +168,9 @@ jobs:
     name: Migration uygulanabilirlik (lokal Supabase)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # İLK SÜRÜM: kırmızı dönebilir. Gerçek bir FAIL üretip düzeltilene kadar
-    # required check YAPILMAZ ve bu satır KALDIRILMAZ.
-    # (docs/DEVOPS-PSIKOAL.md, Faz 3 / adım 25 + 30)
-    continue-on-error: true
+    # continue-on-error KALDIRILDI: bu job ilk koşumunda gerçek bir hata buldu
+    # (Supabase CLI *_init.sql adlı migration'ı sessizce atlıyordu, admin_users hiç
+    # oluşmuyordu) ve düzeltildikten sonra yeşile döndü. Artık gerçek bir kapı.
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 

@@ -53,7 +53,7 @@ satırı kaldırılmadan required yapılmaz. Aksi hâlde "sahte yeşil kapı" ku
 | `dev` | `quality`, `gitleaks` | `build-test`, `migration-lint`, `gitleaks` |
 | `master` / `main` | `quality`, `gitleaks`, `bundle`, `enforce-promotion` | `build-test`, `migration-lint`, `gitleaks`, `migration-apply`, `enforce-promotion` |
 
-`migration-apply` `continue-on-error: true` satırı kaldırıldıktan sonra required yapılır.
+`migration-apply` artık gerçek bir kapı — `continue-on-error` kaldırıldı (2026-08-17).
 
 ### Güvenlik katmanları — iki repo da aynı
 
