@@ -50,7 +50,21 @@ satırı kaldırılmadan required yapılmaz. Aksi hâlde "sahte yeşil kapı" ku
 
 | Hedef | psikoal-app | psikoal-backend |
 |---|---|---|
-| `dev` | `quality` | `build-test`, `migration-lint` |
-| `master` / `main` | `quality`, `bundle`, `enforce-promotion` | `build-test`, `migration-lint`, `gitleaks`, `enforce-promotion` |
+| `dev` | `quality`, `gitleaks` | `build-test`, `migration-lint`, `gitleaks` |
+| `master` / `main` | `quality`, `gitleaks`, `bundle`, `enforce-promotion` | `build-test`, `migration-lint`, `gitleaks`, `migration-apply`, `enforce-promotion` |
 
-`migration-apply` şu an `continue-on-error: true` ile koşuyor — required DEĞİL.
+`migration-apply` `continue-on-error: true` satırı kaldırıldıktan sonra required yapılır.
+
+### Güvenlik katmanları — iki repo da aynı
+
+Her iki repo da PUBLIC. Üç katman birbirinin yerine değil, üstüne geçer:
+
+| Katman | Nerede koşar | Neyi yakalar |
+|---|---|---|
+| Push protection | GitHub, push anında | Bilinen sağlayıcı token formatları — daha repoya girmeden bloklar |
+| `gitleaks` | CI, her PR'da, tüm geçmiş | Jenerik/entropi tabanlı secret'lar (DB parolası gibi) |
+| CodeQL | CI + haftalık | Kod açıkları (injection, XSS, path traversal) — secret DEĞİL |
+
+`gitleaks` bilerek kaldırılmadı: GitHub'ın jenerik secret pattern'leri
+(`secret_scanning_non_provider_patterns`) GHAS gerektiriyor ve açılamıyor. Bu projedeki
+en somut risk olan Postgres parolası tam olarak o boşluğa düşüyor.
