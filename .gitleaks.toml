@@ -2,20 +2,10 @@
 [extend]
 useDefault = true
 
-# Yalnızca DOĞRULANMIŞ yanlış pozitifler. Bir kayıt eklemeden önce bulguyu elle aç ve
-# gerçek bir anahtar olmadığını kanıtla. Gerçek bir anahtar sızmışsa allowlist DEĞİL,
-# ROTASYON gerekir — commit silmek yeterli değildir.
+# Allowlist BİLEREK boş. Daha önce DEVOPS-PSIKOAL.md'deki kısaltılmış JWT alıntıları
+# için tek bir geçmiş commit muaf tutuluyordu; 2026-08-19'da geçmiş yeniden yazılarak
+# o dizeler tamamen kaldırıldı ve muafiyet gereksiz kaldı.
 #
-# Bu kayıt: DEVOPS-PSIKOAL.md, denetim kanıtı olarak appsettings.Local.json'dan alıntı
-# yapıyordu; alıntılanan JWT'ler KISALTILMIŞ ön eklerdi ("<JWT — kısaltılmış>"),
-# kullanılabilir anahtar değil. Metin sonraki commit'te temizlendi; muafiyet YALNIZ
-# o tek geçmiş commit + o tek dosya için geçerli (condition = AND). Dosyanın sonraki
-# sürümleri normal şekilde taranmaya devam eder.
-#
-# NOT: aynı dosyadaki GERÇEK prod Postgres parolası repoya girmeden redakte edildi ve
-# hâlâ ROTASYON bekliyor (docs/DEVOPS-PSIKOAL.md, Faz 0 / adım 3).
-[[allowlists]]
-description = "DEVOPS-PSIKOAL.md içindeki kısaltılmış JWT alıntıları (tek geçmiş commit)"
-condition = "AND"
-commits = ["7a3d1698c41be2e11446ae113711e0e3078d69b0"]
-paths = ['''docs/DEVOPS-PSIKOAL\.md''']
+# Buraya bir kayıt eklemeden önce bulguyu elle aç ve gerçek bir anahtar olmadığını
+# kanıtla. Gerçek bir anahtar sızmışsa allowlist DEĞİL, ROTASYON gerekir —
+# commit silmek yeterli değildir, public repoda içerik kopyalanmış sayılır.
