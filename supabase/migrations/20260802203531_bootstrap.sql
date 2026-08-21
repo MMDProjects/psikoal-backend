@@ -1,4 +1,4 @@
--- 0001_bootstrap: temel altyapı tabloları (system_settings, audit_logs, admin_users)
+-- bootstrap: temel altyapı tabloları (system_settings, audit_logs, admin_users)
 --
 -- DİKKAT — dosya adı "init" OLAMAZ. Supabase CLI, adı `*_init.sql` olan migration'ı
 -- `supabase start` / `db reset` sırasında SESSİZCE ATLAR ("replace 'init' with a
