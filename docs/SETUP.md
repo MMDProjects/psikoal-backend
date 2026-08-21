@@ -11,7 +11,7 @@
    (JWT doğrulaması Supabase'in yayınladığı JWKS/OIDC discovery ile yapılır — ayrıca "JWT Secret" almana gerek yok.)
 3. **Database → Connection string** (URI, pooler/Session mode) → Postgres bağlantı dizesi.
 
-Not: 3 Storage bucket'ı (`avatars` public-read, `blog-media` public-read, `documents` private) elle oluşturmana gerek yok — `supabase/migrations/00000000000002_storage_buckets.sql` ile (Supabase MCP üzerinden) otomatik kuruldu, RLS policy'leriyle birlikte.
+Not: 3 Storage bucket'ı (`avatars` public-read, `blog-media` public-read, `documents` private) elle oluşturmana gerek yok — `supabase/migrations/20260802204825_storage_buckets.sql` ile (Supabase MCP üzerinden) otomatik kuruldu, RLS policy'leriyle birlikte.
 
 ## 2. Lokal Konfigürasyon
 
@@ -48,3 +48,31 @@ Supabase Dashboard → **SQL Editor** → `supabase/migrations/*.sql` dosyaları
 
 - **Iyzico sandbox** hesabı (Dilim 8 — ödeme'den önce)
 - SMTP / Supabase e-posta şablonları (Dilim 6 — bildirimlerden önce)
+
+## MCP (Supabase) — ortam değişkeni
+
+`.mcp.json` prod proje referansını **düz metin tutmaz**; repo public olduğu için
+`${SUPABASE_PROJECT_REF}` üzerinden okur. Değişken tanımlı değilse MCP bağlantısı
+boş bir `project_ref` ile kurulmaya çalışır ve sessizce çalışmaz.
+
+Windows (kullanıcı düzeyinde, bir kez):
+
+```powershell
+[Environment]::SetEnvironmentVariable('SUPABASE_PROJECT_REF', '<proje-ref>', 'User')
+```
+
+Ardından terminali ve editörü yeniden başlat — ortam değişkenleri süreç başlangıcında okunur.
+
+## Supabase CLI
+
+Ayrı kurulum gerekmez, `npx supabase` çalışır:
+
+```bash
+npx supabase --version
+npx supabase login          # veya: SUPABASE_ACCESS_TOKEN ortam değişkeni
+npx supabase link --project-ref $SUPABASE_PROJECT_REF
+npx supabase migration list
+```
+
+`login` bir tarayıcı akışı açar. Otomasyon/CI için Dashboard → Account → Access Tokens
+üzerinden kişisel erişim token'ı üretip `SUPABASE_ACCESS_TOKEN` olarak verin.

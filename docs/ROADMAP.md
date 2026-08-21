@@ -28,7 +28,7 @@ Sözleşme kaynakları: `docs/BACKEND_REQUIREMENTS.md`, `docs/ADMIN_PANEL_REQUIR
 1. GitHub repo: `psikoal-backend` (kullanıcı `gh` ile açar/açtırır). Yapı: `/supabase/migrations`, `/src`, `/.github/workflows`.
 2. Supabase projesi + Storage bucket'ları (`avatars`, `documents`, `blog-media`) — kullanıcı Supabase hesabında oluşturur; ben SQL/policy'leri yazarım.
 3. **`csharp-clean-code` skill'i yüklenerek** solution iskeleti: `PsikoAl.Domain` / `PsikoAl.Application` / `PsikoAl.Infrastructure` (EF Core + Supabase servisleri) / `PsikoAl.Api` (REST) / `PsikoAl.AdminWeb` (Blazor Server) + test projeleri.
-4. `0001_bootstrap` migration: `system_settings`, `audit_logs`, `admin_users` + ortak enum/extension'lar.
+4. İlk (`bootstrap`) migration: `system_settings`, `audit_logs`, `admin_users` + ortak enum/extension'lar.
 5. Api tarafında Supabase JWT doğrulama + `/auth/login|register|refresh` proxy'sinin iskeleti + `whoami` ucu (uçtan uca token akışı kanıtı).
 6. CI: build + test + migration lint. Contract-test iskeleti: frontend Zod şemalarından türetilen yanıt doğrulaması (her dilimin geçiş kriteri).
 
