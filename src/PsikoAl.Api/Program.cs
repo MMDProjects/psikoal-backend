@@ -127,6 +127,17 @@ builder.Services
             options.Authority = supabase.Url.TrimEnd('/') + "/auth/v1";
         }
 
+        // Lokal Supabase stack'i (supabase start) http konuşur: Authority
+        // http://127.0.0.1:54321/auth/v1 olur. RequireHttpsMetadata varsayılan olarak
+        // açık olduğundan JwtBearer'ın kendi PostConfigure adımı istisna fırlatır ve
+        // /health dahil TÜM istekler 500'e düşer — yani API lokal stack'e karşı hiç
+        // ayağa kalkamaz. Bu, geliştirme ve E2E için zorunlu bir kaçış kapısı.
+        //
+        // Yalnız Development ortamında gevşetilir; Staging/Production'da açık kalır.
+        // ASPNETCORE_ENVIRONMENT prod'da asla Development olmamalı (bu kural
+        // docs/DEVOPS-PSIKOAL.md, deploy adımının doğrulama listesinde).
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
