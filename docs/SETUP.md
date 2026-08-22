@@ -47,7 +47,13 @@ Supabase Dashboard → **SQL Editor** → `supabase/migrations/*.sql` dosyaları
 ## 5. İleride Gerekecekler
 
 - **Iyzico sandbox** hesabı (Dilim 8 — ödeme'den önce)
-- SMTP / Supabase e-posta şablonları (Dilim 6 — bildirimlerden önce)
+- **Brevo API anahtarı** (bildirim e-postaları — `Brevo:ApiKey`). Kod hazır ama devrede
+  değil: anahtar boş ve tüm `notification_templates` satırlarında `email_enabled = false`.
+  Anahtar girildikten sonra hangi şablonların e-posta göndereceği admin panelden seçilir.
+- **Supabase auth e-posta şablonları — PROD tarafı.** Lokal şablonlar Türkçeleştirildi
+  (`supabase/config.toml` + `supabase/templates/*.html`) ama bu blok yalnız lokal stack'i
+  etkiler. Prod için: `supabase config push` ya da Dashboard → Authentication → Email
+  Templates. Atlanırsa kullanıcı Türkçe uygulamadan İngilizce e-posta alır.
 
 ## MCP (Supabase) — ortam değişkeni
 
