@@ -51,20 +51,34 @@ public sealed class AdminDashboardService(IUnitOfWork unitOfWork) : IAdminDashbo
         var activeMatches = await unitOfWork.Matches.Query()
             .CountAsync(match => match.Status == MatchStatuses.Active, cancellationToken);
 
-        var listingsByDay = await unitOfWork.Listings.Query()
+        // Gruplama BELLEKTE yapılıyor, veritabanında DEĞİL.
+        //
+        // `GroupBy(x => x.CreatedAt.UtcDateTime.Date)` Npgsql tarafından SQL'e
+        // ÇEVRİLEMİYOR: timestamptz kolonu için DateTimeOffset -> DateTime -> Date
+        // zinciri "No coercion operator is defined between types 'DateTimeOffset'
+        // and 'Nullable<DateTime>'" ile patlıyordu. Sonuç: /admin/dashboard/stats
+        // 500 dönüyor ve panelin AÇILIŞ SAYFASI tamamen boş kalıyordu — hem de
+        // sessizce, çünkü Blazor sayfası hatayı yakalayıp boş tablo gösteriyor.
+        //
+        // Yalnız CreatedAt kolonu ve yalnız trend penceresi çekiliyor; taşınan veri
+        // gün sayısıyla sınırlı, satırın tamamı hiç okunmuyor.
+        var listingDates = await unitOfWork.Listings.Query()
             .Where(listing => listing.CreatedAt >= trendStart)
-            .GroupBy(listing => listing.CreatedAt.UtcDateTime.Date)
-            .Select(group => new { Day = group.Key, Count = group.Count() })
+            .Select(listing => listing.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        var matchesByDay = await unitOfWork.Matches.Query()
+        var matchDates = await unitOfWork.Matches.Query()
             .Where(match => match.CreatedAt >= trendStart)
-            .GroupBy(match => match.CreatedAt.UtcDateTime.Date)
-            .Select(group => new { Day = group.Key, Count = group.Count() })
+            .Select(match => match.CreatedAt)
             .ToListAsync(cancellationToken);
 
-        var listingCounts = listingsByDay.ToDictionary(row => DateOnly.FromDateTime(row.Day), row => row.Count);
-        var matchCounts = matchesByDay.ToDictionary(row => DateOnly.FromDateTime(row.Day), row => row.Count);
+        var listingCounts = listingDates
+            .GroupBy(createdAt => DateOnly.FromDateTime(createdAt.UtcDateTime))
+            .ToDictionary(group => group.Key, group => group.Count());
+
+        var matchCounts = matchDates
+            .GroupBy(createdAt => DateOnly.FromDateTime(createdAt.UtcDateTime))
+            .ToDictionary(group => group.Key, group => group.Count());
 
         var trendStartDay = DateOnly.FromDateTime(trendStart.UtcDateTime);
         var lastDays = Enumerable.Range(0, TrendDayCount)
