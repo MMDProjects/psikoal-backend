@@ -5,7 +5,7 @@
 
 <PageTitle>Giriş — PsikoAl Admin</PageTitle>
 
-<div class="auth-shell">
+<div class="auth-shell" data-testid="screen-login">
     <Card Class="auth-card">
         <CardHeader>
             <span class="auth-brand">PsikoAl Admin</span>
@@ -15,23 +15,23 @@
         <CardContent Class="space-y-4">
             <div class="field">
                 <Label For="email">E-posta</Label>
-                <Input id="email" Type="email" @bind-Value="_email" Placeholder="ornek@psikoal.com" />
+                <Input id="email" data-testid="login-email" Type="email" @bind-Value="_email" Placeholder="ornek@psikoal.com" />
             </div>
 
             <div class="field">
                 <Label For="password">Şifre</Label>
-                <Input id="password" Type="password" @bind-Value="_password" />
+                <Input id="password" data-testid="login-password" Type="password" @bind-Value="_password" />
             </div>
 
             @if (_errorMessage is not null)
             {
                 <Alert Variant="AlertVariant.Destructive">
-                    <AlertDescription>@_errorMessage</AlertDescription>
+                    <AlertDescription data-testid="login-error">@_errorMessage</AlertDescription>
                 </Alert>
             }
         </CardContent>
         <CardFooter>
-            <Button Class="w-full" Disabled="_isBusy" IsLoading="_isBusy" OnClick="SubmitAsync">
+            <Button Class="w-full" data-testid="login-submit" Disabled="_isBusy" IsLoading="_isBusy" OnClick="SubmitAsync">
                 @(_isBusy ? "Giriş yapılıyor..." : "Giriş Yap")
             </Button>
         </CardFooter>

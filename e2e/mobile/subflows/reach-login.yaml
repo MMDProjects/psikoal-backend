@@ -1,0 +1,28 @@
+# Temiz kurulumdan login ekranina ulasir.
+#
+# NEDEN AYRI BIR ADIM: `clearState: true` AsyncStorage'i siliyor, dolayisiyla
+# onboardingStore.hasSeenWelcome false doguyor ve uygulama ONCE karsilama turunu
+# gosteriyor (src/app/(auth)/welcome.tsx). Bu bir hata degil, dogru ilk-acilis
+# davranisi — akislarin bunu bilmesi gerekiyor.
+#
+# `optional: true` bilincli: oturum durumu ya da store degisirse karsilama
+# atlanabilir; o durumda bu adim sessizce gecilir ve akis login'de devam eder.
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: "screen-welcome"
+    timeout: 60000
+    optional: true
+
+- tapOn:
+    id: "welcome-skip"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "screen-login"
+    timeout: 30000

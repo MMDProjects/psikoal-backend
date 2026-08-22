@@ -1,0 +1,26 @@
+# Danışan olarak giriş yapar ve ana ekranın yüklendiğini doğrular.
+# Çağıran akış: runFlow: ../subflows/login-as-client.yaml
+appId: ${MAESTRO_APP_ID}
+---
+# Karsilama turunu atlayip login ekranina ulas (clearState sonrasi ilk acilis
+# her zaman welcome.tsx gosterir).
+- runFlow: ../subflows/reach-login.yaml
+
+- tapOn:
+    id: "login-email"
+- inputText: ${E2E_CLIENT_EMAIL}
+
+- tapOn:
+    id: "login-password"
+- inputText: ${E2E_CLIENT_PASSWORD}
+- hideKeyboard
+
+- tapOn:
+    id: "login-submit"
+
+# Ana ekran gelene kadar bekle. Sabit `wait` KULLANILMAZ: emülatörün hızına göre
+# ya flaky olur ya da her koşuma boş saniye ekler.
+- extendedWaitUntil:
+    visible:
+      id: "screen-home-client"
+    timeout: 20000
