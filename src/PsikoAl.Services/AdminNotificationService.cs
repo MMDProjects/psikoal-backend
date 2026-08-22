@@ -24,7 +24,11 @@ public sealed class AdminNotificationService(
             _ => throw new DomainException(ErrorKeys.ValidationFailed, "targetType"),
         };
 
-        var variables = new Dictionary<string, string> { ["body"] = request.Body };
+        var variables = new Dictionary<string, string>
+        {
+            ["title"] = request.Title,
+            ["body"] = request.Body,
+        };
         foreach (var userId in targetUserIds)
         {
             await notificationService.NotifyAsync(userId, NotificationTypes.System, variables, dataJson: null, cancellationToken);
