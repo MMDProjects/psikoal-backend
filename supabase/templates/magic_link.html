@@ -1,0 +1,24 @@
+<!--
+  Tek kullanımlık giriş bağlantısı. Bugün uygulama bu akışı kullanmıyor (giriş
+  e-posta + şifre ile), ama GoTrue şablonu varsayılan İngilizce metinle duruyor.
+  Akış bir gün açılırsa dil sapması yeniden doğmasın diye şimdi çevrildi.
+-->
+<div style="font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; color: #0F1B26;">
+  <p style="font-size: 20px; font-weight: 700; margin: 0 0 20px;">Giriş bağlantınız</p>
+
+  <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+    PsikoAl hesabınıza giriş yapmak için aşağıdaki bağlantıya dokunun.
+  </p>
+
+  <p style="margin: 0 0 24px;">
+    <a
+      href="{{ .ConfirmationURL }}"
+      style="display: inline-block; background: #0EA5E9; color: #FFFFFF; text-decoration: none; padding: 12px 22px; border-radius: 10px; font-size: 15px; font-weight: 600;"
+      >Giriş yap</a
+    >
+  </p>
+
+  <p style="font-size: 13px; line-height: 1.6; color: #5A6B78; margin: 0;">
+    Bağlantı güvenlik gereği kısa süre içinde geçerliliğini yitirir.
+  </p>
+</div>

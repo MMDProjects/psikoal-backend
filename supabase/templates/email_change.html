@@ -1,0 +1,24 @@
+<!--
+  E-posta adresi değişikliği onayı. Varsayılanı İngilizce ("Confirm email change").
+  Hesap güvenliğini etkileyen bir işlem olduğu için metnin anlaşılır olması önemli.
+-->
+<div style="font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; color: #0F1B26;">
+  <p style="font-size: 20px; font-weight: 700; margin: 0 0 20px;">E-posta değişikliğini onaylayın</p>
+
+  <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+    PsikoAl hesabınızın e-posta adresini değiştirme talebi aldık. Değişikliği
+    tamamlamak için aşağıdaki bağlantıya dokunun.
+  </p>
+
+  <p style="margin: 0 0 24px;">
+    <a
+      href="{{ .ConfirmationURL }}"
+      style="display: inline-block; background: #0EA5E9; color: #FFFFFF; text-decoration: none; padding: 12px 22px; border-radius: 10px; font-size: 15px; font-weight: 600;"
+      >Değişikliği onayla</a
+    >
+  </p>
+
+  <p style="font-size: 13px; line-height: 1.6; color: #5A6B78; margin: 0;">
+    Bu talebi siz yapmadıysanız hesabınızın şifresini hemen değiştirin.
+  </p>
+</div>
