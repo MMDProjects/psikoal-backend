@@ -47,7 +47,21 @@ public sealed class AuthService(
             throw new DomainException(ErrorKeys.ValidationFailed, "confirmPassword");
         }
 
-        await supabaseAuth.LoginAsync(new LoginRequestDto(email, request.CurrentPassword), cancellationToken);
+        // Mevcut şifre, login denemesiyle doğrulanıyor. Hatayı olduğu gibi bırakmak
+        // kullanıcıya şifre DEĞİŞTİRME formunda "E-posta veya şifre hatalı" derdi —
+        // oysa o formda e-posta alanı yok. Kullanıcı zaten oturum açmış olduğu için
+        // hangi alanın hatalı olduğunu söylemek bir bilgi sızıntısı da değil.
+        try
+        {
+            await supabaseAuth.LoginAsync(
+                new LoginRequestDto(email, request.CurrentPassword),
+                cancellationToken);
+        }
+        catch (DomainException exception) when (exception.ErrorKey == ErrorKeys.AuthInvalidCredentials)
+        {
+            throw new DomainException(ErrorKeys.AuthCurrentPasswordInvalid, "currentPassword");
+        }
+
         await supabaseAdmin.SetPasswordAsync(userId, request.NewPassword, cancellationToken);
     }
 
