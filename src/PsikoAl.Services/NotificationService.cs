@@ -129,5 +129,6 @@ public sealed class NotificationService(
             notification.Body,
             notification.CreatedAt,
             RelativeTimeTr.From(notification.CreatedAt),
-            notification.Read);
+            notification.Read,
+            PushContent.EntityIdFrom(notification.Data));
 }

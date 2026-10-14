@@ -7,4 +7,5 @@ public sealed record NotificationDto(
     string Body,
     DateTimeOffset CreatedAt,
     string TimeLabel,
-    bool Read);
+    bool Read,
+    string? EntityId);
