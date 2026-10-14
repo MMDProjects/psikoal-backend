@@ -1,0 +1,8 @@
+# gitleaks muafiyetleri — parmak izi başına, gerekçeli. Kural için: .gitleaks.toml
+#
+# SupabaseStorageServiceTests.cs:21 ve :36 — imzalı URL ayrıştırma testinin SAHTE token'ı:
+# "eyJhbGciOiJIUzI1NiJ9.test" = base64('{"alg":"HS256"}') + ".test". İmza ve gövde yok,
+# hiçbir sisteme karşı geçerli değil. Bulgu geçmiş commit'te olduğu için dosyayı
+# değiştirmek yetmez; tam geçmiş taraması her PR'da onu yeniden bulur.
+2046fac76374bfe124851956aca13d868b354cc6:src/PsikoAl.Services.Tests/SupabaseStorageServiceTests.cs:generic-api-key:21
+2046fac76374bfe124851956aca13d868b354cc6:src/PsikoAl.Services.Tests/SupabaseStorageServiceTests.cs:generic-api-key:36
