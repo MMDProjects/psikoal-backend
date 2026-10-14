@@ -190,7 +190,7 @@ builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetJsonConverter()));
 builder.Services.AddConfiguredForwardedHeaders(builder.Configuration);
 builder.Services.AddHealthChecks()
-    .AddDbContextCheck<AppDbContext>("database", tags: [ReadinessTag]);
+    .AddCheck<DatabaseHealthCheck>("database", tags: [ReadinessTag]);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<UnhandledExceptionHandler>();
 
