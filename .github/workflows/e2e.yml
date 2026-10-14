@@ -240,7 +240,7 @@ jobs:
         env:
           REF: ${{ github.head_ref || github.ref_name }}
         run: |
-          if git ls-remote --exit-code --heads https://github.com/MMDProjects/psikoal-app.git "$REF" > /dev/null; then
+          if git ls-remote --exit-code --heads https://github.com/psikologmobile/psikoal-app.git "$REF" > /dev/null; then
             echo "value=$REF" >> "$GITHUB_OUTPUT"
           else
             echo "value=dev" >> "$GITHUB_OUTPUT"
@@ -248,7 +248,7 @@ jobs:
 
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          repository: MMDProjects/psikoal-app
+          repository: psikologmobile/psikoal-app
           ref: ${{ steps.app-ref.outputs.value }}
           path: _app
 
@@ -355,7 +355,7 @@ jobs:
       # Contents:Read yetkili fine-grained bir PAT secret'ı eklenmeli.)
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          repository: MMDProjects/psikoal-app
+          repository: psikologmobile/psikoal-app
           ref: dev
           path: _app
 

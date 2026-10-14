@@ -8,8 +8,8 @@
 
 | Repo | Varsayılan dal | Geliştirme dalı |
 |---|---|---|
-| `MMDProjects/psikoal-app` | `master` | `dev` |
-| `MMDProjects/psikoal-backend` | `main` | `dev` |
+| `psikologmobile/psikoal-app` | `master` | `dev` |
+| `psikologmobile/psikoal-backend` | `main` | `dev` |
 
 İki repo **bağımsız** terfi eder. Ortak bir "sürüm" kavramı yoktur; çapraz uyumluluğu
 API sözleşme testleri (`PsikoAl.Api.ContractTests`) ve `contracts/` şemaları taşır.
