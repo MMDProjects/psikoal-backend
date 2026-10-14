@@ -132,7 +132,7 @@ public sealed class ListingsChainTests(E2EFixture fixture) : IAsyncLifetime
     /// Üç madde birlikte kanıtlıyor; tek başına feed kontrolü (b) ve (c)'yi kaçırırdı:
     /// (a) feed'de yok, (b) sahibi /listings/my?status=REJECTED_BY_ADMIN ile ilanı ve
     /// gönderilen red sebebini görüyor, (c) sahibi OLMAYAN bir token doğrudan
-    /// /listings/{id} çağırdığında 422 LISTING_NOT_FOUND alıyor — ListingService.GetByIdAsync
+    /// /listings/{id} çağırdığında 404 LISTING_NOT_FOUND alıyor — ListingService.GetByIdAsync
     /// "OPEN değil ve sahibi değil -> bulunamadı" maskelemesi. (c) düşseydi uzman, id'yi
     /// tahmin ederek reddedilmiş ilanın tüm içeriğini okuyabilirdi.
     /// </remarks>
@@ -167,7 +167,7 @@ public sealed class ListingsChainTests(E2EFixture fixture) : IAsyncLifetime
         // (c) — fixture.Admin gerçek ve FARKLI bir auth kullanıcısı; /listings ucunda
         // rol ayrıcalığı yok, yalnızca "sahibi mi" sorusu sorulur.
         var foreign = await fixture.Admin.GetAsync($"/listings/{listing.Id}");
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, foreign.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, foreign.StatusCode);
         Assert.Equal("LISTING_NOT_FOUND", await ErrorCodeAsync(foreign));
     }
 

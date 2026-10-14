@@ -181,9 +181,12 @@ builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetJsonConverter()));
 builder.Services.AddHealthChecks();
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<UnhandledExceptionHandler>();
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
 app.UseMiddleware<DomainExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseRateLimiter();

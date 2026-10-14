@@ -97,6 +97,7 @@ public static class ErrorMessagesTr
 
         // --- Genel ---
         [ErrorKeys.ValidationFailed] = "Girdiğiniz bilgileri kontrol edin.",
+        [ErrorKeys.ResourceConflict] = "Bu kayıt zaten mevcut. Sayfayı yenileyip tekrar deneyin.",
         [ErrorKeys.InternalError] = "Beklenmeyen bir hata oluştu. Tekrar deneyin.",
     };
 

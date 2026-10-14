@@ -55,5 +55,6 @@ public static class ErrorKeys
     public const string AssessmentScoreRuleNotFound = "ASSESSMENT_SCORE_RULE_NOT_FOUND";
     public const string AssessmentResultNotOwned = "ASSESSMENT_RESULT_NOT_OWNED";
     public const string ValidationFailed = "VALIDATION_FAILED";
+    public const string ResourceConflict = "RESOURCE_CONFLICT";
     public const string InternalError = "INTERNAL_ERROR";
 }

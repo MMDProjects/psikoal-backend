@@ -202,13 +202,13 @@ public sealed class AssessmentsChainTests(E2EFixture fixture) : IAsyncLifetime
     /// staleTime 10 dk), yani "listede görünmüyor" bir kısıt DEĞİL. Asıl kısıt
     /// AssessmentService.SubmitAsync içindeki "assessment is null || !assessment.IsActive"
     /// koruması; bu test onun gerçekten koştuğunu ölçüyor.
-    /// Beklenen kod 422, 404 DEĞİL: DomainExceptionMiddleware tüm DomainException'ları
-    /// 422'ye çeviriyor. Pasifleştirme ÖNCESİ aynı gövdenin 200 döndüğü de doğrulanıyor —
+    /// Beklenen kod 404: DomainExceptionMiddleware *_NOT_FOUND kodlarını 404'e, iş kuralı
+    /// ihlallerini 422'ye çeviriyor. Pasifleştirme ÖNCESİ aynı gövdenin 200 döndüğü de doğrulanıyor —
     /// yoksa test, gönderimin bambaşka bir sebeple (bozuk payload) patlamasıyla da
     /// yeşil olurdu.
     /// </remarks>
     [Fact]
-    public async Task Pasifleştirilmiş_teste_mobil_gönderim_422_ASSESSMENT_NOT_FOUND_ile_reddedilir()
+    public async Task Pasifleştirilmiş_teste_mobil_gönderim_404_ASSESSMENT_NOT_FOUND_ile_reddedilir()
     {
         var payload = NewSubmitPayload(0, 2, 0);
 
@@ -219,7 +219,7 @@ public sealed class AssessmentsChainTests(E2EFixture fixture) : IAsyncLifetime
         patch.EnsureSuccessStatusCode();
 
         var rejected = await fixture.Mobile.PostAsJsonAsync("/assessment/submit", payload);
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, rejected.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, rejected.StatusCode);
 
         var error = await rejected.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("ASSESSMENT_NOT_FOUND", error.GetProperty("code").GetString());
