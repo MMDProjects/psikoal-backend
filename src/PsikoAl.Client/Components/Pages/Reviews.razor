@@ -69,6 +69,13 @@
                                     Reddet
                                 </Button>
                             }
+                            else if (review.Status == "approved")
+                            {
+                                <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" data-testid="review-unpublish"
+                                        OnClick="() => AskUnpublish(review.Id)">
+                                    Yayından Kaldır
+                                </Button>
+                            }
                         </TableCell>
                     </TableRow>
                 }
@@ -79,11 +86,11 @@
 
 <ReasonDialog Open="_isRejectDialogOpen"
               OpenChanged="value => _isRejectDialogOpen = value"
-              Title="Yorumu reddet"
-              Description="Red sebebi danışana bildirim olarak iletilir."
+              Title="@(_isUnpublish ? "Yorumu yayından kaldır" : "Yorumu reddet")"
+              Description="@(_isUnpublish ? "Yorum uzman profilinden kalkar ve puan ortalaması yeniden hesaplanır. Sebep danışana bildirilir." : "Red sebebi danışana bildirim olarak iletilir.")"
               ReasonLabel="Red sebebi"
               Placeholder="Hakaret, kişisel veri, spam..."
-              ConfirmLabel="Reddet"
+              ConfirmLabel="@(_isUnpublish ? "Yayından Kaldır" : "Reddet")"
               OnConfirm="RejectConfirmedAsync" />
 
 @code {
@@ -93,6 +100,7 @@
     private string? _errorMessage;
     private bool _isRejectDialogOpen;
     private Guid? _pendingRejectReviewId;
+    private bool _isUnpublish;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -124,6 +132,14 @@
 
     private void AskReject(Guid reviewId)
     {
+        _isUnpublish = false;
+        _pendingRejectReviewId = reviewId;
+        _isRejectDialogOpen = true;
+    }
+
+    private void AskUnpublish(Guid reviewId)
+    {
+        _isUnpublish = true;
         _pendingRejectReviewId = reviewId;
         _isRejectDialogOpen = true;
     }
