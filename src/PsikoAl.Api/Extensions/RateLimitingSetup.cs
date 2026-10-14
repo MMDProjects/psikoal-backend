@@ -22,8 +22,16 @@ public static class RateLimitPolicies
 
 public static class RateLimitingSetup
 {
-    public static IServiceCollection AddConfiguredRateLimiting(this IServiceCollection services)
-        => services.AddRateLimiter(options =>
+    public const string SectionName = "RateLimiting";
+
+    // Kimlik denemesi limiti prod'da 10/dk. E2E zincirleri (seed + sözleşme testleri) aynı
+    // IP'den dakikada onlarca giriş yaptığı için yalnız test ortamı bunu yükseltir:
+    // RateLimiting__AuthPermitLimit. Prod yapılandırmasında bu anahtar YOKTUR.
+    public static IServiceCollection AddConfiguredRateLimiting(this IServiceCollection services, IConfiguration configuration)
+    {
+        var authPermitLimit = configuration.GetSection(SectionName).GetValue("AuthPermitLimit", 10);
+
+        return services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.OnRejected = async (context, cancellationToken) =>
@@ -31,11 +39,12 @@ public static class RateLimitingSetup
                     new ApiErrorDto(ErrorKeys.AuthRateLimited, ErrorMessagesTr.For(ErrorKeys.AuthRateLimited)),
                     cancellationToken);
 
-            options.AddPolicy(RateLimitPolicies.Auth, context => FixedWindow(IpPartition(context), permitLimit: 10));
+            options.AddPolicy(RateLimitPolicies.Auth, context => FixedWindow(IpPartition(context), authPermitLimit));
             options.AddPolicy(RateLimitPolicies.Refresh, context => FixedWindow(IpPartition(context), permitLimit: 120));
             options.AddPolicy(RateLimitPolicies.Upload, context => FixedWindow(UserOrIpPartition(context), permitLimit: 20));
             options.AddPolicy(RateLimitPolicies.AssessmentSubmit, context => FixedWindow(UserOrIpPartition(context), permitLimit: 30));
         });
+    }
 
     private static RateLimitPartition<string> FixedWindow(string partitionKey, int permitLimit)
         => RateLimitPartition.GetFixedWindowLimiter(
