@@ -67,6 +67,31 @@ public sealed class SupabaseStorageServiceTests
         Assert.Equal(Common.Constants.ErrorKeys.StorageUploadFailed, exception.ErrorKey);
     }
 
+    // Herkese açık bağlantı istemcinin ulaşabildiği adresten kurulur; API'nin Supabase'e
+    // konuştuğu iç adres (127.0.0.1) telefonda açılmaz. PublicUrl boşsa davranış değişmez.
+    [Theory]
+    [InlineData(null, "http://127.0.0.1:54321/storage/v1/object/public/blog-media/a/kapak.png")]
+    [InlineData("https://dosya.example.com/", "https://dosya.example.com/storage/v1/object/public/blog-media/a/kapak.png")]
+    [InlineData("https://dosya.example.com", "https://dosya.example.com/storage/v1/object/public/blog-media/a/kapak.png")]
+    public void GetPublicUrl_UsesThePublicBaseWhenConfigured(string? publicUrl, string expected)
+    {
+        var options = Microsoft.Extensions.Options.Options.Create(new Options.SupabaseOptions
+        {
+            Url = "http://127.0.0.1:54321",
+            AnonKey = "anon",
+            ServiceRoleKey = "service",
+            PublicUrl = publicUrl,
+        });
+        var httpClient = new HttpClient(new StubHandler("{}", HttpStatusCode.OK))
+        {
+            BaseAddress = new Uri("http://127.0.0.1:54321/"),
+        };
+
+        var url = new SupabaseStorageService(httpClient, options).GetPublicUrl("blog-media", "a/kapak.png");
+
+        Assert.Equal(expected, url);
+    }
+
     private static SupabaseStorageService CreateService(
         string responseBody,
         HttpStatusCode status = HttpStatusCode.OK)

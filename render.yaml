@@ -9,7 +9,7 @@ services:
     name: psikoal-api
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     branch: main
     dockerContext: .
     dockerfilePath: ./src/PsikoAl.Api/Dockerfile
@@ -43,7 +43,7 @@ services:
     name: psikoal-admin
     runtime: docker
     region: frankfurt
-    plan: starter
+    plan: free
     branch: main
     dockerContext: .
     dockerfilePath: ./src/PsikoAl.Client/Dockerfile
