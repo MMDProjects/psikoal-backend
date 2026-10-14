@@ -104,9 +104,9 @@
                                         }
                                         @if (_detail.Status == ListingStatusOpen)
                                         {
-                                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
-                                                    OnClick="() => CloseAsync(listing.Id)">
-                                                Kapat
+                                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" data-testid="listing-close"
+                                                    OnClick="() => AskClose(listing.Id)">
+                                                İlanı Kapat
                                             </Button>
                                             <Input Class="w-24" Type="number" @bind-Value="_extendDays" />
                                             <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
@@ -141,6 +141,14 @@
               ConfirmLabel="@ReasonDialogConfirmLabel"
               OnConfirm="ReasonConfirmedAsync" />
 
+<ConfirmDialog Open="_isCloseDialogOpen"
+               OpenChanged="value => _isCloseDialogOpen = value"
+               Title="İlanı kapat"
+               Description="İlan uzman akışından düşer ve yeni teklif alamaz. İşlem denetim kaydına yazılır."
+               ConfirmLabel="İlanı Kapat"
+               ConfirmVariant="ButtonVariant.Destructive"
+               OnConfirm="CloseConfirmedAsync" />
+
 @code {
     private const string ListingStatusPendingApproval = "PENDING_APPROVAL";
     private const string ListingStatusOpen = "OPEN";
@@ -164,6 +172,8 @@
     private bool _isLoading = true;
     private string? _errorMessage;
 
+    private bool _isCloseDialogOpen;
+    private Guid? _pendingCloseListingId;
     private bool _isReasonDialogOpen;
     private Guid? _pendingListingId;
     private ListingAction _pendingAction;
@@ -265,8 +275,22 @@
         }
     }
 
-    private async Task CloseAsync(Guid listingId)
+    private void AskClose(Guid listingId)
     {
+        _pendingCloseListingId = listingId;
+        _isCloseDialogOpen = true;
+    }
+
+    private async Task CloseConfirmedAsync()
+    {
+        if (_pendingCloseListingId is not { } listingId)
+        {
+            return;
+        }
+
+        _isCloseDialogOpen = false;
+        _pendingCloseListingId = null;
+
         var result = await AdminClient.CloseListingAsync(listingId, CancellationToken.None);
         _errorMessage = result.ErrorMessage;
         if (result.Succeeded)
