@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using PsikoAl.Common.Constants;
@@ -10,6 +11,7 @@ namespace PsikoAl.Services;
 
 public sealed class SupabaseAdminService(HttpClient httpClient) : ISupabaseAdminService
 {
+    private const string PermanentBanDuration = "876000h";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<Guid> CreateConfirmedUserAsync(
@@ -62,10 +64,39 @@ public sealed class SupabaseAdminService(HttpClient httpClient) : ISupabaseAdmin
         => UpdateUserAsync(userId, new { password = newPassword }, cancellationToken);
 
     public Task BanUserAsync(Guid userId, CancellationToken cancellationToken)
-        => UpdateUserAsync(userId, new { ban_duration = "876000h" }, cancellationToken);
+        => UpdateUserAsync(userId, new { ban_duration = PermanentBanDuration }, cancellationToken);
 
     public Task UnbanUserAsync(Guid userId, CancellationToken cancellationToken)
         => UpdateUserAsync(userId, new { ban_duration = "none" }, cancellationToken);
+
+    // Hard delete yerine anonimleştirme: profiles.id -> auth.users ON DELETE CASCADE
+    // zinciri ilanları, karşı tarafın eşleşme/teklif geçmişini ve uzmanın aldığı
+    // değerlendirmeleri de silerdi. Kimlik verisi (e-posta, ad, şifre) GoTrue'dan
+    // temizlenir, hesap kalıcı banlanır; satır yalnız ilişkisel bütünlük için kalır.
+    public async Task AnonymizeUserAsync(Guid userId, string anonymizedEmail, CancellationToken cancellationToken)
+    {
+        var response = await httpClient.PutAsJsonAsync(
+            $"auth/v1/admin/users/{userId}",
+            new
+            {
+                email = anonymizedEmail,
+                email_confirm = true,
+                password = Convert.ToBase64String(RandomNumberGenerator.GetBytes(48)),
+                user_metadata = new Dictionary<string, object?>
+                {
+                    ["first_name"] = null,
+                    ["last_name"] = null,
+                },
+                ban_duration = PermanentBanDuration,
+            },
+            JsonOptions,
+            cancellationToken);
+
+        if (response.StatusCode != HttpStatusCode.NotFound && !response.IsSuccessStatusCode)
+        {
+            throw new DomainException(ErrorKeys.AuthProviderError);
+        }
+    }
 
     private async Task UpdateUserAsync(Guid userId, object body, CancellationToken cancellationToken)
     {

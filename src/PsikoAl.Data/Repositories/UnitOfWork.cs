@@ -21,6 +21,8 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
     private ISystemSettingRepository? _systemSettings;
     private IAdminUserRepository? _adminUsers;
     private IAuditLogRepository? _auditLogs;
+    private IBlogRepository? _blogs;
+    private IBlogLikeRepository? _blogLikes;
 
     public IProfileRepository Profiles => _profiles ??= new ProfileRepository(dbContext);
 
@@ -59,6 +61,10 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
     public IAdminUserRepository AdminUsers => _adminUsers ??= new AdminUserRepository(dbContext);
 
     public IAuditLogRepository AuditLogs => _auditLogs ??= new AuditLogRepository(dbContext);
+
+    public IBlogRepository Blogs => _blogs ??= new BlogRepository(dbContext);
+
+    public IBlogLikeRepository BlogLikes => _blogLikes ??= new BlogLikeRepository(dbContext);
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken)
         => dbContext.SaveChangesAsync(cancellationToken);

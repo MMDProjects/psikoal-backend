@@ -15,20 +15,26 @@ public sealed class AdminListingService(
     IAdminGuard adminGuard,
     INotificationService notificationService) : IAdminListingService
 {
-    public async Task<IReadOnlyList<AdminListingListItemDto>> ListAsync(string? status, CancellationToken cancellationToken)
+    public async Task<AdminPagedResultDto<AdminListingListItemDto>> ListAsync(
+        AdminListingListQueryDto query,
+        CancellationToken cancellationToken)
     {
-        var query =
+        var listings =
             from listing in unitOfWork.Listings.Query()
             join client in unitOfWork.Profiles.Query() on listing.ClientId equals client.Id
             select new { listing, client };
 
-        if (!string.IsNullOrWhiteSpace(status))
+        if (!string.IsNullOrWhiteSpace(query.Status))
         {
-            query = query.Where(row => row.listing.Status == status);
+            listings = listings.Where(row => row.listing.Status == query.Status);
         }
 
-        var rows = await query.OrderByDescending(row => row.listing.CreatedAt).ToListAsync(cancellationToken);
-        return [.. rows.Select(row => new AdminListingListItemDto(
+        var (rows, meta) = await listings
+            .OrderByDescending(row => row.listing.CreatedAt)
+            .ThenBy(row => row.listing.Id)
+            .ToPageAsync(query.Page, query.PerPage, cancellationToken);
+
+        return new AdminPagedResultDto<AdminListingListItemDto>([.. rows.Select(row => new AdminListingListItemDto(
             row.listing.Id,
             $"{row.client.FirstName} {row.client.LastName}",
             row.client.Email,
@@ -36,7 +42,7 @@ public sealed class AdminListingService(
             row.listing.Specialization,
             BudgetLabelFormatter.Format(row.listing.BudgetMin, row.listing.BudgetMax),
             row.listing.Status,
-            row.listing.CreatedAt))];
+            row.listing.CreatedAt))], meta);
     }
 
     public async Task<AdminListingDetailDto> GetDetailAsync(Guid listingId, CancellationToken cancellationToken)

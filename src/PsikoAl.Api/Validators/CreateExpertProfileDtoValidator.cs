@@ -12,5 +12,7 @@ public sealed class CreateExpertProfileDtoValidator : AbstractValidator<CreateEx
         RuleFor(request => request.Specializations).NotEmpty().WithMessage(ErrorKeys.ValidationFailed);
         RuleFor(request => request.ExperienceYears).InclusiveBetween(0, 50).WithMessage(ErrorKeys.ValidationFailed);
         RuleFor(request => request.Bio).Length(50, 1000).WithMessage(ErrorKeys.ValidationFailed);
+        RuleFor(request => request.AvatarUrl).MustBeAbsoluteHttpUrl();
+        RuleFor(request => request.PersonalWebsite).MustBeAbsoluteHttpUrl();
     }
 }

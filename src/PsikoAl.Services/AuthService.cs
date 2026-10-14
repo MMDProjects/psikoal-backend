@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using PsikoAl.Common.Constants;
 using PsikoAl.Common.Dtos.Auth;
 using PsikoAl.Common.Dtos.Auth.Create;
@@ -6,13 +7,15 @@ using PsikoAl.Data.Entities;
 using PsikoAl.Data.Repositories.Abstractions;
 using PsikoAl.Services.Abstractions;
 using PsikoAl.Services.Mapping;
+using PsikoAl.Services.Options;
 
 namespace PsikoAl.Services;
 
 public sealed class AuthService(
     ISupabaseAuthService supabaseAuth,
     ISupabaseAdminService supabaseAdmin,
-    IUnitOfWork unitOfWork) : IAuthService
+    IUnitOfWork unitOfWork,
+    IOptions<LegalOptions> legalOptions) : IAuthService
 {
     public async Task<LoginResponseDto> LoginAsync(LoginRequestDto request, CancellationToken cancellationToken)
     {
@@ -25,13 +28,15 @@ public sealed class AuthService(
     {
         // Signup yerine admin-create (email_confirm) + login: e-posta doğrulama beklemeden
         // frontend'in beklediği session'ı döndürür ve signup e-posta rate limitine takılmaz.
-        await supabaseAdmin.CreateConfirmedUserAsync(
+        var userId = await supabaseAdmin.CreateConfirmedUserAsync(
             request.Email,
             request.Password,
             request.FirstName,
             request.LastName,
             request.Role,
             cancellationToken);
+
+        await RecordConsentAsync(userId, cancellationToken);
 
         return await LoginAsync(new LoginRequestDto(request.Email, request.Password), cancellationToken);
     }
@@ -47,7 +52,21 @@ public sealed class AuthService(
             throw new DomainException(ErrorKeys.ValidationFailed, "confirmPassword");
         }
 
-        await supabaseAuth.LoginAsync(new LoginRequestDto(email, request.CurrentPassword), cancellationToken);
+        // Mevcut şifre, login denemesiyle doğrulanıyor. Hatayı olduğu gibi bırakmak
+        // kullanıcıya şifre DEĞİŞTİRME formunda "E-posta veya şifre hatalı" derdi —
+        // oysa o formda e-posta alanı yok. Kullanıcı zaten oturum açmış olduğu için
+        // hangi alanın hatalı olduğunu söylemek bir bilgi sızıntısı da değil.
+        try
+        {
+            await supabaseAuth.LoginAsync(
+                new LoginRequestDto(email, request.CurrentPassword),
+                cancellationToken);
+        }
+        catch (DomainException exception) when (exception.ErrorKey == ErrorKeys.AuthInvalidCredentials)
+        {
+            throw new DomainException(ErrorKeys.AuthCurrentPasswordInvalid, "currentPassword");
+        }
+
         await supabaseAdmin.SetPasswordAsync(userId, request.NewPassword, cancellationToken);
     }
 
@@ -61,6 +80,20 @@ public sealed class AuthService(
         catch (HttpRequestException)
         {
         }
+    }
+
+    // KVKK ispat yükü veri sorumlusundadır: rızanın ne zaman ve hangi metin sürümüne
+    // verildiği profilde saklanır. Profil satırını auth.users trigger'ı açıyor.
+    private async Task RecordConsentAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var profile = await unitOfWork.Profiles.GetByIdAsync(userId, cancellationToken)
+            ?? throw new DomainException(ErrorKeys.ProfileNotFound);
+
+        var acceptedAt = DateTimeOffset.UtcNow;
+        profile.TermsAcceptedAt = acceptedAt;
+        profile.HealthDataConsentAt = acceptedAt;
+        profile.ConsentVersion = legalOptions.Value.ConsentVersion;
+        await unitOfWork.SaveChangesAsync(cancellationToken);
     }
 
     private async Task<Profile> GetActiveProfileAsync(Guid userId, CancellationToken cancellationToken)

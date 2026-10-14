@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="PsikoAl.Api.ContractTests/PsikoAl.Api.ContractTests.csproj" />
+  <Project Path="PsikoAl.Api.E2ETests/PsikoAl.Api.E2ETests.csproj" />
   <Project Path="PsikoAl.Api/PsikoAl.Api.csproj" />
   <Project Path="PsikoAl.Client/PsikoAl.Client.csproj" />
   <Project Path="PsikoAl.Common/PsikoAl.Common.csproj" />

@@ -1,7 +1,5 @@
 @page "/categories"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Kategoriler — PsikoAl Admin</PageTitle>
 
@@ -24,36 +22,36 @@
         <div class="form-grid">
             <div class="field">
                 <Label>Slug</Label>
-                <Input Placeholder="anksiyete" @bind-Value="_newSlug" />
+                <Input data-testid="category-new-slug" Placeholder="anksiyete" @bind-Value="_newSlug" />
             </div>
             <div class="field">
                 <Label>Ad</Label>
-                <Input Placeholder="Anksiyete ve Kaygı" @bind-Value="_newName" />
+                <Input data-testid="category-new-name" Placeholder="Anksiyete ve Kaygı" @bind-Value="_newName" />
             </div>
             <div class="field">
                 <Label>İkon (Lucide)</Label>
-                <Input Placeholder="brain" @bind-Value="_newIcon" />
+                <Input data-testid="category-new-icon" Placeholder="brain" @bind-Value="_newIcon" />
             </div>
             <div class="field">
                 <Label>Blog etiketi</Label>
-                <Input Placeholder="anksiyete" @bind-Value="_newBlogTag" />
+                <Input data-testid="category-new-blogtag" Placeholder="anksiyete" @bind-Value="_newBlogTag" />
             </div>
             <div class="field">
                 <Label>Kısa özet</Label>
-                <Input Placeholder="Tek cümlelik özet" @bind-Value="_newSummary" />
+                <Input data-testid="category-new-summary" Placeholder="Tek cümlelik özet" @bind-Value="_newSummary" />
             </div>
             <div class="field">
                 <Label>Açıklama</Label>
-                <Input Placeholder="Detaylı açıklama" @bind-Value="_newDescription" />
+                <Input data-testid="category-new-description" Placeholder="Detaylı açıklama" @bind-Value="_newDescription" />
             </div>
         </div>
     </CardContent>
     <CardFooter>
-        <Button Disabled="_isCreating" IsLoading="_isCreating" OnClick="CreateAsync">Ekle</Button>
+        <Button data-testid="category-create-submit" Disabled="_isCreating" IsLoading="_isCreating" OnClick="CreateAsync">Ekle</Button>
     </CardFooter>
 </Card>
 
-<Card Class="table-card">
+<Card Class="table-card" data-testid="category-table">
     @if (_isLoading)
     {
         <LoadingSkeleton />
@@ -77,7 +75,7 @@
             <TableBody>
                 @foreach (var category in _categories)
                 {
-                    <TableRow>
+                    <TableRow data-testid="@($"category-row-{category.Slug}")">
                         <TableCell>@category.SortOrder</TableCell>
                         <TableCell>@category.Name</TableCell>
                         <TableCell Class="text-muted-foreground">@category.Slug</TableCell>
@@ -87,6 +85,7 @@
                         </TableCell>
                         <TableCell Class="cell-actions">
                             <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                    data-testid="@($"category-toggle-{category.Slug}")"
                                     OnClick="() => ToggleActiveAsync(category)">
                                 @(category.IsActive ? "Pasifleştir" : "Aktifleştir")
                             </Button>
@@ -111,22 +110,7 @@
     private string _newDescription = string.Empty;
     private string _newBlogTag = string.Empty;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -134,11 +118,9 @@
         _errorMessage = null;
         try
         {
-            _categories = await AdminClient.ListCategoriesAsync(CancellationToken.None);
-            if (_categories is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListCategoriesAsync(CancellationToken.None);
+            _categories = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -164,9 +146,9 @@
                 new CreateCategoryDto(_newSlug, _newName, _newIcon, _newSummary, _newDescription, _newBlogTag, null),
                 CancellationToken.None);
 
-            if (created is null)
+            if (!created.Succeeded)
             {
-                _errorMessage = "Kategori oluşturulamadı (slug zaten kullanılıyor olabilir).";
+                _errorMessage = created.ErrorMessage;
                 return;
             }
 
@@ -186,7 +168,8 @@
             new UpdateCategoryDto(null, null, null, null, null, null, !category.IsActive, null),
             CancellationToken.None);
 
-        if (updated is not null)
+        _errorMessage = updated.ErrorMessage;
+        if (updated.Succeeded)
         {
             await LoadAsync();
         }

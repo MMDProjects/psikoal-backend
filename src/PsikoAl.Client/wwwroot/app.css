@@ -508,3 +508,37 @@ h1:focus {
 .chart-card-body {
     height: 300px;
 }
+
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    border-top: 1px solid hsl(var(--border));
+}
+
+.pager-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.audit-json {
+    margin: 0;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    background: hsl(var(--muted));
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+.blog-cover-preview {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+}

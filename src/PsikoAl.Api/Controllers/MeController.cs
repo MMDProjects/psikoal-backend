@@ -19,7 +19,7 @@ public sealed class MeController(
 {
     [Authorize]
     [HttpPost("me/avatar")]
-    [EnableRateLimiting("upload")]
+    [EnableRateLimiting(RateLimitPolicies.Upload)]
     [RequestSizeLimit(5 * 1024 * 1024)]
     public async Task<IActionResult> UploadAvatar(IFormFile file, CancellationToken cancellationToken)
     {

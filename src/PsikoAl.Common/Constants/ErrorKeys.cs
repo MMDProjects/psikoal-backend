@@ -11,13 +11,22 @@ public static class ErrorKeys
     public const string AuthRefreshTokenInvalid = "AUTH_REFRESH_TOKEN_INVALID";
     public const string AuthUserNotFound = "AUTH_USER_NOT_FOUND";
     public const string AuthAccountFrozen = "AUTH_ACCOUNT_FROZEN";
+    public const string AuthCurrentPasswordInvalid = "AUTH_CURRENT_PASSWORD_INVALID";
     public const string AuthProviderError = "AUTH_PROVIDER_ERROR";
+    public const string AccountInactive = "ACCOUNT_INACTIVE";
+    public const string ResetTokenInvalid = "RESET_TOKEN_INVALID";
+    public const string AuthSamePassword = "AUTH_SAME_PASSWORD";
+    public const string AuthTermsNotAccepted = "AUTH_TERMS_NOT_ACCEPTED";
+    public const string AuthHealthDataConsentRequired = "AUTH_HEALTH_DATA_CONSENT_REQUIRED";
     public const string ProfileNotFound = "PROFILE_NOT_FOUND";
     public const string AdminUserNotFound = "ADMIN_USER_NOT_FOUND";
+    public const string AccountDeletedImmutable = "ACCOUNT_DELETED_IMMUTABLE";
+    public const string AccountStatusTransitionInvalid = "ACCOUNT_STATUS_TRANSITION_INVALID";
     public const string ExpertNotFound = "EXPERT_NOT_FOUND";
     public const string ExpertProfileAlreadyExists = "EXPERT_PROFILE_ALREADY_EXISTS";
     public const string ExpertRoleRequired = "EXPERT_ROLE_REQUIRED";
     public const string ExpertRejectionReasonRequired = "EXPERT_REJECTION_REASON_REQUIRED";
+    public const string ExpertCertificateLimitExceeded = "EXPERT_CERTIFICATE_LIMIT_EXCEEDED";
     public const string FileTypeNotAllowed = "FILE_TYPE_NOT_ALLOWED";
     public const string FileTooLarge = "FILE_TOO_LARGE";
     public const string StorageUploadFailed = "STORAGE_UPLOAD_FAILED";
@@ -52,6 +61,14 @@ public static class ErrorKeys
     public const string AssessmentNotFound = "ASSESSMENT_NOT_FOUND";
     public const string AssessmentResultNotFound = "ASSESSMENT_RESULT_NOT_FOUND";
     public const string AssessmentScoreRuleNotFound = "ASSESSMENT_SCORE_RULE_NOT_FOUND";
+    public const string AssessmentResultNotOwned = "ASSESSMENT_RESULT_NOT_OWNED";
+    public const string AssessmentAnswersInvalid = "ASSESSMENT_ANSWERS_INVALID";
+    public const string BlogNotFound = "BLOG_NOT_FOUND";
+    public const string BlogSlugAlreadyExists = "BLOG_SLUG_ALREADY_EXISTS";
+    public const string BlogSlugInvalid = "BLOG_SLUG_INVALID";
+    public const string BlogNotPublishable = "BLOG_NOT_PUBLISHABLE";
+    public const string BlogScheduleMustBeFuture = "BLOG_SCHEDULE_MUST_BE_FUTURE";
     public const string ValidationFailed = "VALIDATION_FAILED";
+    public const string ResourceConflict = "RESOURCE_CONFLICT";
     public const string InternalError = "INTERNAL_ERROR";
 }

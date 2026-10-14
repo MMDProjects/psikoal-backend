@@ -136,6 +136,12 @@ Kaynak tablolar `mock-db/data/*.json` — hepsi admin panelden tam CRUD.
 - Yeni alanlar: **status: draft / published / archived**, plânlı yayın tarihi.
 - likeCount salt izlenir; admin sahte beğeni ekleyemez.
 - Rich text editör + görsel yükleme (Supabase Storage).
+- **Uygulandı (2026-10-14), kararlar:**
+  - Durumlar `draft / published / scheduled` (yukarıdaki `archived` yerine): "arşiv" = yayından kaldırıp taslağa almak, ayrı durum gerekmedi. Plânlı yayın `published_at` alanında tutulur, cron yok — saat gelince sorgu anında görünür.
+  - İçerik **düz metin** (paragraflar boş satırla ayrılır): uygulama `content.split('\n\n')` ile paragraf basıyor, markdown/rich text işlemiyor. Rich text editör uygulama tarafı render desteklenene kadar ertelendi.
+  - Kategori ilişkisi: bir birincil kategori (`category_id` → `categories`, kategori sayfasındaki "İlgili Bloglar" bunun `blogTag`'i ile süzülür) + serbest ek etiketler.
+  - Yayınlama/planlama için kapak, özet ve içerik zorunlu (`BLOG_NOT_PUBLISHABLE`). Kısa ad başlıktan Türkçe karakter katlanarak üretilir, elle değiştirilebilir.
+  - Uçlar: `GET/POST /admin/blogs`, `GET/PUT/DELETE /admin/blogs/{id}`, `POST /admin/blogs/{id}/publish|unpublish|schedule|cover`. Her yazma `audit_logs`'a `entity_type = 'blog'` ile düşer.
 
 ### 3.4 Testler (`assessments`) — sorular + SKORLAMA
 Test yapısı: id, title, category (→ kategori ilişkisi), description, estimatedMinutes, questions[] {text, type: single_choice/multiple_choice/scale, options[] {text, **value**}}.
@@ -240,6 +246,19 @@ Değişiklikler audit log'a yazılır ve mevcut kayıtları geriye dönük etkil
 | İçerik Editörü | CMS: blog, kategori, öneri, test, ui_content, bildirim şablonları |
 | Finans | Ödemeler, iadeler, paket yönetimi, gelir raporları |
 
+### 7.1 Uygulanan policy'ler (API)
+
+`admin_users.role` değeri `src/PsikoAl.Api/Authorization/AdminPolicies.cs` içindeki policy'lerle eşlenir. Her admin controller'ı bunlardan birini `[Authorize(Policy = AdminPolicies.X)]` ile **açıkça** seçer; eşleme `AdminAuthorizationContractTests` ile sabitlenmiştir.
+
+| Policy adı | İzinli roller | Kapsam |
+|---|---|---|
+| `Admin` (`AdminPolicies.Any`) | tüm aktif adminler | genel bakış, `GET /admin/me` |
+| `AdminSuperAdmin` | `super_admin` | sistem ayarları, bildirim gönderimi + şablonlar, audit log, admin kullanıcı yönetimi |
+| `AdminModeration` | `super_admin`, `moderator` | uzman/ilan/yorum onayları, eşleşmeler, kullanıcı dondurma |
+| `AdminContent` | `super_admin`, `content_editor` | kategoriler, testler, **blog** (yeni CMS uçları bu policy'yi kullanır) |
+
+Panel menüsü aynı rol kümelerini (`PsikoAl.Common.Constants.AdminRoleGroups`) kullanarak rolün açamayacağı sayfaları gizler; asıl yetki kontrolü API'dedir.
+
 ---
 
 ## 8. SUPABASE ŞEMA KARŞILIĞI
@@ -251,7 +270,7 @@ Her mock-db JSON dosyası bir tabloya karşılık gelir; onay akışları için 
 | listings | `status`'a `PENDING_APPROVAL`, `REJECTED_BY_ADMIN` değerleri; `rejectionReason`, `approvedAt`, `approvedBy` |
 | experts | (status zaten var) `rejectionReason`, `approvedAt`, `approvedBy`, `pendingRevision` (versiyonlu onay için JSON) |
 | reviews | `status`, `rejectionReason`, `moderatedAt`, `moderatedBy` |
-| blogs | `status` (draft/published/archived), `scheduledAt` |
+| blogs | `status` (draft/published/scheduled), `published_at` (plânlı yayın anı da burada), `category_id`, `tags`, `cover_image_path`; beğeniler ayrı `blog_likes` tablosunda |
 | assessments | `status` (draft/published) |
 | packages | `isActive` |
 | suggestions | `isActive`, `sortOrder` |

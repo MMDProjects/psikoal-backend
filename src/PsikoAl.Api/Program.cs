@@ -1,11 +1,13 @@
-using System.Threading.RateLimiting;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.RateLimiting;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.IdentityModel.Tokens;
 using PsikoAl.Api.Authorization;
+using PsikoAl.Api.BackgroundServices;
+using PsikoAl.Api.Extensions;
 using PsikoAl.Api.Middleware;
 using PsikoAl.Api.Serialization;
 using PsikoAl.Data;
@@ -13,6 +15,7 @@ using PsikoAl.Data.Repositories;
 using PsikoAl.Data.Repositories.Abstractions;
 using PsikoAl.Services;
 using PsikoAl.Services.Abstractions;
+using PsikoAl.Services.Notifications;
 using PsikoAl.Services.Options;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,6 +34,14 @@ builder.Services
 builder.Services
     .AddOptions<BrevoOptions>()
     .Bind(builder.Configuration.GetSection(BrevoOptions.SectionName));
+
+builder.Services
+    .AddOptions<LegalOptions>()
+    .Bind(builder.Configuration.GetSection(LegalOptions.SectionName));
+
+builder.Services
+    .AddOptions<AuthOptions>()
+    .Bind(builder.Configuration.GetSection(AuthOptions.SectionName));
 
 var supabase = builder.Configuration.GetSection(SupabaseOptions.SectionName).Get<SupabaseOptions>();
 
@@ -85,11 +96,28 @@ builder.Services.AddHttpClient<IEmailService, BrevoEmailService>(client =>
     client.BaseAddress = new Uri("https://api.brevo.com/");
 });
 
+// Push artık arka planda gidiyor (PushDispatchWorker) ama Expo yanıt vermezse işçi
+// kilitlenmemeli: deneme ve toplam süre sınırlı. POST tekrar DENENMEZ — Expo isteği
+// almış ama yanıtı kaybolmuşsa kullanıcıya aynı bildirim iki kez giderdi.
 builder.Services.AddHttpClient<IPushNotificationService, ExpoPushNotificationService>(client =>
 {
     client.BaseAddress = new Uri("https://exp.host/");
-});
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+    .AddStandardResilienceHandler(options =>
+    {
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(5);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(15);
+        options.Retry.DisableForUnsafeHttpMethods();
+    });
 
+builder.Services.AddSingleton<IPushOutbox, PushOutbox>();
+builder.Services.AddScoped<PushDispatcher>();
+builder.Services.AddHostedService<PushDispatchWorker>();
+
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IAccountStatusService, AccountStatusService>();
+builder.Services.AddScoped<IAccountErasureService, AccountErasureService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IExpertService, ExpertService>();
@@ -113,7 +141,11 @@ builder.Services.AddScoped<IAdminNotificationTemplateService, AdminNotificationT
 builder.Services.AddScoped<IAdminNotificationService, AdminNotificationService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IAdminAssessmentService, AdminAssessmentService>();
+builder.Services.AddScoped<IBlogService, BlogService>();
+builder.Services.AddScoped<IAdminBlogService, AdminBlogService>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IAdminGuard, AdminGuard>();
+builder.Services.AddScoped<IAdminAuditLogService, AdminAuditLogService>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AdminRequirementHandler>();
 
 // Supabase artık JWT'leri asimetrik anahtarlarla (ES256) imzalıyor ve JWKS/OIDC discovery yayınlıyor;
@@ -127,6 +159,17 @@ builder.Services
             options.Authority = supabase.Url.TrimEnd('/') + "/auth/v1";
         }
 
+        // Lokal Supabase stack'i (supabase start) http konuşur: Authority
+        // http://127.0.0.1:54321/auth/v1 olur. RequireHttpsMetadata varsayılan olarak
+        // açık olduğundan JwtBearer'ın kendi PostConfigure adımı istisna fırlatır ve
+        // /health dahil TÜM istekler 500'e düşer — yani API lokal stack'e karşı hiç
+        // ayağa kalkamaz. Bu, geliştirme ve E2E için zorunlu bir kaçış kapısı.
+        //
+        // Yalnız Development ortamında gevşetilir; Staging/Production'da açık kalır.
+        // ASPNETCORE_ENVIRONMENT prod'da asla Development olmamalı (bu kural
+        // docs/DEVOPS-PSIKOAL.md, deploy adımının doğrulama listesinde).
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
+
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
@@ -137,50 +180,44 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("Admin", policy => policy
-        .RequireAuthenticatedUser()
-        .AddRequirements(new AdminRequirement()));
-});
+builder.Services.AddAuthorization(options => options.AddAdminPolicies());
 
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 10,
-            Window = TimeSpan.FromMinutes(1),
-        }));
-    options.AddPolicy("upload", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-            ?? context.Connection.RemoteIpAddress?.ToString()
-            ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 20,
-            Window = TimeSpan.FromMinutes(1),
-        }));
-});
+builder.Services.AddConfiguredRateLimiting(builder.Configuration);
 
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetJsonConverter()));
-builder.Services.AddHealthChecks();
+builder.Services.AddConfiguredForwardedHeaders(builder.Configuration);
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>("database", tags: [ReadinessTag]);
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<UnhandledExceptionHandler>();
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
+app.UseExceptionHandler();
 app.UseMiddleware<DomainExceptionMiddleware>();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 app.UseHttpsRedirection();
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<AccountStatusMiddleware>();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHealthChecks("/health");
+// /health: hazırlık (DB dahil) — yük dengeleyici ve E2E betikleri bunu bekler.
+// /health/live: yalnız sürecin ayakta olduğu; DB kesintisinde container yeniden başlatılmasın.
+app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = check => check.Tags.Contains(ReadinessTag) });
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 
 app.Run();
 
-public partial class Program;
+public partial class Program
+{
+    private const string ReadinessTag = "ready";
+}

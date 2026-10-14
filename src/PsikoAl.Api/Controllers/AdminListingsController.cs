@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PsikoAl.Api.Authorization;
 using PsikoAl.Api.Extensions;
 using PsikoAl.Common.Dtos.Admin;
 using PsikoAl.Services.Abstractions;
@@ -8,12 +9,14 @@ namespace PsikoAl.Api.Controllers;
 
 [ApiController]
 [Route("admin/listings")]
-[Authorize(Policy = "Admin")]
+[Authorize(Policy = AdminPolicies.Moderation)]
 public sealed class AdminListingsController(IAdminListingService adminListingService) : ControllerBase
 {
     [HttpGet]
-    public Task<IReadOnlyList<AdminListingListItemDto>> List([FromQuery] string? status, CancellationToken cancellationToken)
-        => adminListingService.ListAsync(status, cancellationToken);
+    public Task<AdminPagedResultDto<AdminListingListItemDto>> List(
+        [FromQuery] AdminListingListQueryDto query,
+        CancellationToken cancellationToken)
+        => adminListingService.ListAsync(query, cancellationToken);
 
     [HttpGet("{id:guid}")]
     public Task<AdminListingDetailDto> GetDetail(Guid id, CancellationToken cancellationToken)

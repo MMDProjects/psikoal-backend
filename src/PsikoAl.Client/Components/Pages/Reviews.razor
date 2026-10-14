@@ -1,7 +1,5 @@
 @page "/reviews"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Yorumlar — PsikoAl Admin</PageTitle>
 
@@ -71,6 +69,13 @@
                                     Reddet
                                 </Button>
                             }
+                            else if (review.Status == "approved")
+                            {
+                                <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" data-testid="review-unpublish"
+                                        OnClick="() => AskUnpublish(review.Id)">
+                                    Yayından Kaldır
+                                </Button>
+                            }
                         </TableCell>
                     </TableRow>
                 }
@@ -81,11 +86,11 @@
 
 <ReasonDialog Open="_isRejectDialogOpen"
               OpenChanged="value => _isRejectDialogOpen = value"
-              Title="Yorumu reddet"
-              Description="Red sebebi danışana bildirim olarak iletilir."
+              Title="@(_isUnpublish ? "Yorumu yayından kaldır" : "Yorumu reddet")"
+              Description="@(_isUnpublish ? "Yorum uzman profilinden kalkar ve puan ortalaması yeniden hesaplanır. Sebep danışana bildirilir." : "Red sebebi danışana bildirim olarak iletilir.")"
               ReasonLabel="Red sebebi"
               Placeholder="Hakaret, kişisel veri, spam..."
-              ConfirmLabel="Reddet"
+              ConfirmLabel="@(_isUnpublish ? "Yayından Kaldır" : "Reddet")"
               OnConfirm="RejectConfirmedAsync" />
 
 @code {
@@ -95,23 +100,9 @@
     private string? _errorMessage;
     private bool _isRejectDialogOpen;
     private Guid? _pendingRejectReviewId;
+    private bool _isUnpublish;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -119,11 +110,9 @@
         _errorMessage = null;
         try
         {
-            _reviews = await AdminClient.ListReviewsAsync(_status, CancellationToken.None);
-            if (_reviews is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListReviewsAsync(_status, CancellationToken.None);
+            _reviews = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -133,7 +122,9 @@
 
     private async Task ApproveAsync(Guid reviewId)
     {
-        if (await AdminClient.ApproveReviewAsync(reviewId, CancellationToken.None))
+        var result = await AdminClient.ApproveReviewAsync(reviewId, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -141,6 +132,14 @@
 
     private void AskReject(Guid reviewId)
     {
+        _isUnpublish = false;
+        _pendingRejectReviewId = reviewId;
+        _isRejectDialogOpen = true;
+    }
+
+    private void AskUnpublish(Guid reviewId)
+    {
+        _isUnpublish = true;
         _pendingRejectReviewId = reviewId;
         _isRejectDialogOpen = true;
     }
@@ -154,7 +153,9 @@
 
         _pendingRejectReviewId = null;
 
-        if (await AdminClient.RejectReviewAsync(reviewId, reason, CancellationToken.None))
+        var result = await AdminClient.RejectReviewAsync(reviewId, reason, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }

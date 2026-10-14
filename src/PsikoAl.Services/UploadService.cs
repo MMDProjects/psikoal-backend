@@ -58,6 +58,11 @@ public sealed class UploadService(
         var expert = await unitOfWork.Experts.GetByIdAsync(userId, cancellationToken)
             ?? throw new DomainException(ErrorKeys.ExpertNotFound);
 
+        if (expert.Certificates.Count >= ExpertDocumentPaths.MaxCertificates)
+        {
+            throw new DomainException(ErrorKeys.ExpertCertificateLimitExceeded, "file");
+        }
+
         var validated = await ValidateAsync(content, contentType, DocumentContentTypes, cancellationToken);
         var path = $"{userId}/certificates/{Guid.NewGuid()}.{FileSignatures.ExtensionFor(contentType)}";
         var storedPath = await storage.UploadAsync("documents", path, validated, contentType, isPublicBucket: false, cancellationToken);
@@ -65,6 +70,18 @@ public sealed class UploadService(
         expert.Certificates = [.. expert.Certificates, storedPath];
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return expert.Certificates;
+    }
+
+    public async Task<string> UploadBlogCoverAsync(
+        Guid blogId,
+        Stream content,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        var validated = await ValidateAsync(content, contentType, ImageContentTypes, cancellationToken);
+        var path = $"{blogId}/cover-{Guid.NewGuid():N}.{FileSignatures.ExtensionFor(contentType)}";
+        await storage.UploadAsync(StorageBuckets.BlogMedia, path, validated, contentType, isPublicBucket: true, cancellationToken);
+        return path;
     }
 
     private static async Task<Stream> ValidateAsync(

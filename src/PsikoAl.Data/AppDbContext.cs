@@ -41,6 +41,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<Blog> Blogs => Set<Blog>();
+
+    public DbSet<BlogLike> BlogLikes => Set<BlogLike>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Profile>(entity =>
@@ -211,6 +215,30 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasKey(auditLog => auditLog.Id);
             entity.Property(auditLog => auditLog.OldValue).HasColumnType("jsonb");
             entity.Property(auditLog => auditLog.NewValue).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<Blog>(entity =>
+        {
+            entity.ToTable("blogs");
+            entity.HasKey(blog => blog.Id);
+            entity.HasIndex(blog => blog.Slug).IsUnique();
+            entity.Property(blog => blog.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.Property(blog => blog.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.HasOne(blog => blog.Category)
+                .WithMany()
+                .HasForeignKey(blog => blog.CategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasMany(blog => blog.Likes)
+                .WithOne()
+                .HasForeignKey(like => like.BlogId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BlogLike>(entity =>
+        {
+            entity.ToTable("blog_likes");
+            entity.HasKey(like => new { like.BlogId, like.UserId });
+            entity.Property(like => like.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
         });
     }
 }

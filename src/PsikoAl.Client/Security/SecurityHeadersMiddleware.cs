@@ -1,0 +1,37 @@
+namespace PsikoAl.Client.Security;
+
+public sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnvironment environment)
+{
+    public Task InvokeAsync(HttpContext context)
+    {
+        var headers = context.Response.Headers;
+        headers.ContentSecurityPolicy = BuildContentSecurityPolicy(context.Request.Host.Value, environment.IsDevelopment());
+        headers.XFrameOptions = "DENY";
+        headers.XContentTypeOptions = "nosniff";
+        headers["Referrer-Policy"] = "no-referrer";
+        headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+        return next(context);
+    }
+
+    public static string BuildContentSecurityPolicy(string? host, bool isDevelopment)
+    {
+        var connectSources = isDevelopment
+            ? "'self' ws: wss:"
+            : string.IsNullOrEmpty(host) ? "'self'" : $"'self' wss://{host}";
+
+        return string.Join(
+            "; ",
+            "default-src 'self'",
+            "script-src 'self'",
+            "style-src 'self' 'unsafe-inline'",
+            // https: — blog kapakları Supabase Storage'dan (başka origin) yükleniyor; görsel
+            // kaynağı betik çalıştıramadığı için geniş izin düşük risklidir.
+            "img-src 'self' data: https:",
+            "font-src 'self' data:",
+            $"connect-src {connectSources}",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'self'",
+            "frame-ancestors 'none'");
+    }
+}

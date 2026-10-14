@@ -1,7 +1,5 @@
 @page "/listings"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>İlanlar — PsikoAl Admin</PageTitle>
 
@@ -18,7 +16,7 @@
         <option value="REJECTED_BY_ADMIN">Reddedildi</option>
         <option value="">Tümü</option>
     </Select>
-    <Button Disabled="_isLoading" OnClick="LoadAsync">Filtrele</Button>
+    <Button Disabled="_isLoading" OnClick="FilterAsync">Filtrele</Button>
 </div>
 
 @if (_errorMessage is not null)
@@ -106,9 +104,9 @@
                                         }
                                         @if (_detail.Status == ListingStatusOpen)
                                         {
-                                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
-                                                    OnClick="() => CloseAsync(listing.Id)">
-                                                Kapat
+                                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" data-testid="listing-close"
+                                                    OnClick="() => AskClose(listing.Id)">
+                                                İlanı Kapat
                                             </Button>
                                             <Input Class="w-24" Type="number" @bind-Value="_extendDays" />
                                             <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
@@ -131,6 +129,7 @@
                 }
             </TableBody>
         </Table>
+        <Pager Meta="_meta" Disabled="_isLoading" OnPageChanged="GoToPageAsync" />
     }
 </Card>
 
@@ -141,6 +140,14 @@
               ReasonLabel="Sebep"
               ConfirmLabel="@ReasonDialogConfirmLabel"
               OnConfirm="ReasonConfirmedAsync" />
+
+<ConfirmDialog Open="_isCloseDialogOpen"
+               OpenChanged="value => _isCloseDialogOpen = value"
+               Title="İlanı kapat"
+               Description="İlan uzman akışından düşer ve yeni teklif alamaz. İşlem denetim kaydına yazılır."
+               ConfirmLabel="İlanı Kapat"
+               ConfirmVariant="ButtonVariant.Destructive"
+               OnConfirm="CloseConfirmedAsync" />
 
 @code {
     private const string ListingStatusPendingApproval = "PENDING_APPROVAL";
@@ -153,7 +160,11 @@
         Reopen,
     }
 
+    private const int PerPage = 25;
+
     private IReadOnlyList<AdminListingListItemDto>? _listings;
+    private AdminPageMetaDto? _meta;
+    private int _page = 1;
     private AdminListingDetailDto? _detail;
     private Guid? _openListingId;
     private string _status = "PENDING_APPROVAL";
@@ -161,6 +172,8 @@
     private bool _isLoading = true;
     private string? _errorMessage;
 
+    private bool _isCloseDialogOpen;
+    private Guid? _pendingCloseListingId;
     private bool _isReasonDialogOpen;
     private Guid? _pendingListingId;
     private ListingAction _pendingAction;
@@ -175,21 +188,18 @@
     private string ReasonDialogConfirmLabel =>
         _pendingAction == ListingAction.Reject ? "Reddet" : "Yeniden Aç";
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task FilterAsync()
     {
-        if (!firstRender)
-        {
-            return;
-        }
+        _page = 1;
+        return LoadAsync();
+    }
 
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
+    private Task GoToPageAsync(int page)
+    {
+        _page = page;
+        return LoadAsync();
     }
 
     private async Task LoadAsync()
@@ -199,11 +209,12 @@
         _openListingId = null;
         try
         {
-            _listings = await AdminClient.ListListingsAsync(_status, CancellationToken.None);
-            if (_listings is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListListingsAsync(
+                new AdminListingListQueryDto(_status, _page, PerPage),
+                CancellationToken.None);
+            _listings = result.Value?.Data;
+            _meta = result.Value?.Meta;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -221,7 +232,9 @@
         }
 
         _openListingId = listingId;
-        _detail = await AdminClient.GetListingDetailAsync(listingId, CancellationToken.None);
+        var detailResult = await AdminClient.GetListingDetailAsync(listingId, CancellationToken.None);
+        _detail = detailResult.Value;
+        _errorMessage = detailResult.ErrorMessage;
     }
 
     private void AskReason(Guid listingId, ListingAction action)
@@ -241,11 +254,12 @@
         var action = _pendingAction;
         _pendingListingId = null;
 
-        var succeeded = action == ListingAction.Reject
+        var result = action == ListingAction.Reject
             ? await AdminClient.RejectListingAsync(listingId, reason, CancellationToken.None)
             : await AdminClient.ReopenListingAsync(listingId, reason, CancellationToken.None);
 
-        if (succeeded)
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -253,15 +267,33 @@
 
     private async Task ApproveAsync(Guid listingId)
     {
-        if (await AdminClient.ApproveListingAsync(listingId, CancellationToken.None))
+        var result = await AdminClient.ApproveListingAsync(listingId, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
     }
 
-    private async Task CloseAsync(Guid listingId)
+    private void AskClose(Guid listingId)
     {
-        if (await AdminClient.CloseListingAsync(listingId, CancellationToken.None))
+        _pendingCloseListingId = listingId;
+        _isCloseDialogOpen = true;
+    }
+
+    private async Task CloseConfirmedAsync()
+    {
+        if (_pendingCloseListingId is not { } listingId)
+        {
+            return;
+        }
+
+        _isCloseDialogOpen = false;
+        _pendingCloseListingId = null;
+
+        var result = await AdminClient.CloseListingAsync(listingId, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -275,7 +307,9 @@
             return;
         }
 
-        if (await AdminClient.ExtendListingAsync(listingId, days, CancellationToken.None))
+        var result = await AdminClient.ExtendListingAsync(listingId, days, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }

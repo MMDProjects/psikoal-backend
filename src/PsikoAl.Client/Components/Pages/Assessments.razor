@@ -1,7 +1,5 @@
 @page "/assessments"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Testler — PsikoAl Admin</PageTitle>
 
@@ -168,22 +166,7 @@
     private bool _isLoading = true;
     private string? _errorMessage;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -191,11 +174,9 @@
         _errorMessage = null;
         try
         {
-            _assessments = await AdminClient.ListAssessmentsAsync(CancellationToken.None);
-            if (_assessments is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListAssessmentsAsync(CancellationToken.None);
+            _assessments = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -213,7 +194,9 @@
         }
 
         _openId = assessmentId;
-        _detail = await AdminClient.GetAssessmentDetailAsync(assessmentId, CancellationToken.None);
+        var result = await AdminClient.GetAssessmentDetailAsync(assessmentId, CancellationToken.None);
+        _detail = result.Value;
+        _errorMessage = result.ErrorMessage;
         if (_detail is not null)
         {
             _editTitle = _detail.Title;
@@ -235,20 +218,19 @@
             return;
         }
 
-        var success = await AdminClient.UpdateAssessmentAsync(
+        var result = await AdminClient.UpdateAssessmentAsync(
             assessmentId,
             new UpdateAdminAssessmentDto(_editTitle, _editDescription, _editCategory, minutes, _editActive, sortOrder),
             CancellationToken.None);
 
-        if (success)
+        if (!result.Succeeded)
         {
-            _openId = null;
-            await LoadAsync();
+            _errorMessage = result.ErrorMessage;
+            return;
         }
-        else
-        {
-            _errorMessage = "Test güncellenemedi.";
-        }
+
+        _openId = null;
+        await LoadAsync();
     }
 
     private async Task SaveScoreRuleAsync(Guid ruleId)
@@ -263,18 +245,22 @@
         var suggestionsRaw = _ruleSuggestionsEdits.GetValueOrDefault(ruleId, string.Join(" | ", rule.Suggestions));
         var suggestions = suggestionsRaw.Split('|', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
-        var success = await AdminClient.UpdateScoreRuleAsync(
+        var result = await AdminClient.UpdateScoreRuleAsync(
             ruleId,
             new UpdateAdminScoreRuleDto(summary, suggestions),
             CancellationToken.None);
 
-        if (success && _openId.HasValue)
+        if (!result.Succeeded)
         {
-            _detail = await AdminClient.GetAssessmentDetailAsync(_openId.Value, CancellationToken.None);
+            _errorMessage = result.ErrorMessage;
+            return;
         }
-        else if (!success)
+
+        if (_openId is { } openId)
         {
-            _errorMessage = "Puan bandı güncellenemedi.";
+            var refreshed = await AdminClient.GetAssessmentDetailAsync(openId, CancellationToken.None);
+            _detail = refreshed.Value;
+            _errorMessage = refreshed.ErrorMessage;
         }
     }
 }

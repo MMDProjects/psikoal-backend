@@ -11,7 +11,7 @@
    (JWT doğrulaması Supabase'in yayınladığı JWKS/OIDC discovery ile yapılır — ayrıca "JWT Secret" almana gerek yok.)
 3. **Database → Connection string** (URI, pooler/Session mode) → Postgres bağlantı dizesi.
 
-Not: 3 Storage bucket'ı (`avatars` public-read, `blog-media` public-read, `documents` private) elle oluşturmana gerek yok — `supabase/migrations/00000000000002_storage_buckets.sql` ile (Supabase MCP üzerinden) otomatik kuruldu, RLS policy'leriyle birlikte.
+Not: 3 Storage bucket'ı (`avatars` public-read, `blog-media` public-read, `documents` private) elle oluşturmana gerek yok — `supabase/migrations/20260802204825_storage_buckets.sql` ile (Supabase MCP üzerinden) otomatik kuruldu, RLS policy'leriyle birlikte.
 
 ## 2. Lokal Konfigürasyon
 
@@ -30,6 +30,20 @@ Not: 3 Storage bucket'ı (`avatars` public-read, `blog-media` public-read, `docu
 }
 ```
 
+### Yeni yapılandırma anahtarları (2026-10-14)
+
+`appsettings.json` makul varsayılanlarla geliyor; ortama göre ezilmesi gerekenler:
+
+| Anahtar | Varsayılan | Not |
+|---|---|---|
+| `Legal:ConsentVersion` | `2026-10` | Kullanım koşulları / açık rıza metni değişince artırılır; kayıtta profile yazılır. |
+| `Auth:PasswordResetRedirectUrl` | `psikoal://reset-password` | Supabase Dashboard → Authentication → URL Configuration → **Redirect URLs** listesine de eklenmeli; yoksa GoTrue `site_url`'e döner. Lokal: `supabase/config.toml`. |
+| `ForwardedHeaders:KnownProxies` | `[]` | Ters vekil IP'leri (ör. `["10.0.0.5"]`). Boşsa yalnız loopback'e güvenilir. |
+| `ForwardedHeaders:KnownNetworks` | `[]` | CIDR (ör. `["10.0.0.0/8"]`). Vekil arkasında doğru verilmezse IP başına rate limit herkesi tek kovaya koyar. |
+| `ForwardedHeaders:ForwardLimit` | `1` | Zincirdeki vekil sayısı. |
+
+Sağlık uçları: `/health` (hazırlık, DB dahil; ulaşılamazsa 503) ve `/health/live` (yalnız süreç).
+
 ## 3. Supabase MCP (önerilir — Claude'un DB'yi doğrudan yönetebilmesi için)
 
 ```bash
@@ -47,4 +61,38 @@ Supabase Dashboard → **SQL Editor** → `supabase/migrations/*.sql` dosyaları
 ## 5. İleride Gerekecekler
 
 - **Iyzico sandbox** hesabı (Dilim 8 — ödeme'den önce)
-- SMTP / Supabase e-posta şablonları (Dilim 6 — bildirimlerden önce)
+- **Brevo API anahtarı** (bildirim e-postaları — `Brevo:ApiKey`). Kod hazır ama devrede
+  değil: anahtar boş ve tüm `notification_templates` satırlarında `email_enabled = false`.
+  Anahtar girildikten sonra hangi şablonların e-posta göndereceği admin panelden seçilir.
+- **Supabase auth e-posta şablonları — PROD tarafı.** Lokal şablonlar Türkçeleştirildi
+  (`supabase/config.toml` + `supabase/templates/*.html`) ama bu blok yalnız lokal stack'i
+  etkiler. Prod için: `supabase config push` ya da Dashboard → Authentication → Email
+  Templates. Atlanırsa kullanıcı Türkçe uygulamadan İngilizce e-posta alır.
+
+## MCP (Supabase) — ortam değişkeni
+
+`.mcp.json` prod proje referansını **düz metin tutmaz**; repo public olduğu için
+`${SUPABASE_PROJECT_REF}` üzerinden okur. Değişken tanımlı değilse MCP bağlantısı
+boş bir `project_ref` ile kurulmaya çalışır ve sessizce çalışmaz.
+
+Windows (kullanıcı düzeyinde, bir kez):
+
+```powershell
+[Environment]::SetEnvironmentVariable('SUPABASE_PROJECT_REF', '<proje-ref>', 'User')
+```
+
+Ardından terminali ve editörü yeniden başlat — ortam değişkenleri süreç başlangıcında okunur.
+
+## Supabase CLI
+
+Ayrı kurulum gerekmez, `npx supabase` çalışır:
+
+```bash
+npx supabase --version
+npx supabase login          # veya: SUPABASE_ACCESS_TOKEN ortam değişkeni
+npx supabase link --project-ref $SUPABASE_PROJECT_REF
+npx supabase migration list
+```
+
+`login` bir tarayıcı akışı açar. Otomasyon/CI için Dashboard → Account → Access Tokens
+üzerinden kişisel erişim token'ı üretip `SUPABASE_ACCESS_TOKEN` olarak verin.

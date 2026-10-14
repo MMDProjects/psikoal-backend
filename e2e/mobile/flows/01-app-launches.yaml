@@ -1,0 +1,35 @@
+# "Mobil uygulama aciliyor mu?" — en temel duman testi.
+#
+# Bu akis kasten en basta ve en yalin: uygulama cokuyorsa ya da JS bundle
+# yuklenemiyorsa digerlerinin hata mesajlari anlasilmaz olur. Burasi kirmiziysa
+# asagidakilere bakmaya gerek yok.
+appId: ${MAESTRO_APP_ID}
+---
+- launchApp:
+    clearState: true
+
+# Ilk acilista karsilama turu gelir (welcome.tsx). Onun gorunmesi bile
+# "bundle yuklendi, router calisti, store okundu" demektir.
+- extendedWaitUntil:
+    visible:
+      id: "screen-welcome"
+    timeout: 60000
+
+- assertVisible:
+    id: "welcome-skip"
+
+# Atla -> login. Iki ekran arasindaki gecisin calistigini da kanitlar.
+- tapOn:
+    id: "welcome-skip"
+
+- extendedWaitUntil:
+    visible:
+      id: "screen-login"
+    timeout: 30000
+
+- assertVisible:
+    id: "login-email"
+- assertVisible:
+    id: "login-password"
+- assertVisible:
+    id: "login-submit"

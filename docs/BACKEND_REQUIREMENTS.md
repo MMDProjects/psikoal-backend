@@ -42,6 +42,12 @@
 ### Blog
 - `GET /blogs` → param `category`, `limit` (ana sayfa 3 öğe için `limit=3` kullanır). Her blog: `liked` (oturum kullanıcısı beğenmiş mi), `likeCount`.
 - `POST /blogs/:slug/like` → toggle; yanıt `{ likeCount, liked }` — frontend optimistic artırma/azaltma yapmaz.
+- **Uygulandı (2026-10-14).** Sözleşme `native-atomic/src/domains/blog/schemas/blog.schema.ts`:
+  - `GET /blogs` (oturumsuz da açık; Bearer varsa `liked` doldurulur) → `{ data: BlogListItem[], meta: { page, total, perPage } }`. Parametreler: `category` (kategori `blogTag`'i ya da serbest etiket), `page` (vars. 1), `perPage` (vars. 20, en çok 50), `limit` (verilirse `page=1`, `perPage=limit`). Sıralama `publishedAt` azalan.
+  - `GET /blogs/{slug}` → `Blog` (`content` dahil). Mock gibi id ile de çağrılabilir. Görünmeyen/olmayan yazı → `BLOG_NOT_FOUND`.
+  - `POST /blogs/{slug}/like` → `[Authorize]`, toggle, `{ likeCount, liked }`.
+  - Alanlar sunucuda hesaplanır: `readingTime` (içerik kelime sayısı / 200, yukarı yuvarlanır, en az 1), `categories` (birincil kategorinin `blogTag`'i + ek etiketler, tekrarsız), `coverImage` (blog-media public URL), `publishedAt` (`Z` sonekli ISO).
+  - Görünürlük: `status = published` ya da (`status = scheduled` ve `published_at <= now()`); kapak zorunlu. Taslaklar yalnız `/admin/blogs`'ta görünür.
 
 ### Assessment
 - `GET /assessment` → her test `questionCount` içerir.
@@ -56,6 +62,35 @@
 
 ### Client
 - Tüm client yanıtlarında `initials`.
+
+## KVKK ve Güvenlik Sertleştirmesi (2026-10-14, ortak sözleşme)
+
+- **Kayıt rızası:** `POST /auth/register` `termsAccepted` ve `healthDataConsent` alanlarını
+  zorunlu tutar; ikisi de `true` değilse 400 ValidationProblemDetails. Rıza zamanı ve metin
+  sürümü (`Legal:ConsentVersion`) `profiles.terms_accepted_at / health_data_consent_at /
+  consent_version` kolonlarına yazılır.
+- **Şifre sıfırlama:** `forgot-password` GoTrue `recover` çağrısına `redirect_to`
+  (`Auth:PasswordResetRedirectUrl`) ekler. `POST /auth/reset-password { accessToken,
+  newPassword }` → 204; geçersiz/süresi dolmuş token 422 `RESET_TOKEN_INVALID`.
+- **Hata gövdesi değişmedi** (`{ code, message, field? }`), durum kodu türü söyler:
+  `*_NOT_FOUND` → 404, rol/katılımcı kapıları → 403, `*_ALREADY_EXISTS` ve DB benzersizlik
+  ihlali → 409, diğer iş kuralları ve `AUTH_*` → 422, beklenmeyen hata → 500 `INTERNAL_ERROR`
+  (Türkçe mesaj, `trace-id` başlığı), rate limit → 429 `AUTH_RATE_LIMITED`.
+- **Pasif hesap:** dondurulmuş/silinmiş kullanıcının geçerli token'ı yetki isteyen uçlarda
+  401 `ACCOUNT_INACTIVE` alır (profiles.status, 30 sn önbellek). Anonim uçlar etkilenmez.
+- **Test sonucu:** `GET /assessment/results/{id}` sahibi olan sonucu yalnız sahibine açar
+  (aksi 404). `POST /listings` başkasının sonucunu kabul etmez (422
+  `ASSESSMENT_RESULT_NOT_OWNED`). `POST /assessment/submit` cevapları testin sorularına göre
+  doğrular (422 `ASSESSMENT_ANSWERS_INVALID`), puanı sunucu hesaplar, `email` saklanmaz.
+- **Hesap silme:** GoTrue kullanıcısı anonimleştirilip banlanır (hard delete yok — cascade
+  karşı tarafın geçmişini silerdi); test sonuçları, bildirimler, push token'ları silinir;
+  ilanlar anonimleşir/kapanır, bekleyen teklifler çekilir, aktif eşleşmeler RELEASED olur;
+  uzman belgeleri ve Storage klasörleri temizlenir.
+- **Uzman belgeleri:** `cvUrl`/`certificates` profil uçlarında yok sayılır (yalnız yükleme
+  uçları yazar); admin imzalaması yalnız `{expertId}/` altını imzalar; en çok 10 sertifika.
+- **Push:** kilit ekranı metni türe göre geneldir; `data` = `{ type, entityId }`.
+- **Paylaşım:** `shareEmail/sharePhone/shareLocation` yeni hesaplarda varsayılan `false`.
+- **PostgREST:** public tabloları anon/authenticated rollerine kapalı; tek giriş noktası API.
 
 ## Frontend'de Kalan Salt Görsel Formatlama
 (İstenirse backend'e taşınabilir; iş mantığı içermez.)

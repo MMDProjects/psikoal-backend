@@ -1,0 +1,9 @@
+# Maestro çalışma alanı ayarları.
+# https://docs.maestro.dev/advanced/configuring-maestro
+flows:
+  - "flows/*.yaml"
+
+# Paralel koşum KAPALI. Akışlar aynı Supabase örneğini ve aynı test kullanıcısını
+# paylaşıyor; iş kuralı gereği bir danışan aynı anda en çok 3 OPEN ilan açabilir
+# (native-atomic/CLAUDE.md PART 2 §4). Paralel iki akış 4. ilanı açmaya çalışıp
+# biri sessizce patlardı.

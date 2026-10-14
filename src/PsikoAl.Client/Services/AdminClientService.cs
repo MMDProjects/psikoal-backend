@@ -1,383 +1,339 @@
+using System.Globalization;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using PsikoAl.Client.Services;
+using PsikoAl.Common.Constants;
 using PsikoAl.Common.Dtos.Admin;
-using PsikoAl.Common.Dtos.Auth;
+using PsikoAl.Common.Dtos.Blog.Create;
+using PsikoAl.Common.Dtos.Blog.Update;
 using PsikoAl.Common.Dtos.Category;
 using PsikoAl.Common.Dtos.Category.Create;
 using PsikoAl.Common.Dtos.Category.Update;
 
 namespace PsikoAl.Client.Services;
 
-public sealed class AdminClientService(HttpClient httpClient, AdminSessionState session) : IAdminClientService
+public sealed class AdminClientService(
+    HttpClient httpClient,
+    AdminSessionState session,
+    IAdminAuthService auth) : IAdminClientService
 {
-    public async Task<bool> LoginAsync(string email, string password, CancellationToken cancellationToken)
-    {
-        var response = await httpClient.PostAsJsonAsync("auth/login", new { email, password }, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            return false;
-        }
+    private static readonly object EmptyBody = new { };
 
-        var login = await response.Content.ReadFromJsonAsync<LoginResponseDto>(cancellationToken);
-        if (login is null)
-        {
-            return false;
-        }
+    public Task<AdminApiResult<AdminDashboardStatsDto>> GetDashboardStatsAsync(CancellationToken cancellationToken)
+        => GetAsync<AdminDashboardStatsDto>("admin/dashboard/stats", cancellationToken);
 
-        session.SignIn(login.Tokens.AccessToken, login.User.Email);
-        return true;
-    }
-
-    public async Task<AdminDashboardStatsDto?> GetDashboardStatsAsync(CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/dashboard/stats");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            return null;
-        }
-
-        return await response.Content.ReadFromJsonAsync<AdminDashboardStatsDto>(cancellationToken);
-    }
-
-    public async Task<IReadOnlyList<AdminUserListItemDto>?> ListUsersAsync(
-        string? search,
-        string? role,
-        string? status,
+    public Task<AdminApiResult<AdminPagedResultDto<AdminUserListItemDto>>> ListUsersAsync(
+        AdminUserListQueryDto query,
         CancellationToken cancellationToken)
-    {
-        var query = new List<string>();
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            query.Add($"search={Uri.EscapeDataString(search)}");
-        }
+        => GetAsync<AdminPagedResultDto<AdminUserListItemDto>>(
+            WithQuery(
+                "admin/users",
+                ("search", query.Search),
+                ("role", query.Role),
+                ("status", query.Status),
+                ("page", query.Page?.ToString(CultureInfo.InvariantCulture)),
+                ("perPage", query.PerPage?.ToString(CultureInfo.InvariantCulture))),
+            cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(role))
-        {
-            query.Add($"role={Uri.EscapeDataString(role)}");
-        }
+    public Task<AdminApiResult> FreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/users/{userId}/freeze", new AdminActionReasonDto(reason), cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(status))
-        {
-            query.Add($"status={Uri.EscapeDataString(status)}");
-        }
+    public Task<AdminApiResult> UnfreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/users/{userId}/unfreeze", new AdminActionReasonDto(reason), cancellationToken);
 
-        var url = "admin/users" + (query.Count > 0 ? "?" + string.Join("&", query) : string.Empty);
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, url);
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            return null;
-        }
+    public Task<AdminApiResult<IReadOnlyList<AdminExpertListItemDto>>> ListExpertsAsync(string? status, CancellationToken cancellationToken)
+        => GetAsync<IReadOnlyList<AdminExpertListItemDto>>(WithQuery("admin/experts", ("status", status)), cancellationToken);
 
-        return await response.Content.ReadFromJsonAsync<List<AdminUserListItemDto>>(cancellationToken);
-    }
+    public Task<AdminApiResult<AdminExpertDetailDto>> GetExpertDetailAsync(Guid expertId, CancellationToken cancellationToken)
+        => GetAsync<AdminExpertDetailDto>($"admin/experts/{expertId}", cancellationToken);
 
-    public Task<bool> FreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken)
-        => PostUserActionAsync($"admin/users/{userId}/freeze", reason, cancellationToken);
+    public Task<AdminApiResult> ApproveExpertAsync(Guid expertId, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/experts/{expertId}/approve", EmptyBody, cancellationToken);
 
-    public Task<bool> UnfreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken)
-        => PostUserActionAsync($"admin/users/{userId}/unfreeze", reason, cancellationToken);
+    public Task<AdminApiResult> RejectExpertAsync(Guid expertId, string reason, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/experts/{expertId}/reject", new AdminActionReasonDto(reason), cancellationToken);
 
-    private async Task<bool> PostUserActionAsync(string url, string? reason, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, url);
-        request.Content = JsonContent.Create(new AdminActionReasonDto(reason));
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult> SetExpertVerifiedAsync(Guid expertId, bool isVerified, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/experts/{expertId}/verify", new AdminSetVerifiedDto(isVerified), cancellationToken);
 
-    public async Task<IReadOnlyList<AdminExpertListItemDto>?> ListExpertsAsync(string? status, CancellationToken cancellationToken)
-    {
-        var url = "admin/experts" + (string.IsNullOrWhiteSpace(status) ? string.Empty : $"?status={Uri.EscapeDataString(status)}");
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, url);
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<List<AdminExpertListItemDto>>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult<AdminExpertDocumentUrls>> GetExpertDocumentUrlsAsync(Guid expertId, CancellationToken cancellationToken)
+        => GetAsync<AdminExpertDocumentUrls>($"admin/experts/{expertId}/documents", cancellationToken);
 
-    public async Task<AdminExpertDetailDto?> GetExpertDetailAsync(Guid expertId, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/experts/{expertId}");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<AdminExpertDetailDto>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult<IReadOnlyList<AdminCategoryListItemDto>>> ListCategoriesAsync(CancellationToken cancellationToken)
+        => GetAsync<IReadOnlyList<AdminCategoryListItemDto>>("admin/categories", cancellationToken);
 
-    public async Task<bool> ApproveExpertAsync(Guid expertId, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/experts/{expertId}/approve");
-        request.Content = JsonContent.Create(new { });
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult<CategoryDto>> CreateCategoryAsync(CreateCategoryDto request, CancellationToken cancellationToken)
+        => SendForResultAsync<CategoryDto>(HttpMethod.Post, "admin/categories", request, cancellationToken);
 
-    public async Task<bool> RejectExpertAsync(Guid expertId, string reason, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/experts/{expertId}/reject");
-        request.Content = JsonContent.Create(new AdminActionReasonDto(reason));
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult<CategoryDto>> UpdateCategoryAsync(Guid categoryId, UpdateCategoryDto request, CancellationToken cancellationToken)
+        => SendForResultAsync<CategoryDto>(HttpMethod.Patch, $"admin/categories/{categoryId}", request, cancellationToken);
 
-    public async Task<bool> SetExpertVerifiedAsync(Guid expertId, bool isVerified, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/experts/{expertId}/verify");
-        request.Content = JsonContent.Create(new AdminSetVerifiedDto(isVerified));
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult<IReadOnlyList<AdminReviewListItemDto>>> ListReviewsAsync(string? status, CancellationToken cancellationToken)
+        => GetAsync<IReadOnlyList<AdminReviewListItemDto>>(WithQuery("admin/reviews", ("status", status)), cancellationToken);
 
-    public async Task<AdminExpertDocumentUrls?> GetExpertDocumentUrlsAsync(Guid expertId, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/experts/{expertId}/documents");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<AdminExpertDocumentUrls>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult> ApproveReviewAsync(Guid reviewId, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/reviews/{reviewId}/approve", EmptyBody, cancellationToken);
 
-    public async Task<IReadOnlyList<AdminCategoryListItemDto>?> ListCategoriesAsync(CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/categories");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<List<AdminCategoryListItemDto>>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult> RejectReviewAsync(Guid reviewId, string reason, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/reviews/{reviewId}/reject", new AdminActionReasonDto(reason), cancellationToken);
 
-    public async Task<CategoryDto?> CreateCategoryAsync(CreateCategoryDto request, CancellationToken cancellationToken)
-    {
-        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Post, "admin/categories");
-        httpRequest.Content = JsonContent.Create(request);
-        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<CategoryDto>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult<AdminPagedResultDto<AdminListingListItemDto>>> ListListingsAsync(
+        AdminListingListQueryDto query,
+        CancellationToken cancellationToken)
+        => GetAsync<AdminPagedResultDto<AdminListingListItemDto>>(
+            WithQuery(
+                "admin/listings",
+                ("status", query.Status),
+                ("page", query.Page?.ToString(CultureInfo.InvariantCulture)),
+                ("perPage", query.PerPage?.ToString(CultureInfo.InvariantCulture))),
+            cancellationToken);
 
-    public async Task<CategoryDto?> UpdateCategoryAsync(Guid categoryId, UpdateCategoryDto request, CancellationToken cancellationToken)
-    {
-        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/categories/{categoryId}");
-        httpRequest.Content = JsonContent.Create(request);
-        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<CategoryDto>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult<AdminListingDetailDto>> GetListingDetailAsync(Guid listingId, CancellationToken cancellationToken)
+        => GetAsync<AdminListingDetailDto>($"admin/listings/{listingId}", cancellationToken);
 
-    public async Task<IReadOnlyList<AdminReviewListItemDto>?> ListReviewsAsync(string? status, CancellationToken cancellationToken)
-    {
-        var url = "admin/reviews" + (string.IsNullOrWhiteSpace(status) ? string.Empty : $"?status={Uri.EscapeDataString(status)}");
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, url);
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<List<AdminReviewListItemDto>>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult> ApproveListingAsync(Guid listingId, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/listings/{listingId}/approve", EmptyBody, cancellationToken);
 
-    public async Task<bool> ApproveReviewAsync(Guid reviewId, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/reviews/{reviewId}/approve");
-        request.Content = JsonContent.Create(new { });
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult> RejectListingAsync(Guid listingId, string reason, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/listings/{listingId}/reject", new AdminActionReasonDto(reason), cancellationToken);
 
-    public async Task<bool> RejectReviewAsync(Guid reviewId, string reason, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/reviews/{reviewId}/reject");
-        request.Content = JsonContent.Create(new AdminActionReasonDto(reason));
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult> CloseListingAsync(Guid listingId, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/listings/{listingId}/close", EmptyBody, cancellationToken);
 
-    public async Task<IReadOnlyList<AdminListingListItemDto>?> ListListingsAsync(string? status, CancellationToken cancellationToken)
-    {
-        var url = "admin/listings" + (string.IsNullOrWhiteSpace(status) ? string.Empty : $"?status={Uri.EscapeDataString(status)}");
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, url);
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<List<AdminListingListItemDto>>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult> ExtendListingAsync(Guid listingId, int additionalDays, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/listings/{listingId}/extend", new AdminExtendListingDto(additionalDays), cancellationToken);
 
-    public async Task<AdminListingDetailDto?> GetListingDetailAsync(Guid listingId, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/listings/{listingId}");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<AdminListingDetailDto>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult> ReopenListingAsync(Guid listingId, string reason, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Post, $"admin/listings/{listingId}/reopen", new AdminActionReasonDto(reason), cancellationToken);
 
-    public async Task<bool> ApproveListingAsync(Guid listingId, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/approve");
-        request.Content = JsonContent.Create(new { });
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult<IReadOnlyList<SystemSettingDto>>> ListSystemSettingsAsync(CancellationToken cancellationToken)
+        => GetAsync<IReadOnlyList<SystemSettingDto>>("admin/system-settings", cancellationToken);
 
-    public async Task<bool> RejectListingAsync(Guid listingId, string reason, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/reject");
-        request.Content = JsonContent.Create(new AdminActionReasonDto(reason));
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult> UpdateSystemSettingAsync(string key, string value, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Patch, $"admin/system-settings/{Uri.EscapeDataString(key)}", new UpdateSystemSettingDto(value), cancellationToken);
 
-    public async Task<bool> CloseListingAsync(Guid listingId, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/close");
-        request.Content = JsonContent.Create(new { });
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult<IReadOnlyList<AdminMatchListItemDto>>> ListMatchesAsync(string? status, CancellationToken cancellationToken)
+        => GetAsync<IReadOnlyList<AdminMatchListItemDto>>(WithQuery("admin/matches", ("status", status)), cancellationToken);
 
-    public async Task<bool> ExtendListingAsync(Guid listingId, int additionalDays, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/extend");
-        request.Content = JsonContent.Create(new AdminExtendListingDto(additionalDays));
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult<AdminMatchDetailDto>> GetMatchDetailAsync(Guid matchId, CancellationToken cancellationToken)
+        => GetAsync<AdminMatchDetailDto>($"admin/matches/{matchId}", cancellationToken);
 
-    public async Task<bool> ReopenListingAsync(Guid listingId, string reason, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/listings/{listingId}/reopen");
-        request.Content = JsonContent.Create(new AdminActionReasonDto(reason));
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
+    public Task<AdminApiResult> ForceReleaseMatchAsync(Guid matchId, string targetStatus, string reason, CancellationToken cancellationToken)
+        => SendAsync(
+            HttpMethod.Post,
+            $"admin/matches/{matchId}/force-release",
+            new AdminForceReleaseMatchDto(targetStatus, reason),
+            cancellationToken);
 
-    public async Task<IReadOnlyList<SystemSettingDto>?> ListSystemSettingsAsync(CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/system-settings");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<List<SystemSettingDto>>(cancellationToken)
-            : null;
-    }
+    public Task<AdminApiResult<IReadOnlyList<AdminNotificationTemplateDto>>> ListNotificationTemplatesAsync(CancellationToken cancellationToken)
+        => GetAsync<IReadOnlyList<AdminNotificationTemplateDto>>("admin/notification-templates", cancellationToken);
 
-    public async Task<bool> UpdateSystemSettingAsync(string key, string value, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/system-settings/{key}");
-        request.Content = JsonContent.Create(new UpdateSystemSettingDto(value));
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
-
-    public async Task<IReadOnlyList<AdminMatchListItemDto>?> ListMatchesAsync(string? status, CancellationToken cancellationToken)
-    {
-        var url = "admin/matches" + (string.IsNullOrWhiteSpace(status) ? string.Empty : $"?status={Uri.EscapeDataString(status)}");
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, url);
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<List<AdminMatchListItemDto>>(cancellationToken)
-            : null;
-    }
-
-    public async Task<AdminMatchDetailDto?> GetMatchDetailAsync(Guid matchId, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/matches/{matchId}");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<AdminMatchDetailDto>(cancellationToken)
-            : null;
-    }
-
-    public async Task<bool> ForceReleaseMatchAsync(Guid matchId, string targetStatus, string reason, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Post, $"admin/matches/{matchId}/force-release");
-        request.Content = JsonContent.Create(new AdminForceReleaseMatchDto(targetStatus, reason));
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
-
-    public async Task<IReadOnlyList<AdminNotificationTemplateDto>?> ListNotificationTemplatesAsync(CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/notification-templates");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<List<AdminNotificationTemplateDto>>(cancellationToken)
-            : null;
-    }
-
-    public async Task<AdminNotificationTemplateDto?> UpdateNotificationTemplateAsync(
+    public Task<AdminApiResult<AdminNotificationTemplateDto>> UpdateNotificationTemplateAsync(
         string type,
         UpdateAdminNotificationTemplateDto request,
         CancellationToken cancellationToken)
+        => SendForResultAsync<AdminNotificationTemplateDto>(
+            HttpMethod.Patch,
+            $"admin/notification-templates/{Uri.EscapeDataString(type)}",
+            request,
+            cancellationToken);
+
+    public Task<AdminApiResult<AdminNotificationPreviewDto>> PreviewNotificationAsync(
+        AdminSendNotificationDto request,
+        CancellationToken cancellationToken)
+        => SendForResultAsync<AdminNotificationPreviewDto>(HttpMethod.Post, "admin/notifications/preview", request, cancellationToken);
+
+    public async Task<AdminApiResult<int>> SendNotificationAsync(AdminSendNotificationDto request, CancellationToken cancellationToken)
     {
-        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/notification-templates/{type}");
-        httpRequest.Content = JsonContent.Create(request);
-        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<AdminNotificationTemplateDto>(cancellationToken)
-            : null;
+        var result = await SendForResultAsync<AdminSendNotificationResult>(
+            HttpMethod.Post,
+            "admin/notifications/send",
+            request,
+            cancellationToken);
+
+        return result.Value is { } sent
+            ? AdminApiResult.Ok<int>(sent.RecipientCount)
+            : AdminApiResult.Failure<int>(result.ErrorMessage ?? ErrorMessagesTr.For(ErrorKeys.InternalError));
     }
 
-    public async Task<int?> SendNotificationAsync(AdminSendNotificationDto request, CancellationToken cancellationToken)
+    public Task<AdminApiResult<IReadOnlyList<AdminAssessmentListItemDto>>> ListAssessmentsAsync(CancellationToken cancellationToken)
+        => GetAsync<IReadOnlyList<AdminAssessmentListItemDto>>("admin/assessments", cancellationToken);
+
+    public Task<AdminApiResult<AdminAssessmentDetailDto>> GetAssessmentDetailAsync(Guid assessmentId, CancellationToken cancellationToken)
+        => GetAsync<AdminAssessmentDetailDto>($"admin/assessments/{assessmentId}", cancellationToken);
+
+    public Task<AdminApiResult> UpdateAssessmentAsync(Guid assessmentId, UpdateAdminAssessmentDto request, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Patch, $"admin/assessments/{assessmentId}", request, cancellationToken);
+
+    public Task<AdminApiResult> UpdateScoreRuleAsync(Guid scoreRuleId, UpdateAdminScoreRuleDto request, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Patch, $"admin/assessments/score-rules/{scoreRuleId}", request, cancellationToken);
+
+    public Task<AdminApiResult<AdminPagedResultDto<AdminAuditLogDto>>> ListAuditLogsAsync(
+        AdminAuditLogQueryDto query,
+        CancellationToken cancellationToken)
+        => GetAsync<AdminPagedResultDto<AdminAuditLogDto>>(
+            WithQuery(
+                "admin/audit-logs",
+                ("actor", query.Actor),
+                ("action", query.Action),
+                ("entityType", query.EntityType),
+                ("entityId", query.EntityId),
+                ("from", query.From?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                ("to", query.To?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                ("page", query.Page?.ToString(CultureInfo.InvariantCulture)),
+                ("perPage", query.PerPage?.ToString(CultureInfo.InvariantCulture))),
+            cancellationToken);
+
+    public Task<AdminApiResult<IReadOnlyList<AdminBlogListItemDto>>> ListBlogsAsync(string? status, CancellationToken cancellationToken)
+        => GetAsync<IReadOnlyList<AdminBlogListItemDto>>(WithQuery("admin/blogs", ("status", status)), cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> GetBlogDetailAsync(Guid blogId, CancellationToken cancellationToken)
+        => GetAsync<AdminBlogDetailDto>($"admin/blogs/{blogId}", cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> CreateBlogAsync(CreateBlogDto request, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(HttpMethod.Post, "admin/blogs", request, cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> UpdateBlogAsync(Guid blogId, UpdateBlogDto request, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(HttpMethod.Put, $"admin/blogs/{blogId}", request, cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> PublishBlogAsync(Guid blogId, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(HttpMethod.Post, $"admin/blogs/{blogId}/publish", EmptyBody, cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> UnpublishBlogAsync(Guid blogId, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(HttpMethod.Post, $"admin/blogs/{blogId}/unpublish", EmptyBody, cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> ScheduleBlogAsync(Guid blogId, DateTimeOffset publishAt, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(
+            HttpMethod.Post,
+            $"admin/blogs/{blogId}/schedule",
+            new AdminScheduleBlogDto(publishAt),
+            cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> UploadBlogCoverAsync(
+        Guid blogId,
+        byte[] content,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(
+            HttpMethod.Post,
+            $"admin/blogs/{blogId}/cover",
+            new FileUpload(content, fileName, contentType),
+            cancellationToken);
+
+    public Task<AdminApiResult> DeleteBlogAsync(Guid blogId, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Delete, $"admin/blogs/{blogId}", body: null, cancellationToken);
+
+    private static string WithQuery(string path, params (string Name, string? Value)[] parameters)
     {
-        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Post, "admin/notifications/send");
-        httpRequest.Content = JsonContent.Create(request);
-        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
-        if (!response.IsSuccessStatusCode)
+        var query = parameters
+            .Where(parameter => !string.IsNullOrWhiteSpace(parameter.Value))
+            .Select(parameter => $"{parameter.Name}={Uri.EscapeDataString(parameter.Value ?? string.Empty)}")
+            .ToList();
+
+        return query.Count == 0 ? path : $"{path}?{string.Join('&', query)}";
+    }
+
+    private Task<AdminApiResult<T>> GetAsync<T>(string url, CancellationToken cancellationToken)
+        => SendForResultAsync<T>(HttpMethod.Get, url, body: null, cancellationToken);
+
+    private async Task<AdminApiResult<T>> SendForResultAsync<T>(
+        HttpMethod method,
+        string url,
+        object? body,
+        CancellationToken cancellationToken)
+    {
+        try
         {
-            return null;
+            using var response = await SendAuthorizedAsync(method, url, body, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                return AdminApiResult.Failure<T>(await AdminErrorMessages.FromResponseAsync(response, cancellationToken));
+            }
+
+            var value = await response.Content.ReadFromJsonAsync<T>(cancellationToken);
+            return value is null
+                ? AdminApiResult.Failure<T>(ErrorMessagesTr.For(ErrorKeys.InternalError))
+                : AdminApiResult.Ok<T>(value);
+        }
+        catch (HttpRequestException)
+        {
+            return AdminApiResult.Failure<T>(AdminErrorMessages.ApiUnreachable);
+        }
+    }
+
+    private async Task<AdminApiResult> SendAsync(HttpMethod method, string url, object? body, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var response = await SendAuthorizedAsync(method, url, body, cancellationToken);
+            return response.IsSuccessStatusCode
+                ? AdminApiResult.Success
+                : AdminApiResult.Failure(await AdminErrorMessages.FromResponseAsync(response, cancellationToken));
+        }
+        catch (HttpRequestException)
+        {
+            return AdminApiResult.Failure(AdminErrorMessages.ApiUnreachable);
+        }
+    }
+
+    private async Task<HttpResponseMessage> SendAuthorizedAsync(
+        HttpMethod method,
+        string url,
+        object? body,
+        CancellationToken cancellationToken)
+    {
+        var accessToken = await auth.GetValidAccessTokenAsync(cancellationToken);
+        if (accessToken is null)
+        {
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
         }
 
-        var result = await response.Content.ReadFromJsonAsync<AdminSendNotificationResult>(cancellationToken);
-        return result?.RecipientCount;
+        var response = await SendOnceAsync(method, url, body, accessToken, cancellationToken);
+        if (response.StatusCode != HttpStatusCode.Unauthorized)
+        {
+            return response;
+        }
+
+        response.Dispose();
+        if (!await auth.RefreshAsync(accessToken, cancellationToken) || session.AccessToken is not { } refreshedToken)
+        {
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        }
+
+        return await SendOnceAsync(method, url, body, refreshedToken, cancellationToken);
+    }
+
+    private async Task<HttpResponseMessage> SendOnceAsync(
+        HttpMethod method,
+        string url,
+        object? body,
+        string accessToken,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(method, url);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        // Gövde her denemede YENİDEN kurulur: 401 sonrası yenilenen token'la ikinci
+        // gönderimde aynı HttpContent tekrar kullanılamaz.
+        request.Content = body switch
+        {
+            null => null,
+            FileUpload upload => upload.ToContent(),
+            _ => JsonContent.Create(body, body.GetType()),
+        };
+
+        return await httpClient.SendAsync(request, cancellationToken);
     }
 
     private sealed record AdminSendNotificationResult(bool Success, int RecipientCount);
 
-    public async Task<IReadOnlyList<AdminAssessmentListItemDto>?> ListAssessmentsAsync(CancellationToken cancellationToken)
+    private sealed record FileUpload(byte[] Content, string FileName, string ContentType)
     {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, "admin/assessments");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<List<AdminAssessmentListItemDto>>(cancellationToken)
-            : null;
-    }
-
-    public async Task<AdminAssessmentDetailDto?> GetAssessmentDetailAsync(Guid assessmentId, CancellationToken cancellationToken)
-    {
-        using var request = CreateAuthorizedRequest(HttpMethod.Get, $"admin/assessments/{assessmentId}");
-        var response = await httpClient.SendAsync(request, cancellationToken);
-        return response.IsSuccessStatusCode
-            ? await response.Content.ReadFromJsonAsync<AdminAssessmentDetailDto>(cancellationToken)
-            : null;
-    }
-
-    public async Task<bool> UpdateAssessmentAsync(Guid assessmentId, UpdateAdminAssessmentDto request, CancellationToken cancellationToken)
-    {
-        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/assessments/{assessmentId}");
-        httpRequest.Content = JsonContent.Create(request);
-        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
-
-    public async Task<bool> UpdateScoreRuleAsync(Guid scoreRuleId, UpdateAdminScoreRuleDto request, CancellationToken cancellationToken)
-    {
-        using var httpRequest = CreateAuthorizedRequest(HttpMethod.Patch, $"admin/assessments/score-rules/{scoreRuleId}");
-        httpRequest.Content = JsonContent.Create(request);
-        var response = await httpClient.SendAsync(httpRequest, cancellationToken);
-        return response.IsSuccessStatusCode;
-    }
-
-    private HttpRequestMessage CreateAuthorizedRequest(HttpMethod method, string url)
-    {
-        var request = new HttpRequestMessage(method, url);
-        if (session.AccessToken is not null)
+        public MultipartFormDataContent ToContent()
         {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+            var file = new ByteArrayContent(Content);
+            file.Headers.ContentType = new MediaTypeHeaderValue(ContentType);
+            return new MultipartFormDataContent { { file, "file", FileName } };
         }
-
-        return request;
     }
 }

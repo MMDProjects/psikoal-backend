@@ -36,5 +36,9 @@ public interface IUnitOfWork
 
     IAuditLogRepository AuditLogs { get; }
 
+    IBlogRepository Blogs { get; }
+
+    IBlogLikeRepository BlogLikes { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 }

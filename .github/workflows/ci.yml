@@ -49,8 +49,14 @@ jobs:
       - name: Publish kapısı (PsikoAl.Client)
         run: dotnet publish src/PsikoAl.Client/PsikoAl.Client.csproj -c Release -o /tmp/client-publish
 
+      # --filter "Category!=E2E": E2E projesi solution'a dahil (böylece -warnaserror
+      # kapısından geçiyor) ama burada KOŞMAZ — lokal Supabase stack'i gerektiriyor.
+      # O testler ayrı bir workflow'da koşar: .github/workflows/e2e.yml
       - name: Test
-        run: dotnet test src/PsikoAl.slnx --no-build --logger "trx;LogFilePrefix=test" --results-directory TestResults
+        run: >
+          dotnet test src/PsikoAl.slnx --no-build
+          --filter "Category!=E2E"
+          --logger "trx;LogFilePrefix=test" --results-directory TestResults
 
       # Test varlığı siperi: tüm .trx dosyalarının total'lerini TOPLAR.
       # Sabit LogFileName kullanılsaydı iki test projesinden biri diğerini EZER ve
@@ -186,9 +192,12 @@ jobs:
       - name: Migration'ları temiz stack'e uygula
         run: supabase db reset --no-seed
 
+      # `supabase db psql` alt komutu CLI 2.x'te YOK ("Unknown subcommand").
+      # Eski hali her kosumda sessizce warning verip geciyordu: kapi hic
+      # calismiyordu ama yesil gorunuyordu. Dogrusu `db query --local`.
       - name: pg_cron job kontrolü
         run: |
-          supabase db psql -c "select jobname from cron.job;" || \
+          supabase db query --local "select jobname from cron.job;" || \
             echo "::warning::pg_cron sorgulanamadı — 0006/0008'deki cron tanımları lokal stack'te desteklenmiyor olabilir."
 
       - name: Supabase stop

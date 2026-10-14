@@ -1,7 +1,6 @@
 @page "/notifications"
+@using System.Text.Json
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Bildirimler — PsikoAl Admin</PageTitle>
 
@@ -26,6 +25,7 @@
     <TabsList>
         <TabsTrigger Value="templates">Şablonlar</TabsTrigger>
         <TabsTrigger Value="send">Manuel Gönder</TabsTrigger>
+        <TabsTrigger Value="history">Gönderim Geçmişi</TabsTrigger>
     </TabsList>
 
     <TabsContent Value="templates">
@@ -156,19 +156,63 @@
 
                 <div class="field">
                     <Label>Başlık</Label>
-                    <Input @bind-Value="_sendTitle" />
+                    <Input data-testid="notification-title" @bind-Value="_sendTitle" />
                 </div>
                 <div class="field">
                     <Label>Mesaj</Label>
-                    <Textarea Rows="3" @bind-Value="_sendBody" />
+                    <div data-testid="notification-body"><Textarea Rows="3" @bind-Value="_sendBody" /></div>
                 </div>
             </CardContent>
             <CardFooter>
-                <Button Disabled="_isSending" IsLoading="_isSending" OnClick="SendAsync">Gönder</Button>
+                <Button Disabled="_isSending" IsLoading="_isSending" data-testid="notification-send" OnClick="PrepareSendAsync">Gönder</Button>
             </CardFooter>
         </Card>
     </TabsContent>
+
+    <TabsContent Value="history">
+        <Card Class="table-card">
+            @if (_history is { Count: 0 })
+            {
+                <EmptyState Title="Henüz manuel gönderim yok" Description="Panelden gönderilen duyurular burada listelenir." />
+            }
+            else if (_history is not null)
+            {
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Zaman</TableHead>
+                            <TableHead>Gönderen</TableHead>
+                            <TableHead>Hedef</TableHead>
+                            <TableHead>Başlık</TableHead>
+                            <TableHead Class="text-right">Alıcı</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        @foreach (var entry in _history)
+                        {
+                            var summary = ReadSendSummary(entry.NewValue);
+                            <TableRow>
+                                <TableCell Class="text-muted-foreground">@entry.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</TableCell>
+                                <TableCell>@(entry.AdminDisplayName ?? "—")</TableCell>
+                                <TableCell Class="font-mono text-xs">@entry.EntityId</TableCell>
+                                <TableCell Class="max-w-sm">@summary.Title</TableCell>
+                                <TableCell Class="text-right">@summary.RecipientCount</TableCell>
+                            </TableRow>
+                        }
+                    </TableBody>
+                </Table>
+                <Pager Meta="_historyMeta" OnPageChanged="LoadHistoryAsync" />
+            }
+        </Card>
+    </TabsContent>
 </Tabs>
+
+<ConfirmDialog Open="_isSendConfirmOpen"
+               OpenChanged="value => _isSendConfirmOpen = value"
+               Title="Bildirimi gönder"
+               Description="@SendConfirmDescription"
+               ConfirmLabel="Gönder"
+               OnConfirm="SendConfirmedAsync" />
 
 @code {
     private const string TargetTypeSegment = "segment";
@@ -191,26 +235,56 @@
     private string _sendTitle = string.Empty;
     private string _sendBody = string.Empty;
     private bool _isSending;
+    private bool _isSendConfirmOpen;
+    private AdminSendNotificationDto? _pendingSend;
+    private int _pendingRecipientCount;
+
+    private const int HistoryPerPage = 20;
+    private IReadOnlyList<AdminAuditLogDto>? _history;
+    private AdminPageMetaDto? _historyMeta;
+
+    private string SendConfirmDescription =>
+        $"Bu duyuru {_pendingRecipientCount} aktif kullanıcıya gönderilecek. Gönderim geri alınamaz ve denetim kaydına yazılır.";
 
     private bool _isLoading = true;
     private string? _errorMessage;
     private string? _infoMessage;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override async Task OnInitializedAsync()
     {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
         await LoadAsync();
-        StateHasChanged();
+        await LoadHistoryAsync(1);
+    }
+
+    private async Task LoadHistoryAsync(int page)
+    {
+        var result = await AdminClient.ListAuditLogsAsync(
+            new AdminAuditLogQueryDto(null, AuditActions.NotificationSend, null, null, null, null, page, HistoryPerPage),
+            CancellationToken.None);
+        _history = result.Value?.Data;
+        _historyMeta = result.Value?.Meta;
+        _errorMessage ??= result.ErrorMessage;
+    }
+
+    private static (string Title, int RecipientCount) ReadSendSummary(string? newValue)
+    {
+        if (string.IsNullOrWhiteSpace(newValue))
+        {
+            return ("—", 0);
+        }
+
+        try
+        {
+            using var document = JsonDocument.Parse(newValue);
+            var root = document.RootElement;
+            var title = root.TryGetProperty("title", out var titleElement) ? titleElement.GetString() ?? "—" : "—";
+            var count = root.TryGetProperty("recipientCount", out var countElement) ? countElement.GetInt32() : 0;
+            return (title, count);
+        }
+        catch (JsonException)
+        {
+            return ("—", 0);
+        }
     }
 
     private async Task LoadAsync()
@@ -219,11 +293,9 @@
         _errorMessage = null;
         try
         {
-            _templates = await AdminClient.ListNotificationTemplatesAsync(CancellationToken.None);
-            if (_templates is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListNotificationTemplatesAsync(CancellationToken.None);
+            _templates = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -277,18 +349,17 @@
             new UpdateAdminNotificationTemplateDto(_editTitle, _editBody, _editHtmlBody, _editPush, _editEmail, _editInApp, _editActive),
             CancellationToken.None);
 
-        if (updated is not null)
+        if (!updated.Succeeded)
         {
-            _editingType = null;
-            await LoadAsync();
+            _errorMessage = updated.ErrorMessage;
+            return;
         }
-        else
-        {
-            _errorMessage = "Şablon güncellenemedi.";
-        }
+
+        _editingType = null;
+        await LoadAsync();
     }
 
-    private async Task SendAsync()
+    private async Task PrepareSendAsync()
     {
         _errorMessage = null;
         _infoMessage = null;
@@ -323,16 +394,52 @@
                 _sendTitle,
                 _sendBody);
 
-            var recipientCount = await AdminClient.SendNotificationAsync(request, CancellationToken.None);
-            if (recipientCount is null)
+            var preview = await AdminClient.PreviewNotificationAsync(request, CancellationToken.None);
+            if (preview.Value is null)
             {
-                _errorMessage = "Bildirim gönderilemedi.";
+                _errorMessage = preview.ErrorMessage;
                 return;
             }
 
-            _infoMessage = $"{recipientCount} kullanıcıya bildirim gönderildi.";
+            if (preview.Value.RecipientCount == 0)
+            {
+                _errorMessage = "Seçilen hedefte bildirim alabilecek aktif kullanıcı yok.";
+                return;
+            }
+
+            _pendingSend = request;
+            _pendingRecipientCount = preview.Value.RecipientCount;
+            _isSendConfirmOpen = true;
+        }
+        finally
+        {
+            _isSending = false;
+        }
+    }
+
+    private async Task SendConfirmedAsync()
+    {
+        if (_pendingSend is not { } request)
+        {
+            return;
+        }
+
+        _isSendConfirmOpen = false;
+        _pendingSend = null;
+        _isSending = true;
+        try
+        {
+            var sent = await AdminClient.SendNotificationAsync(request, CancellationToken.None);
+            if (!sent.Succeeded)
+            {
+                _errorMessage = sent.ErrorMessage;
+                return;
+            }
+
+            _infoMessage = $"{sent.Value} kullanıcıya bildirim gönderildi.";
             _sendTitle = string.Empty;
             _sendBody = string.Empty;
+            await LoadHistoryAsync(1);
         }
         finally
         {

@@ -1,0 +1,472 @@
+@page "/blogs"
+@using System.Globalization
+@using PsikoAl.Common.Constants
+@inject IAdminClientService AdminClient
+
+<PageTitle>Blog — PsikoAl Admin</PageTitle>
+
+<PageHeader Title="Blog Yazıları"
+            Description="Uygulamanın ana sayfasında, blog akışında ve kategori sayfalarında görünen yazılar. Taslaklar yalnız burada görünür; planlanan yazı, seçilen saat geldiğinde kendiliğinden yayına girer.">
+    <Actions>
+        <Button data-testid="blog-new" OnClick="StartCreate">Yeni Yazı</Button>
+    </Actions>
+</PageHeader>
+
+<div class="toolbar">
+    <Select Class="toolbar-select" data-testid="blog-status-filter" @bind-Value="_statusFilter">
+        <option value="">Tüm durumlar</option>
+        <option value="draft">Taslak</option>
+        <option value="published">Yayında</option>
+        <option value="scheduled">Planlandı</option>
+    </Select>
+    <Button Disabled="_isLoading" OnClick="LoadAsync">Filtrele</Button>
+</div>
+
+@if (_errorMessage is not null)
+{
+    <Alert Variant="AlertVariant.Destructive" Class="mb-4">
+        <AlertDescription>@_errorMessage</AlertDescription>
+    </Alert>
+}
+
+@if (_infoMessage is not null)
+{
+    <Alert Class="mb-4">
+        <AlertDescription>@_infoMessage</AlertDescription>
+    </Alert>
+}
+
+@if (_isFormOpen)
+{
+    <Card Class="mb-4" data-testid="blog-form">
+        <CardHeader>
+            <CardTitle>@(_editing is null ? "Yeni Yazı" : "Yazıyı Düzenle")</CardTitle>
+            <CardDescription>
+                @if (_editing is null)
+                {
+                    <span>Yazı taslak olarak kaydedilir. Kapak görseli ve yayın ayarları kaydettikten sonra açılır.</span>
+                }
+                else
+                {
+                    <span>Durum: <StatusChip Status="@_editing.Status" /> @PublishLabel(_editing.Status, _editing.PublishedAt, _editing.IsLive) · @_editing.ReadingTime dk okuma · @_editing.LikeCount beğeni</span>
+                }
+            </CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div class="stack-3">
+                <div class="form-grid">
+                    <div class="field">
+                        <Label>Başlık</Label>
+                        <Input data-testid="blog-title" Value="@_title" ValueChanged="OnTitleChanged" Placeholder="Anksiyete ile Başa Çıkmanın 5 Yolu" />
+                    </div>
+                    <div class="field">
+                        <Label>Kısa ad (adres)</Label>
+                        <Input data-testid="blog-slug" Value="@_slug" ValueChanged="OnSlugChanged" Placeholder="anksiyete-ile-basa-cikmak" />
+                    </div>
+                </div>
+                <div class="field">
+                    <Label>Özet</Label>
+                    <Textarea data-testid="blog-excerpt" Rows="3" @bind-Value="_excerpt" Placeholder="Kartlarda görünen 2-3 cümlelik özet" />
+                </div>
+                <div class="field">
+                    <Label>İçerik</Label>
+                    <Textarea data-testid="blog-content" Rows="14" @bind-Value="_content" />
+                    <p class="muted">Düz metin. Paragrafları boş bir satırla ayırın — uygulama metni paragraf paragraf gösterir. Okuma süresi içerikten otomatik hesaplanır.</p>
+                </div>
+                <div class="form-grid">
+                    <div class="field">
+                        <Label>Kategori</Label>
+                        <Select data-testid="blog-category" @bind-Value="_categoryId">
+                            <option value="">Kategorisiz</option>
+                            @foreach (var category in _categories)
+                            {
+                                <option value="@category.Id">@category.Name</option>
+                            }
+                        </Select>
+                    </div>
+                    <div class="field">
+                        <Label>Ek etiketler (virgülle ayırın)</Label>
+                        <Input data-testid="blog-tags" @bind-Value="_tags" Placeholder="kendinebakım, teknikler" />
+                    </div>
+                    <div class="field">
+                        <Label>Yazar</Label>
+                        <Input data-testid="blog-author-name" @bind-Value="_authorName" Placeholder="Uzm. Psk. Elif Kaya" />
+                    </div>
+                    <div class="field">
+                        <Label>Yazar unvanı</Label>
+                        <Input data-testid="blog-author-title" @bind-Value="_authorTitle" Placeholder="Klinik Psikolog" />
+                    </div>
+                </div>
+
+                @if (_editing is not null)
+                {
+                    <Separator />
+                    <section class="stack-3">
+                        <h3 class="detail-heading">Kapak görseli</h3>
+                        @if (_editing.CoverImageUrl is not null)
+                        {
+                            <img class="blog-cover-preview" src="@_editing.CoverImageUrl" alt="Kapak görseli" />
+                        }
+                        else
+                        {
+                            <p class="muted">Henüz kapak yok. Yayınlamak için kapak gerekli (JPEG, PNG veya WebP, en fazla 10 MB; 16:9 önerilir).</p>
+                        }
+                        <InputFile data-testid="blog-cover-input" accept="image/jpeg,image/png,image/webp" OnChange="UploadCoverAsync" />
+                    </section>
+
+                    <Separator />
+                    <section class="stack-3">
+                        <h3 class="detail-heading">Yayın</h3>
+                        <div class="detail-actions">
+                            @if (!_editing.IsLive)
+                            {
+                                <Button data-testid="blog-publish" Size="ButtonSize.Sm" Disabled="_isBusy" OnClick="PublishAsync">Şimdi yayınla</Button>
+                            }
+                            @if (_editing.Status != BlogStatuses.Draft)
+                            {
+                                <Button data-testid="blog-unpublish" Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" Disabled="_isBusy" OnClick="UnpublishAsync">Yayından kaldır</Button>
+                            }
+                        </div>
+                        <div class="toolbar">
+                            <Input Class="toolbar-select" Type="datetime-local" data-testid="blog-schedule-at" @bind-Value="_scheduleAt" />
+                            <Button data-testid="blog-schedule" Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" Disabled="_isBusy" OnClick="ScheduleAsync">Planla</Button>
+                        </div>
+                        <p class="muted">Saat Türkiye saatine göredir.</p>
+                    </section>
+                }
+            </div>
+        </CardContent>
+        <CardFooter Class="gap-2">
+            <Button data-testid="blog-save" Disabled="_isBusy" IsLoading="_isBusy" OnClick="SaveAsync">Kaydet</Button>
+            <Button Variant="ButtonVariant.Outline" OnClick="CloseForm">Kapat</Button>
+        </CardFooter>
+    </Card>
+}
+
+<Card Class="table-card" data-testid="blog-table">
+    @if (_isLoading)
+    {
+        <LoadingSkeleton />
+    }
+    else if (_blogs is { Count: 0 })
+    {
+        <EmptyState Title="Blog yazısı yok" Description="“Yeni Yazı” ile ilk yazıyı ekleyebilirsiniz." />
+    }
+    else if (_blogs is not null)
+    {
+        <Table>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Başlık</TableHead>
+                    <TableHead>Kategori</TableHead>
+                    <TableHead>Durum</TableHead>
+                    <TableHead>Yayın</TableHead>
+                    <TableHead>Beğeni</TableHead>
+                    <TableHead Class="text-right">İşlem</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                @foreach (var blog in _blogs)
+                {
+                    <TableRow data-testid="@($"blog-row-{blog.Slug}")">
+                        <TableCell>
+                            <div class="font-medium">@blog.Title</div>
+                            <div class="text-xs text-muted-foreground">@blog.Slug@(blog.HasCover ? string.Empty : " · kapak yok")</div>
+                        </TableCell>
+                        <TableCell Class="text-muted-foreground">@(blog.CategoryName ?? "—")</TableCell>
+                        <TableCell><StatusChip Status="@blog.Status" /></TableCell>
+                        <TableCell Class="text-muted-foreground">@PublishLabel(blog.Status, blog.PublishedAt, blog.IsLive)</TableCell>
+                        <TableCell Class="text-muted-foreground">@blog.LikeCount</TableCell>
+                        <TableCell Class="cell-actions">
+                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                    data-testid="@($"blog-edit-{blog.Slug}")"
+                                    OnClick="() => StartEditAsync(blog.Id)">
+                                Düzenle
+                            </Button>
+                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm"
+                                    data-testid="@($"blog-delete-{blog.Slug}")"
+                                    OnClick="() => AskDelete(blog)">
+                                Sil
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                }
+            </TableBody>
+        </Table>
+    }
+</Card>
+
+<ConfirmDialog Open="_isDeleteDialogOpen"
+               OpenChanged="value => _isDeleteDialogOpen = value"
+               Title="Yazıyı sil"
+               Description="@($"“{_pendingDelete?.Title}” kalıcı olarak silinir; beğenileri de gider. Yalnız gizlemek istiyorsanız “Yayından kaldır”ı kullanın.")"
+               ConfirmLabel="Sil"
+               ConfirmVariant="ButtonVariant.Destructive"
+               OnConfirm="DeleteConfirmedAsync" />
+
+@code {
+    private const long MaxCoverBytes = 10 * 1024 * 1024;
+
+    private static readonly TimeZoneInfo Istanbul = TimeZoneInfo.FindSystemTimeZoneById("Europe/Istanbul");
+    private static readonly CultureInfo Turkish = CultureInfo.GetCultureInfo("tr-TR");
+
+    private IReadOnlyList<AdminBlogListItemDto>? _blogs;
+    private IReadOnlyList<AdminCategoryListItemDto> _categories = [];
+    private string _statusFilter = string.Empty;
+    private bool _isLoading = true;
+    private bool _isBusy;
+    private string? _errorMessage;
+    private string? _infoMessage;
+
+    private bool _isFormOpen;
+    private AdminBlogDetailDto? _editing;
+    private string _title = string.Empty;
+    private string _slug = string.Empty;
+    private bool _isSlugEditedByHand;
+    private string _excerpt = string.Empty;
+    private string _content = string.Empty;
+    private string _categoryId = string.Empty;
+    private string _tags = string.Empty;
+    private string _authorName = string.Empty;
+    private string _authorTitle = string.Empty;
+    private string _scheduleAt = string.Empty;
+
+    private bool _isDeleteDialogOpen;
+    private AdminBlogListItemDto? _pendingDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var categories = await AdminClient.ListCategoriesAsync(CancellationToken.None);
+        _categories = categories.Value ?? [];
+        await LoadAsync();
+        _errorMessage ??= categories.ErrorMessage;
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            var result = await AdminClient.ListBlogsAsync(_statusFilter, CancellationToken.None);
+            _blogs = result.Value;
+            _errorMessage = result.ErrorMessage;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void StartCreate()
+    {
+        _editing = null;
+        _title = _slug = _excerpt = _content = _categoryId = _tags = _authorTitle = _scheduleAt = string.Empty;
+        _authorName = string.Empty;
+        _isSlugEditedByHand = false;
+        _errorMessage = _infoMessage = null;
+        _isFormOpen = true;
+    }
+
+    private async Task StartEditAsync(Guid blogId)
+    {
+        _errorMessage = _infoMessage = null;
+        var detail = await AdminClient.GetBlogDetailAsync(blogId, CancellationToken.None);
+        if (detail.Value is null)
+        {
+            _errorMessage = detail.ErrorMessage;
+            return;
+        }
+
+        FillForm(detail.Value);
+        _isFormOpen = true;
+    }
+
+    private void FillForm(AdminBlogDetailDto detail)
+    {
+        _editing = detail;
+        _title = detail.Title;
+        _slug = detail.Slug;
+        _isSlugEditedByHand = true;
+        _excerpt = detail.Excerpt;
+        _content = detail.Content;
+        _categoryId = detail.CategoryId?.ToString() ?? string.Empty;
+        _tags = string.Join(", ", detail.Tags);
+        _authorName = detail.AuthorName;
+        _authorTitle = detail.AuthorTitle;
+        _scheduleAt = detail.Status == BlogStatuses.Scheduled && detail.PublishedAt is { } at
+            ? TimeZoneInfo.ConvertTime(at, Istanbul).ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture)
+            : string.Empty;
+    }
+
+    private void CloseForm()
+    {
+        _isFormOpen = false;
+        _editing = null;
+    }
+
+    private void OnTitleChanged(string value)
+    {
+        _title = value;
+        if (!_isSlugEditedByHand)
+        {
+            _slug = SlugGenerator.FromTitle(value);
+        }
+    }
+
+    private void OnSlugChanged(string value)
+    {
+        _slug = value;
+        _isSlugEditedByHand = !string.IsNullOrWhiteSpace(value);
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_authorName))
+        {
+            _errorMessage = "Başlık ve yazar zorunludur.";
+            return;
+        }
+
+        var categoryId = Guid.TryParse(_categoryId, out var parsed) ? parsed : (Guid?)null;
+        var tags = _tags.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+        await RunWriteAsync(
+            () => _editing is null
+                ? AdminClient.CreateBlogAsync(
+                    new CreateBlogDto(_title, _slug, _excerpt, _content, categoryId, tags, _authorName, _authorTitle),
+                    CancellationToken.None)
+                : AdminClient.UpdateBlogAsync(
+                    _editing.Id,
+                    new UpdateBlogDto(_title, _slug, _excerpt, _content, categoryId, tags, _authorName, _authorTitle),
+                    CancellationToken.None),
+            "Yazı kaydedildi.");
+    }
+
+    private async Task PublishAsync()
+    {
+        if (_editing is { } blog)
+        {
+            await RunWriteAsync(() => AdminClient.PublishBlogAsync(blog.Id, CancellationToken.None), "Yazı yayında.");
+        }
+    }
+
+    private async Task UnpublishAsync()
+    {
+        if (_editing is { } blog)
+        {
+            await RunWriteAsync(() => AdminClient.UnpublishBlogAsync(blog.Id, CancellationToken.None), "Yazı taslağa alındı.");
+        }
+    }
+
+    private async Task ScheduleAsync()
+    {
+        if (_editing is not { } blog)
+        {
+            return;
+        }
+
+        if (!DateTime.TryParseExact(_scheduleAt, "yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out var local))
+        {
+            _errorMessage = "Planlanacak tarih ve saati seçin.";
+            return;
+        }
+
+        var publishAt = new DateTimeOffset(local, Istanbul.GetUtcOffset(local));
+        await RunWriteAsync(
+            () => AdminClient.ScheduleBlogAsync(blog.Id, publishAt, CancellationToken.None),
+            $"Yazı {publishAt.ToString("d MMMM yyyy HH:mm", Turkish)} için planlandı.");
+    }
+
+    private async Task UploadCoverAsync(InputFileChangeEventArgs args)
+    {
+        if (_editing is not { } blog)
+        {
+            return;
+        }
+
+        if (args.File.Size > MaxCoverBytes)
+        {
+            _errorMessage = "Kapak görseli en fazla 10 MB olabilir.";
+            return;
+        }
+
+        using var buffered = new MemoryStream();
+        await using (var source = args.File.OpenReadStream(MaxCoverBytes))
+        {
+            await source.CopyToAsync(buffered);
+        }
+
+        var bytes = buffered.ToArray();
+        await RunWriteAsync(
+            () => AdminClient.UploadBlogCoverAsync(blog.Id, bytes, args.File.Name, args.File.ContentType, CancellationToken.None),
+            "Kapak görseli yüklendi.");
+    }
+
+    private async Task RunWriteAsync(Func<Task<AdminApiResult<AdminBlogDetailDto>>> write, string successMessage)
+    {
+        _isBusy = true;
+        _errorMessage = _infoMessage = null;
+        try
+        {
+            var result = await write();
+            if (result.Value is null)
+            {
+                _errorMessage = result.ErrorMessage;
+                return;
+            }
+
+            FillForm(result.Value);
+            _infoMessage = successMessage;
+            await LoadAsync();
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private void AskDelete(AdminBlogListItemDto blog)
+    {
+        _pendingDelete = blog;
+        _isDeleteDialogOpen = true;
+    }
+
+    private async Task DeleteConfirmedAsync()
+    {
+        if (_pendingDelete is not { } blog)
+        {
+            return;
+        }
+
+        _isDeleteDialogOpen = false;
+        _pendingDelete = null;
+
+        var deleted = await AdminClient.DeleteBlogAsync(blog.Id, CancellationToken.None);
+        if (deleted.Succeeded)
+        {
+            if (_editing?.Id == blog.Id)
+            {
+                CloseForm();
+            }
+
+            _infoMessage = "Yazı silindi.";
+            await LoadAsync();
+        }
+        else
+        {
+            _errorMessage = deleted.ErrorMessage;
+        }
+    }
+
+    private static string PublishLabel(string status, DateTimeOffset? publishedAt, bool isLive)
+    {
+        if (publishedAt is not { } at)
+        {
+            return "—";
+        }
+
+        var local = TimeZoneInfo.ConvertTime(at, Istanbul).ToString("d MMM yyyy HH:mm", Turkish);
+        return status == BlogStatuses.Scheduled && !isLive ? $"{local} (bekliyor)" : local;
+    }
+}

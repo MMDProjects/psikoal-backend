@@ -1,14 +1,17 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PsikoAl.Api.Authorization;
 using PsikoAl.Api.Extensions;
 using PsikoAl.Common.Dtos.Admin;
+using PsikoAl.Common.Exceptions;
+using PsikoAl.Services;
 using PsikoAl.Services.Abstractions;
 
 namespace PsikoAl.Api.Controllers;
 
 [ApiController]
 [Route("admin/experts")]
-[Authorize(Policy = "Admin")]
+[Authorize(Policy = AdminPolicies.Moderation)]
 public sealed class AdminExpertsController(
     IAdminExpertService adminExpertService,
     ISupabaseStorageService storage) : ControllerBase
@@ -42,22 +45,66 @@ public sealed class AdminExpertsController(
         return Ok(new { success = true });
     }
 
+    /// <summary>Uzmanın belgeleri için kısa ömürlü imzalı bağlantılar üretir.</summary>
+    /// <remarks>
+    /// Her belge AYRI AYRI imzalanır ve çözülemeyen ATLANIR. Eskiden tek bir
+    /// başarısız imzalama tüm isteği 422'ye düşürüyordu: CV pekâlâ imzalanabilirken
+    /// admin HİÇBİR belge göremiyordu.
+    ///
+    /// <c>certificates</c> alanı eskiden çift anlamlıydı: <c>POST /experts/profile</c> onu
+    /// serbest metin olarak kabul ediyordu ("BDT Uygulayıcı Sertifikası" gibi). Artık
+    /// profil uçları cvUrl/certificates alanlarını yok sayıyor; yalnız yükleme uçları
+    /// Storage yolu yazıyor. Eski satırlardaki metinler ve uzmanın kendi klasörü
+    /// (<c>{expertId}/</c>) dışını gösteren yollar İMZALANMAZ, unresolvedCertificates
+    /// listesine düşer — service_role imzası başka birinin belgesini açamaz.
+    /// </remarks>
     [HttpGet("{id:guid}/documents")]
     public async Task<IActionResult> GetDocumentUrls(Guid id, CancellationToken cancellationToken)
     {
         var detail = await adminExpertService.GetDetailAsync(id, cancellationToken);
         var validFor = TimeSpan.FromMinutes(15);
 
-        var cvUrl = detail.Current.CvUrl is null
-            ? null
-            : await storage.CreateSignedUrlAsync("documents", detail.Current.CvUrl, validFor, cancellationToken);
+        var cvUrl = await TrySignAsync(id, detail.Current.CvUrl, validFor, cancellationToken);
 
         var certificateUrls = new List<string>();
+        var unresolvedCertificates = new List<string>();
         foreach (var certificatePath in detail.Current.Certificates)
         {
-            certificateUrls.Add(await storage.CreateSignedUrlAsync("documents", certificatePath, validFor, cancellationToken));
+            var signed = await TrySignAsync(id, certificatePath, validFor, cancellationToken);
+            if (signed is null)
+            {
+                // Panelde sessizce kaybolmasın: admin, bu satırın indirilebilir bir
+                // belge OLMADIĞINI görmeli. Aksi hâlde "sertifika eksik" sanır.
+                unresolvedCertificates.Add(certificatePath);
+            }
+            else
+            {
+                certificateUrls.Add(signed);
+            }
         }
 
-        return Ok(new { cvUrl, certificateUrls });
+        return Ok(new { cvUrl, certificateUrls, unresolvedCertificates });
+    }
+
+    /// <summary>İmzalar; yol boşsa, uzmanın klasöründe değilse ya da Storage reddederse <c>null</c> döner.</summary>
+    private async Task<string?> TrySignAsync(
+        Guid expertId,
+        string? path,
+        TimeSpan validFor,
+        CancellationToken cancellationToken)
+    {
+        if (!ExpertDocumentPaths.IsOwnedBy(expertId, path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return await storage.CreateSignedUrlAsync("documents", path, validFor, cancellationToken);
+        }
+        catch (DomainException)
+        {
+            return null;
+        }
     }
 }

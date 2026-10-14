@@ -12,7 +12,9 @@ namespace PsikoAl.Services;
 
 public sealed class ProfileService(
     IUnitOfWork unitOfWork,
-    ISupabaseAdminService supabaseAdmin) : IProfileService
+    ISupabaseAdminService supabaseAdmin,
+    IAccountStatusService accountStatus,
+    IAccountErasureService accountErasure) : IProfileService
 {
     public async Task<AuthUserDto> GetMeAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -72,26 +74,11 @@ public sealed class ProfileService(
         await supabaseAdmin.BanUserAsync(userId, cancellationToken);
         await AddStatusAuditAsync(profile.Id, "user.freeze_self", oldStatus, profile.Status, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        accountStatus.Invalidate(userId);
     }
 
-    public async Task DeleteMeAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var profile = await GetRequiredProfileAsync(userId, cancellationToken);
-        var oldStatus = profile.Status;
-
-        // KVKK: kayıt silinmez, anonimleştirilir; auth tarafında kalıcı ban ile giriş kapatılır.
-        profile.Email = $"deleted-{profile.Id}@psikoal.invalid";
-        profile.FirstName = "Silinmiş";
-        profile.LastName = "Kullanıcı";
-        profile.Phone = null;
-        profile.City = null;
-        profile.AvatarUrl = null;
-        profile.Status = ProfileStatuses.Deleted;
-
-        await supabaseAdmin.BanUserAsync(userId, cancellationToken);
-        await AddStatusAuditAsync(profile.Id, "user.delete_self", oldStatus, profile.Status, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-    }
+    public Task DeleteMeAsync(Guid userId, CancellationToken cancellationToken)
+        => accountErasure.EraseAsync(userId, cancellationToken);
 
     private async Task<Profile> GetRequiredProfileAsync(Guid userId, CancellationToken cancellationToken)
         => await unitOfWork.Profiles.GetByIdAsync(userId, cancellationToken)

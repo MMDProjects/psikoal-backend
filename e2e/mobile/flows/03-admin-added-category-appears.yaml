@@ -1,0 +1,34 @@
+# ASIL SORU: "Admin panelden ekledigimde mobil uygulamada geliyor mu?"
+#
+# Bu akis tek basina anlamli DEGILDIR — kategoriyi kendisi eklemez. Ekleme isini
+# ondan once kosan admin katmani yapar:
+#   e2e/admin/tests/category-crud.spec.ts  (Playwright, Blazor panelini surer)
+# ve eklenen slug'i ${E2E_EXPECTED_CATEGORY_SLUG} olarak buraya gecirir.
+#
+# Ayrik tutulmasinin sebebi: bir Maestro akisi tarayici suremez, bir Playwright
+# testi de emulator suremez. Zinciri scripts/e2e-mobile.sh (lokalde) ya da
+# .github/workflows/e2e.yml (CI) birlestirir.
+appId: ${MAESTRO_APP_ID}
+---
+- runFlow: ../subflows/login-as-client.yaml
+
+# Kategori ana ekranin altinda; hiyerarsi yalniz render edilmisi gosterdigi icin
+# once o satira kadar kaydirilir.
+- scrollUntilVisible:
+    element:
+      id: "category-item-${E2E_EXPECTED_CATEGORY_SLUG}"
+    direction: DOWN
+    timeout: 40000
+
+- assertVisible:
+    id: "category-item-${E2E_EXPECTED_CATEGORY_SLUG}"
+
+# Sadece gorunmesi yetmez — dokunuldugunda detay sayfasi acilmali. Aksi halde
+# "liste geldi ama slug yanlis eslesti" hatasi gozden kacardi.
+- tapOn:
+    id: "category-item-${E2E_EXPECTED_CATEGORY_SLUG}"
+
+- extendedWaitUntil:
+    notVisible:
+      id: "screen-home-client"
+    timeout: 20000

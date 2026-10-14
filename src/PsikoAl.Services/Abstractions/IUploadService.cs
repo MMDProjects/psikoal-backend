@@ -7,4 +7,6 @@ public interface IUploadService
     Task<string> UploadCvAsync(Guid userId, Stream content, string contentType, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<string>> UploadCertificateAsync(Guid userId, Stream content, string contentType, CancellationToken cancellationToken);
+
+    Task<string> UploadBlogCoverAsync(Guid blogId, Stream content, string contentType, CancellationToken cancellationToken);
 }

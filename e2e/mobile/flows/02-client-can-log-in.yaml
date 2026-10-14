@@ -1,0 +1,23 @@
+# "Giris yapilabiliyor mu?" — auth ucgeninin (Expo -> C# -> Supabase) mobil ucu.
+#
+# Bu akis gecerse: token alindi, AsyncStorage'a yazildi, interceptor Authorization
+# basligini ekledi ve korumali ana ekran render oldu.
+appId: ${MAESTRO_APP_ID}
+---
+- runFlow: ../subflows/login-as-client.yaml
+
+# Kategori listesi ana ekranin ALTINDA (HomeHero -> testler -> blog -> kategoriler).
+# Android erisilebilirlik hiyerarsisi yalniz RENDER EDILMIS dugumleri gosterir,
+# bu yuzden dogrudan assertVisible calismaz - once kaydirmak gerekir.
+# scrollUntilVisible sabit sayida `scroll` cagrisindan farkli olarak liste
+# uzadikca ya da yeni bir bolum eklendikce bozulmaz.
+- scrollUntilVisible:
+    element:
+      id: "category-list"
+    direction: DOWN
+    timeout: 30000
+
+# Listenin DOLU olmasi verinin API'den GELDIGINI kanitlar: mock kapaliyken bu
+# liste yalniz gercek /categories yanitindan dolar.
+- assertVisible:
+    id: "category-list"

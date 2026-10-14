@@ -61,7 +61,8 @@ public sealed class AssessmentService(IUnitOfWork unitOfWork) : IAssessmentServi
             throw new DomainException(ErrorKeys.AssessmentNotFound);
         }
 
-        var score = request.Answers.Sum(answer => answer.Values.Count > 0 ? answer.Values[0] : 0);
+        var questions = await unitOfWork.AssessmentQuestions.ListForAssessmentAsync(assessment.Id, cancellationToken);
+        var score = AssessmentScoring.Score(questions, request.Answers);
         var rule = await unitOfWork.AssessmentScoreRules.FindMatchingRuleAsync(assessment.Id, score, cancellationToken)
             ?? throw new DomainException(ErrorKeys.AssessmentScoreRuleNotFound);
 
@@ -73,7 +74,11 @@ public sealed class AssessmentService(IUnitOfWork unitOfWork) : IAssessmentServi
             Level = rule.Level,
             Summary = rule.Summary,
             Suggestions = [.. rule.Suggestions],
-            Email = request.Email,
+
+            // E-posta artık saklanmıyor: hiçbir akış kullanmıyor ve sağlık sonucunu
+            // kimliğe bağlayan, açık rızası alınmamış kişisel veri olurdu. Alan eski
+            // istemciler kırılmasın diye DTO'da kabul edilip yok sayılır.
+            Email = null,
         };
 
         await unitOfWork.AssessmentResults.AddAsync(result, cancellationToken);
@@ -82,10 +87,20 @@ public sealed class AssessmentService(IUnitOfWork unitOfWork) : IAssessmentServi
         return AssessmentMapper.ToResultDto(result);
     }
 
-    public async Task<AssessmentResultDto> GetResultAsync(Guid resultId, CancellationToken cancellationToken)
+    public async Task<AssessmentResultDto> GetResultAsync(
+        Guid resultId,
+        Guid? viewerUserId,
+        CancellationToken cancellationToken)
     {
         var result = await unitOfWork.AssessmentResults.GetByIdAsync(resultId, cancellationToken)
             ?? throw new DomainException(ErrorKeys.AssessmentResultNotFound);
+
+        // KVKK: sahibi belli bir sonuç özel nitelikli sağlık verisidir; yalnız sahibine açık.
+        // Başkasına 403 değil 404 dönülür — kaydın varlığı bile sızdırılmaz.
+        if (result.UserId is { } ownerId && ownerId != viewerUserId)
+        {
+            throw new DomainException(ErrorKeys.AssessmentResultNotFound);
+        }
 
         return AssessmentMapper.ToResultDto(result);
     }
