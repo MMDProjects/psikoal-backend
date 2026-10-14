@@ -1,0 +1,493 @@
+name: E2E
+
+# Zincir: admin panel (Playwright) -> API -> Postgres -> mobil uygulama (Maestro).
+#
+# ci.yml'den AYRI bir workflow olmasının sebebi: bu job'lar Docker'lı Supabase,
+# iki .NET süreci ve bir Android emülatörü kaldırıyor. ci.yml'in kısa geri
+# bildirim döngüsüne karıştırılırsa her PR'da 20+ dakika beklenir.
+#
+# Tetikleyici matrisi:
+#   PR (her dal)      -> api-chain + admin-ui + mobile-contract  (hızlı halkalar)
+#   push dev/main     -> + mobile-ui           (emülatör; pahalı, yalnız birleşmiş kodda)
+#   workflow_dispatch -> hepsi                 (elle tam koşum)
+on:
+  pull_request:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  E2E_ADMIN_EMAIL: e2e-admin@psikoal.test
+  E2E_ADMIN_PASSWORD: E2eAdminPass123!
+  E2E_API_URL: http://localhost:5089
+  ADMIN_URL: http://localhost:5057
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1. API-seviyesi zincir: admin ucu -> Postgres -> mobil ucu.
+  #    Emülatör yok, tarayıcı yok — en hızlı ve en sık koşan halka.
+  # ---------------------------------------------------------------------------
+  api-chain:
+    name: API zinciri (gerçek Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
+        with:
+          version: latest
+
+      - name: Supabase start
+        run: supabase start
+
+      # Anahtarlar CLI'dan okunur, ASLA sabit yazılmaz: lokal anahtar formatı
+      # CLI sürümleri arasında değişti (legacy JWT -> sb_publishable_/sb_secret_).
+      # Sabit değer, CLI güncellendiği gün testleri 401 ile kırar ve hata
+      # sözleşme hatası sanılır.
+      - name: E2E ortamını besle
+        run: |
+          set -euo pipefail
+          status="$(supabase status -o env)"
+          get() { echo "$status" | grep -E "^$1=" | head -1 | cut -d= -f2- | tr -d '"'; }
+          {
+            echo "E2E_SUPABASE_URL=$(get API_URL)"
+            echo "E2E_SUPABASE_ANON_KEY=$(get ANON_KEY)"
+            echo "E2E_SUPABASE_SERVICE_ROLE_KEY=$(get SERVICE_ROLE_KEY)"
+            echo "E2E_POSTGRES=Host=127.0.0.1;Port=54322;Database=postgres;Username=postgres;Password=postgres"
+          } >> "$GITHUB_ENV"
+
+      - name: E2E testleri
+        run: >
+          dotnet test src/PsikoAl.Api.E2ETests
+          --filter "Category=E2E"
+          --logger "trx;LogFilePrefix=e2e" --results-directory TestResults
+
+      # Zincir testinin sessizce boşalmadığını doğrular: proje silinse ya da
+      # trait yanlış yazılsa "0 test koştu" yeşil görünürdü.
+      - name: Test sayısı siperi
+        run: |
+          set -euo pipefail
+          total=0
+          shopt -s nullglob
+          for trx in TestResults/*.trx; do
+            n=$(grep -o 'total="[0-9]*"' "$trx" | head -1 | grep -o '[0-9]*' || echo 0)
+            total=$((total + n))
+          done
+          echo "E2E test sayısı: $total"
+          # Eşik gerçek sayının biraz altında tutulur: tek tek test silinmesini
+          # yakalamak amaç değil (o zaten diff'te görünür), bir DOSYANIN ya da
+          # trait'in sessizce düşmesini yakalamak. 4 gibi bir eşik 46 testli bir
+          # pakette hiçbir şey korumuyordu.
+          if [ "$total" -lt 40 ]; then
+            echo "::error::E2E test sayısı beklenenin altında ($total < 40) — bir test dosyası ya da trait düşmüş olabilir."
+            exit 1
+          fi
+
+      - name: Sonuçlar (yalnız hata)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-api-results
+          path: TestResults/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # 2. Admin paneli: gerçek tarayıcı, gerçek Blazor formu.
+  #    Aynı zamanda mobil adımın kullanacağı kategori slug'ını üretir.
+  # ---------------------------------------------------------------------------
+  admin-ui:
+    name: Admin paneli (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      category-slug: ${{ steps.slug.outputs.value }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version: '22'
+
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
+        with:
+          version: latest
+
+      - name: Supabase start
+        run: supabase start
+
+      - name: E2E ortamını besle
+        run: |
+          set -euo pipefail
+          status="$(supabase status -o env)"
+          get() { echo "$status" | grep -E "^$1=" | head -1 | cut -d= -f2- | tr -d '"'; }
+          {
+            echo "E2E_SUPABASE_URL=$(get API_URL)"
+            echo "E2E_SUPABASE_ANON_KEY=$(get ANON_KEY)"
+            echo "E2E_SUPABASE_SERVICE_ROLE_KEY=$(get SERVICE_ROLE_KEY)"
+            echo "E2E_POSTGRES=Host=127.0.0.1;Port=54322;Database=postgres;Username=postgres;Password=postgres"
+          } >> "$GITHUB_ENV"
+
+      # Slug tek yerde üretilir ve iki job'a da AYNI değer verilir. Dosya
+      # üzerinden devretmek job sınırını geçemezdi (ayrı runner, ayrı disk).
+      - name: Kategori slug'ı üret
+        id: slug
+        run: echo "value=e2e-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: dotnet build src/PsikoAl.slnx
+
+      # Admin kullanıcısını GoTrue'da ve admin_users tablosunda üretir.
+      # Playwright bunu kendi yapmaz; bu adım atlanırsa login 401 alır.
+      - name: Admin kimliğini hazırla
+        run: dotnet test src/PsikoAl.Api.E2ETests --no-build --filter "Category=E2E"
+
+      # ASPNETCORE_ENVIRONMENT=Development ŞART: Program.cs yalnız bu ortamda
+      # RequireHttpsMetadata'yı kapatıyor; lokal GoTrue http konuşuyor.
+      - name: API ve admin panelini başlat
+        run: |
+          set -euo pipefail
+          mkdir -p .e2e-logs
+          common_env=(
+            "Supabase__Url=$E2E_SUPABASE_URL"
+            "Supabase__AnonKey=$E2E_SUPABASE_ANON_KEY"
+            "Supabase__ServiceRoleKey=$E2E_SUPABASE_SERVICE_ROLE_KEY"
+            "ConnectionStrings__Postgres=$E2E_POSTGRES"
+            "Api__BaseUrl=$E2E_API_URL"
+            "ASPNETCORE_ENVIRONMENT=Development"
+          )
+          env "${common_env[@]}" dotnet run --project src/PsikoAl.Api \
+            --no-build --no-launch-profile --urls "$E2E_API_URL" > .e2e-logs/api.log 2>&1 &
+          env "${common_env[@]}" dotnet run --project src/PsikoAl.Client \
+            --no-build --no-launch-profile --urls "$ADMIN_URL" > .e2e-logs/client.log 2>&1 &
+
+          for url in "$E2E_API_URL/health" "$ADMIN_URL/login"; do
+            for _ in $(seq 1 60); do
+              curl -sf -o /dev/null -m 2 "$url" && break
+              sleep 2
+            done
+            curl -sf -o /dev/null -m 5 "$url" || { echo "::error::$url ayağa kalkmadı"; exit 1; }
+          done
+
+      - name: Playwright kur
+        working-directory: e2e/admin
+        run: |
+          npm ci || npm install
+          npx playwright install --with-deps chromium
+
+      - name: Playwright testleri
+        working-directory: e2e/admin
+        env:
+          E2E_CATEGORY_SLUG: ${{ steps.slug.outputs.value }}
+        run: npx playwright test
+
+      # Ağır artifact YALNIZ hata durumunda — yeşil koşumda depolama maliyeti sıfır.
+      - name: Playwright raporu (yalnız hata)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report
+          path: |
+            e2e/admin/.artifacts/
+            .e2e-logs/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # 3. Mobil sözleşme: uygulamanın GERÇEK Zod şemaları, API'nin GERÇEK yanıtlarına
+  #    karşı. Emülatör YOK — bu yüzden PR'larda da koşabiliyor.
+  #
+  #    Neden ayrı bir halka: bu sınıf hatanın belirtisi yok. Backend nullable bir
+  #    alanı `null` yazar, şemada `.nullable()` eksikse safeParse düşer, hook
+  #    throw eder ve kullanıcı BOŞ LİSTE görür — HTTP hâlâ 200'dür. Ne api-chain
+  #    (durum kodlarına bakıyor) ne admin-ui (tarayıcı) bunu görebilir. İki kez
+  #    tam olarak böyle kırıldı: OfferSchema.matchId ve MatchSchema.email.
+  # ---------------------------------------------------------------------------
+  mobile-contract:
+    name: Mobil sözleşme (gerçek şemalar)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # Uygulama reposunda AYNI ADLI dal varsa o çekilir: iki repoda birlikte değişen
+      # sözleşme birlikte ölçülür. Yoksa dev. Sabit 'dev' merge edilmemiş uygulama
+      # şemalarını hiç görmüyordu.
+      - name: Uygulama dalını seç
+        id: app-ref
+        env:
+          REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/MMDProjects/psikoal-app.git "$REF" > /dev/null; then
+            echo "value=$REF" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=dev" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: MMDProjects/psikoal-app
+          ref: ${{ steps.app-ref.outputs.value }}
+          path: _app
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: _app/.nvmrc
+          cache: npm
+          cache-dependency-path: _app/package-lock.json
+
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
+        with:
+          version: latest
+
+      - name: Supabase start
+        run: supabase start
+
+      - name: E2E ortamını besle
+        run: |
+          set -euo pipefail
+          status="$(supabase status -o env)"
+          get() { echo "$status" | grep -E "^$1=" | head -1 | cut -d= -f2- | tr -d '"'; }
+          {
+            echo "E2E_SUPABASE_URL=$(get API_URL)"
+            echo "E2E_SUPABASE_ANON_KEY=$(get ANON_KEY)"
+            echo "E2E_SUPABASE_SERVICE_ROLE_KEY=$(get SERVICE_ROLE_KEY)"
+            echo "E2E_POSTGRES=Host=127.0.0.1;Port=54322;Database=postgres;Username=postgres;Password=postgres"
+          } >> "$GITHUB_ENV"
+
+      - name: Build
+        run: dotnet build src/PsikoAl.slnx
+
+      # Seed admin uçlarını kullanır; admin kimliğini .NET E2E kurulumu üretir
+      # (Playwright ve Maestro job'larındaki adımın aynısı).
+      - name: Admin kimliğini hazırla
+        run: dotnet test src/PsikoAl.Api.E2ETests --no-build --filter "Category=E2E"
+
+      - name: API'yi başlat
+        run: |
+          set -euo pipefail
+          mkdir -p .e2e-logs
+          env "Supabase__Url=$E2E_SUPABASE_URL"               "Supabase__AnonKey=$E2E_SUPABASE_ANON_KEY"               "Supabase__ServiceRoleKey=$E2E_SUPABASE_SERVICE_ROLE_KEY"               "ConnectionStrings__Postgres=$E2E_POSTGRES"               "Api__BaseUrl=$E2E_API_URL"               "ASPNETCORE_ENVIRONMENT=Development"             dotnet run --project src/PsikoAl.Api --no-build --no-launch-profile               --urls "$E2E_API_URL" > .e2e-logs/api.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null -m 2 "$E2E_API_URL/health" && break
+            sleep 2
+          done
+          curl -sf -o /dev/null -m 5 "$E2E_API_URL/health"             || { echo "::error::API ayağa kalkmadı"; exit 1; }
+
+      # Şemalar BOŞ yanıta karşı zaten geçer: `z.array(...)` boş diziyi kabul eder.
+      # Yani seed olmadan bu job sessizce hiçbir şey ölçmez. Zincirin tamamını
+      # gerçek uçlar üzerinden basan seed, testin ölçüm yapabilmesinin ön koşulu.
+      - name: Demo verisini bas (gerçek uçlar üzerinden)
+        run: node scripts/seed-demo.mjs
+
+      - name: Sözleşme testleri
+        working-directory: _app
+        env:
+          PSIKOAL_LIVE_API: ${{ env.E2E_API_URL }}
+        run: |
+          npm ci
+          npx jest src/lib/contract.live.test.ts --ci --json --outputFile=contract-results.json
+
+      # Test paketi boşalırsa (dosya silinir, env değişkeni adı değişir, describe
+      # atlanır) jest "0 test" ile YEŞİL döner. Bu siper o sessiz boşalmayı yakalar.
+      - name: Test sayısı siperi
+        working-directory: _app
+        run: |
+          set -euo pipefail
+          total=$(node -e "console.log(require('./contract-results.json').numTotalTests)")
+          echo "Sözleşme kontrolü sayısı: $total"
+          if [ "$total" -lt 10 ]; then
+            echo "::error::Sözleşme kontrolü sayısı beklenenin altında ($total < 10) — süit atlanmış olabilir."
+            exit 1
+          fi
+
+      - name: Sonuçlar (yalnız hata)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mobile-contract-results
+          path: |
+            _app/contract-results.json
+            .e2e-logs/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # 4. Mobil uygulama: gerçek APK, gerçek emülatör.
+  #    PAHALI — yalnız dev/main push'unda ve elle tetiklemede koşar.
+  # ---------------------------------------------------------------------------
+  mobile-ui:
+    name: Mobil uygulama (Maestro)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: admin-ui
+    if: github.event_name != 'pull_request'
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      # Mobil uygulama AYRI bir repoda. psikoal-app PUBLIC olduğu için varsayılan
+      # GITHUB_TOKEN yeter, ek PAT gerekmez. (Repo private yapılırsa buraya
+      # Contents:Read yetkili fine-grained bir PAT secret'ı eklenmeli.)
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          repository: MMDProjects/psikoal-app
+          ref: dev
+          path: _app
+
+      - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
+        with:
+          node-version-file: _app/.nvmrc
+          cache: npm
+          cache-dependency-path: _app/package-lock.json
+
+      # Maestro ve Android Gradle Plugin JDK 17+ ister.
+      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
+        with:
+          version: latest
+
+      - name: Supabase start
+        run: supabase start
+
+      - name: E2E ortamını besle
+        run: |
+          set -euo pipefail
+          status="$(supabase status -o env)"
+          get() { echo "$status" | grep -E "^$1=" | head -1 | cut -d= -f2- | tr -d '"'; }
+          {
+            echo "E2E_SUPABASE_URL=$(get API_URL)"
+            echo "E2E_SUPABASE_ANON_KEY=$(get ANON_KEY)"
+            echo "E2E_SUPABASE_SERVICE_ROLE_KEY=$(get SERVICE_ROLE_KEY)"
+            echo "E2E_POSTGRES=Host=127.0.0.1;Port=54322;Database=postgres;Username=postgres;Password=postgres"
+          } >> "$GITHUB_ENV"
+
+      - name: Build + admin kimliği
+        run: |
+          dotnet build src/PsikoAl.slnx
+          dotnet test src/PsikoAl.Api.E2ETests --no-build --filter "Category=E2E"
+
+      # 0.0.0.0'a bind ŞART: emülatör host'a kendi loopback'inden değil, ayrı bir
+      # ağ arayüzünden ulaşır. 127.0.0.1'e bind edilirse bağlantı reddedilir.
+      - name: API'yi başlat
+        run: |
+          set -euo pipefail
+          mkdir -p .e2e-logs
+          env "Supabase__Url=$E2E_SUPABASE_URL" \
+              "Supabase__AnonKey=$E2E_SUPABASE_ANON_KEY" \
+              "Supabase__ServiceRoleKey=$E2E_SUPABASE_SERVICE_ROLE_KEY" \
+              "ConnectionStrings__Postgres=$E2E_POSTGRES" \
+              "ASPNETCORE_ENVIRONMENT=Development" \
+            dotnet run --project src/PsikoAl.Api --no-build --no-launch-profile \
+              --urls "http://0.0.0.0:5089" > .e2e-logs/api.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf -o /dev/null -m 2 http://localhost:5089/health && break
+            sleep 2
+          done
+          curl -sf -o /dev/null -m 5 http://localhost:5089/health \
+            || { echo "::error::API ayağa kalkmadı"; exit 1; }
+
+      # localhost + `adb reverse` (asagida) kullanilir, 10.0.2.2 DEGIL.
+      # 10.0.2.2 host'un loopback'ine gider ama guvenlik duvari gelen baglantiyi
+      # kesebilir; belirti uygulamanin icinde "No network connection" olur ve
+      # hicbir logda gorunmez. adb reverse tuneli bundan etkilenmez.
+      # assembleRELEASE, assembleDebug DEGIL: debug APK JS bundle'ini icermez ve
+      # calisma aninda Metro dev sunucusundan ceker. Metro olmadan uygulama
+      # "Unable to load script" redbox'i ile acilir; akislar "ekran gorunmuyor"
+      # diye duser ve sebep hicbir yerde gorunmez. Expo sablonu release'i debug
+      # keystore ile imzaladigi icin ek secret gerekmez.
+      - name: APK derle (release)
+        working-directory: _app
+        env:
+          EXPO_PUBLIC_API_URL: http://localhost:5089
+          EXPO_PUBLIC_APP_ENV: development
+          EXPO_PUBLIC_APP_VERSION: 1.0.0
+        run: |
+          set -euo pipefail
+          npm ci
+          npx expo prebuild --platform android --no-install
+          # YALNIZ x86_64: emulator x86_64, digger ABI'ler (arm64-v8a, armeabi-v7a,
+          # x86) hic kullanilmiyor ama release build hepsi icin native kod derliyor.
+          # Dort mimari derlemek sureyi ~4 katina cikariyor ve lokalde Gradle
+          # daemon'ini JVM crash'ine kadar goturdu (bellek).
+          cd android && ./gradlew assembleRelease --no-daemon             -PreactNativeArchitectures=x86_64
+          echo "APK: $(find app/build/outputs/apk/release -name '*.apk' | head -1)"
+
+          # Paket adı SABİT YAZILMAZ, derlenen APK'dan okunur.
+          # app.json'da `android.package` tanımsız olduğu için Expo prebuild bugün
+          # `com.anonymous.psikoal` üretiyor. Burada bir dönem `com.psikoal` sabiti
+          # duruyordu: maestro kurulu OLMAYAN bir paketi hedefliyor, akışlar
+          # "ekran görünmüyor" diye düşüyor ve sebep hiçbir logda görünmüyordu.
+          # Gerçek paket adı belirlendiğinde de bu adım kendiliğinden doğru kalır.
+          app_id="$(sed -nE "s/.*applicationId +['\"]([^'\"]+)['\"].*/\1/p" app/build.gradle | head -1)"
+          [ -n "$app_id" ] || { echo "::error::applicationId okunamadı"; exit 1; }
+          echo "MAESTRO_APP_ID=$app_id" >> "$GITHUB_ENV"
+          echo "Paket adı: $app_id"
+
+      - name: Maestro kur
+        run: |
+          set -euo pipefail
+          curl -fsSL "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> "$GITHUB_PATH"
+
+      - name: Emülatörde akışları koştur
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          # MAESTRO_APP_ID bilinçli olarak BURADA TANIMLI DEĞİL: "APK derle" adımı
+          # onu build.gradle'dan okuyup GITHUB_ENV'e yazıyor. Buraya bir sabit
+          # yazmak o tespiti sessizce ezerdi.
+          E2E_EXPECTED_CATEGORY_SLUG: ${{ needs.admin-ui.outputs.category-slug }}
+          E2E_CLIENT_EMAIL: e2e-client@psikoal.test
+          E2E_CLIENT_PASSWORD: E2eClientPass123!
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          # KVM hızlandırma olmadan boot dakikalar sürer ve akışlar zaman aşımına düşer.
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          script: |
+            # Cihazdaki localhost:5089'u host'un 5089'una tunelle.
+            adb reverse tcp:5089 tcp:5089
+            adb install -r "$(find _app/android/app/build/outputs/apk/release -name '*.apk' | head -1)"
+            mkdir -p e2e/.artifacts
+            # Degiskenler -e ile GECIRILIR; export yetmez, Maestro ${VAR}
+            # yerine literal "undefined" yazar.
+            maestro test e2e/mobile/flows               -e "MAESTRO_APP_ID=$MAESTRO_APP_ID"               -e "E2E_CLIENT_EMAIL=$E2E_CLIENT_EMAIL"               -e "E2E_CLIENT_PASSWORD=$E2E_CLIENT_PASSWORD"               -e "E2E_EXPECTED_CATEGORY_SLUG=$E2E_EXPECTED_CATEGORY_SLUG"               --format junit --output e2e/.artifacts/maestro-report.xml
+
+      - name: Maestro artifact'leri (yalnız hata)
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: maestro-artifacts
+          path: |
+            e2e/.artifacts/
+            .e2e-logs/
+            ~/.maestro/tests/
+          retention-days: 7

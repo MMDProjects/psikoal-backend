@@ -1,0 +1,23 @@
+<!--
+  E-posta doğrulama şablonu. Varsayılanı İngilizce ("Confirm your signup").
+  Kayıt akışının hemen ardından geldiği için ilk izlenimi bu e-posta bırakıyor.
+-->
+<div style="font-family: -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 32px 24px; color: #0F1B26;">
+  <p style="font-size: 20px; font-weight: 700; margin: 0 0 20px;">PsikoAl'a hoş geldiniz</p>
+
+  <p style="font-size: 15px; line-height: 1.6; margin: 0 0 20px;">
+    Hesabınızı kullanmaya başlamak için e-posta adresinizi doğrulayın.
+  </p>
+
+  <p style="margin: 0 0 24px;">
+    <a
+      href="{{ .ConfirmationURL }}"
+      style="display: inline-block; background: #0EA5E9; color: #FFFFFF; text-decoration: none; padding: 12px 22px; border-radius: 10px; font-size: 15px; font-weight: 600;"
+      >E-postamı doğrula</a
+    >
+  </p>
+
+  <p style="font-size: 13px; line-height: 1.6; color: #5A6B78; margin: 0;">
+    Bu hesabı siz oluşturmadıysanız bu e-postayı yok sayabilirsiniz.
+  </p>
+</div>

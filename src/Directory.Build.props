@@ -28,7 +28,12 @@
     üretim kodundaki gerçek uyarılar gürültüye boğulmasın.
   -->
   <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
-    <NoWarn>$(NoWarn);CA1707;CA1861;CA2007;CA1515;xUnit1041</NoWarn>
+    <!--
+      CA1711 — xUnit'in [CollectionDefinition] deyimi sınıf adının 'Collection' ile
+      bitmesini idiyom hâline getirmiştir; kural ise bu son eki ICollection'a ayırır.
+      Kuralı test projelerinde kapatmak, xUnit idiyomunu bozmaktan daha az zararlı.
+    -->
+    <NoWarn>$(NoWarn);CA1707;CA1711;CA1861;CA2007;CA1515;xUnit1041</NoWarn>
   </PropertyGroup>
 
 </Project>

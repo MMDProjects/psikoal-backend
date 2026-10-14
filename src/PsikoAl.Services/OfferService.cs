@@ -14,10 +14,32 @@ namespace PsikoAl.Services;
 
 public sealed class OfferService(IUnitOfWork unitOfWork, INotificationService notificationService) : IOfferService
 {
+    /// <summary>Uzman satırı yoksa, sebebi ROL mü yoksa eksik profil mi olduğunu ayırır.</summary>
+    /// <remarks>
+    /// Her ikisi de isteği reddediyor, ama kullanıcıya gösterilen mesaj farklı olmak
+    /// zorunda: bir DANIŞAN'a "Uzman profili bulunamadı, profilinizi tamamlayın"
+    /// demek onu var olmayan bir işe yönlendirir. Ek sorgu yalnız HATA yolunda
+    /// koşuyor; mutlu yola maliyeti yok.
+    ///
+    /// OFFER_EXPERT_ROLE_REQUIRED sabiti bir dönem hiç kullanılmıyordu: kod doğrudan
+    /// experts tablosuna gidiyor ve danışan için EXPERT_NOT_FOUND'a düşüyordu.
+    /// </remarks>
+    private async Task<DomainException> NotAnExpertAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        var role = await unitOfWork.Profiles.Query()
+            .Where(profile => profile.Id == userId)
+            .Select(profile => profile.Role)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return role is not null && role != ProfileRoles.Expert
+            ? new DomainException(ErrorKeys.OfferExpertRoleRequired)
+            : new DomainException(ErrorKeys.ExpertNotFound);
+    }
+
     public async Task<OfferDto> CreateAsync(Guid expertUserId, CreateOfferDto request, CancellationToken cancellationToken)
     {
         var expert = await unitOfWork.Experts.GetWithProfileAsync(expertUserId, cancellationToken)
-            ?? throw new DomainException(ErrorKeys.ExpertNotFound);
+            ?? throw await NotAnExpertAsync(expertUserId, cancellationToken);
         var expertProfile = expert.Profile ?? throw new DomainException(ErrorKeys.ProfileNotFound);
 
         if (expert.Status != ExpertStatuses.Approved)

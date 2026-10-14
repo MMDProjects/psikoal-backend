@@ -59,7 +59,13 @@ public sealed class SupabaseStorageService(HttpClient httpClient) : ISupabaseSto
 
         var signed = await response.Content.ReadFromJsonAsync<SignedUrlResponse>(JsonOptions, cancellationToken)
             ?? throw new DomainException(ErrorKeys.StorageUploadFailed);
-        return $"{httpClient.BaseAddress}storage/v1{signed.SignedUrl.TrimStart('/')}";
+        // Eğik çizgi ELLE eklenir: Supabase'in döndürdüğü signedURL
+        // "/object/sign/..." biçiminde ve TrimStart('/') baştaki çizgiyi siliyor.
+        // Çizgi yeniden konmazsa sonuç "storage/v1object/sign/..." olur — sözdizimsel
+        // olarak geçerli bir URL, ama 404. Belirti sessiz: uç 200 döner, imzalı
+        // bağlantı üretilmiş GÖRÜNÜR ve hata ancak admin bağlantıya tıkladığında
+        // ortaya çıkar.
+        return $"{httpClient.BaseAddress}storage/v1/{signed.SignedUrl.TrimStart('/')}";
     }
 
     private sealed record SignedUrlResponse([property: JsonPropertyName("signedURL")] string SignedUrl);

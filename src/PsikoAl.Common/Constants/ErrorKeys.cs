@@ -11,6 +11,7 @@ public static class ErrorKeys
     public const string AuthRefreshTokenInvalid = "AUTH_REFRESH_TOKEN_INVALID";
     public const string AuthUserNotFound = "AUTH_USER_NOT_FOUND";
     public const string AuthAccountFrozen = "AUTH_ACCOUNT_FROZEN";
+    public const string AuthCurrentPasswordInvalid = "AUTH_CURRENT_PASSWORD_INVALID";
     public const string AuthProviderError = "AUTH_PROVIDER_ERROR";
     public const string ProfileNotFound = "PROFILE_NOT_FOUND";
     public const string AdminUserNotFound = "ADMIN_USER_NOT_FOUND";

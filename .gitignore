@@ -11,3 +11,9 @@ appsettings.*.Local.json
 supabase/.branches/
 supabase/.temp/
 TestResults/
+
+# E2E calisma ciktilari
+.e2e-logs/
+e2e/.artifacts/
+e2e/admin/node_modules/
+e2e/admin/.artifacts/
