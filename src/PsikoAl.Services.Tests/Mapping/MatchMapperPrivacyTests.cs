@@ -42,6 +42,38 @@ public sealed class MatchMapperPrivacyTests
         Assert.Equal("AY", dto.Client?.Initials);
     }
 
+    // Uzmanın iletişimi de danışana yalnız uzmanın kendi tercihiyle gider; iki yön aynı kural.
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    public void ToMatchDto_SharesExpertContactOnlyWhenTheExpertAllowedIt(bool shareEmail, bool sharePhone)
+    {
+        var match = CreateMatch(shareEmail: false, sharePhone: false);
+        match.Expert = new Expert
+        {
+            Id = match.ExpertId,
+            Title = "Klinik Psikolog",
+            Profile = new Profile
+            {
+                Id = match.ExpertId,
+                FirstName = "Deniz",
+                LastName = "Kaya",
+                Email = "uzman@psikoal.test",
+                Phone = "+905559998877",
+                Role = "expert",
+                ShareEmail = shareEmail,
+                SharePhone = sharePhone,
+                CreatedAt = DateTimeOffset.UtcNow,
+            },
+        };
+
+        var dto = MatchMapper.ToMatchDto(match);
+
+        Assert.Equal("Deniz Kaya", dto.Expert?.Name);
+        Assert.Equal(shareEmail ? "uzman@psikoal.test" : null, dto.Expert?.Email);
+        Assert.Equal(sharePhone ? "+905559998877" : null, dto.Expert?.Phone);
+    }
+
     private static Match CreateMatch(bool shareEmail, bool sharePhone)
     {
         var clientId = Guid.NewGuid();

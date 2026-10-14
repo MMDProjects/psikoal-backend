@@ -35,9 +35,11 @@ public static class PushContent
 
     /// <summary>{ type, entityId } — entityId bildirim verisindeki ilk kimliktir (listingId, matchId...).</summary>
     public static string DataFor(string type, string? dataJson)
-        => JsonSerializer.Serialize(new { type, entityId = FirstId(dataJson) });
+        => JsonSerializer.Serialize(new { type, entityId = EntityIdFrom(dataJson) });
 
-    private static string? FirstId(string? dataJson)
+    // Bildirimin hedef kaydı: veri nesnesindeki ilk metin değeri (offerId, listingId, matchId…).
+    // Push ve uygulama içi liste aynı kuralı kullanır; dokunuş iki yerden de aynı ekrana gider.
+    public static string? EntityIdFrom(string? dataJson)
     {
         if (string.IsNullOrWhiteSpace(dataJson))
         {

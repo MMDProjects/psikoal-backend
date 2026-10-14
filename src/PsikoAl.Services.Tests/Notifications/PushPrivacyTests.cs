@@ -98,4 +98,13 @@ public sealed class PushPrivacyTests
         public Task SendAsync(string toEmail, string toName, string subject, string htmlBody, CancellationToken cancellationToken)
             => Task.CompletedTask;
     }
+
+    // Uygulama içi liste ve push aynı hedef kaydı taşımalı: satıra dokunmak ile bildirime
+    // dokunmak aynı ekrana gider.
+    [Theory]
+    [InlineData("{\"offerId\":\"5f0c\"}", "5f0c")]
+    [InlineData(null, null)]
+    [InlineData("bozuk", null)]
+    public void EntityIdFrom_ReadsTheFirstIdOfTheNotificationData(string? dataJson, string? expected)
+        => Assert.Equal(expected, PushContent.EntityIdFrom(dataJson));
 }

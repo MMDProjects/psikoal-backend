@@ -31,12 +31,15 @@ public static class MatchMapper
             client is { SharePhone: true } ? client.Phone : null,
             client?.CreatedAt);
 
+        // Uzmanın iletişimi de aynı kurala bağlı: kendi "İletişim Paylaşımı" tercihi.
         var expertDto = match.Expert is { Profile: { } expertProfile } expert
             ? new MatchExpertDto(
                 expert.Id,
                 $"{expertProfile.FirstName} {expertProfile.LastName}",
                 expert.Title,
-                ExpertMapper.InitialsOf(expertProfile.FirstName, expertProfile.LastName))
+                ExpertMapper.InitialsOf(expertProfile.FirstName, expertProfile.LastName),
+                expertProfile.ShareEmail ? expertProfile.Email : null,
+                expertProfile.SharePhone ? expertProfile.Phone : null)
             : null;
 
         var listingDto = match.Listing is { } listing
