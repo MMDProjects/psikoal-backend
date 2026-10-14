@@ -13,12 +13,10 @@ namespace PsikoAl.Api.Controllers;
 public sealed class AdminUsersController(IAdminUserService adminUserService) : ControllerBase
 {
     [HttpGet]
-    public Task<IReadOnlyList<AdminUserListItemDto>> List(
-        [FromQuery] string? search,
-        [FromQuery] string? role,
-        [FromQuery] string? status,
+    public Task<AdminPagedResultDto<AdminUserListItemDto>> List(
+        [FromQuery] AdminUserListQueryDto query,
         CancellationToken cancellationToken)
-        => adminUserService.ListUsersAsync(search, role, status, cancellationToken);
+        => adminUserService.ListUsersAsync(query, cancellationToken);
 
     [HttpPost("{id:guid}/freeze")]
     public async Task<IActionResult> Freeze(Guid id, [FromBody] AdminActionReasonDto? body, CancellationToken cancellationToken)

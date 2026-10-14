@@ -15,34 +15,33 @@ public sealed class AdminUserService(
     IAdminGuard adminGuard,
     IAccountStatusService accountStatus) : IAdminUserService
 {
-    public async Task<IReadOnlyList<AdminUserListItemDto>> ListUsersAsync(
-        string? search,
-        string? role,
-        string? status,
+    public async Task<AdminPagedResultDto<AdminUserListItemDto>> ListUsersAsync(
+        AdminUserListQueryDto query,
         CancellationToken cancellationToken)
     {
-        var query = unitOfWork.Profiles.Query();
+        var profiles = unitOfWork.Profiles.Query();
 
-        if (!string.IsNullOrWhiteSpace(search))
+        if (!string.IsNullOrWhiteSpace(query.Search))
         {
-            var pattern = $"%{search.Trim()}%";
-            query = query.Where(profile =>
+            var pattern = $"%{query.Search.Trim()}%";
+            profiles = profiles.Where(profile =>
                 EF.Functions.ILike(profile.Email, pattern)
                 || EF.Functions.ILike(profile.FirstName + " " + profile.LastName, pattern));
         }
 
-        if (!string.IsNullOrWhiteSpace(role))
+        if (!string.IsNullOrWhiteSpace(query.Role))
         {
-            query = query.Where(profile => profile.Role == role);
+            profiles = profiles.Where(profile => profile.Role == query.Role);
         }
 
-        if (!string.IsNullOrWhiteSpace(status))
+        if (!string.IsNullOrWhiteSpace(query.Status))
         {
-            query = query.Where(profile => profile.Status == status);
+            profiles = profiles.Where(profile => profile.Status == query.Status);
         }
 
-        return await query
+        var (rows, meta) = await profiles
             .OrderByDescending(profile => profile.CreatedAt)
+            .ThenBy(profile => profile.Id)
             .Select(profile => new AdminUserListItemDto(
                 profile.Id,
                 profile.Email,
@@ -51,7 +50,9 @@ public sealed class AdminUserService(
                 profile.IsVerified,
                 profile.Status,
                 profile.CreatedAt))
-            .ToListAsync(cancellationToken);
+            .ToPageAsync(query.Page, query.PerPage, cancellationToken);
+
+        return new AdminPagedResultDto<AdminUserListItemDto>(rows, meta);
     }
 
     public Task FreezeUserAsync(Guid actorAuthUserId, Guid targetUserId, string? reason, CancellationToken cancellationToken)

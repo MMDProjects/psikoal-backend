@@ -16,7 +16,7 @@
         <option value="REJECTED_BY_ADMIN">Reddedildi</option>
         <option value="">Tümü</option>
     </Select>
-    <Button Disabled="_isLoading" OnClick="LoadAsync">Filtrele</Button>
+    <Button Disabled="_isLoading" OnClick="FilterAsync">Filtrele</Button>
 </div>
 
 @if (_errorMessage is not null)
@@ -129,6 +129,7 @@
                 }
             </TableBody>
         </Table>
+        <Pager Meta="_meta" Disabled="_isLoading" OnPageChanged="GoToPageAsync" />
     }
 </Card>
 
@@ -151,7 +152,11 @@
         Reopen,
     }
 
+    private const int PerPage = 25;
+
     private IReadOnlyList<AdminListingListItemDto>? _listings;
+    private AdminPageMetaDto? _meta;
+    private int _page = 1;
     private AdminListingDetailDto? _detail;
     private Guid? _openListingId;
     private string _status = "PENDING_APPROVAL";
@@ -175,6 +180,18 @@
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
+    private Task FilterAsync()
+    {
+        _page = 1;
+        return LoadAsync();
+    }
+
+    private Task GoToPageAsync(int page)
+    {
+        _page = page;
+        return LoadAsync();
+    }
+
     private async Task LoadAsync()
     {
         _isLoading = true;
@@ -182,8 +199,11 @@
         _openListingId = null;
         try
         {
-            var result = await AdminClient.ListListingsAsync(_status, CancellationToken.None);
-            _listings = result.Value;
+            var result = await AdminClient.ListListingsAsync(
+                new AdminListingListQueryDto(_status, _page, PerPage),
+                CancellationToken.None);
+            _listings = result.Value?.Data;
+            _meta = result.Value?.Meta;
             _errorMessage = result.ErrorMessage;
         }
         finally

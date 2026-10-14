@@ -13,8 +13,10 @@ namespace PsikoAl.Api.Controllers;
 public sealed class AdminListingsController(IAdminListingService adminListingService) : ControllerBase
 {
     [HttpGet]
-    public Task<IReadOnlyList<AdminListingListItemDto>> List([FromQuery] string? status, CancellationToken cancellationToken)
-        => adminListingService.ListAsync(status, cancellationToken);
+    public Task<AdminPagedResultDto<AdminListingListItemDto>> List(
+        [FromQuery] AdminListingListQueryDto query,
+        CancellationToken cancellationToken)
+        => adminListingService.ListAsync(query, cancellationToken);
 
     [HttpGet("{id:guid}")]
     public Task<AdminListingDetailDto> GetDetail(Guid id, CancellationToken cancellationToken)

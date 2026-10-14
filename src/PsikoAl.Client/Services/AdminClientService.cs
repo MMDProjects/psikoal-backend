@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -19,13 +20,17 @@ public sealed class AdminClientService(
     public Task<AdminApiResult<AdminDashboardStatsDto>> GetDashboardStatsAsync(CancellationToken cancellationToken)
         => GetAsync<AdminDashboardStatsDto>("admin/dashboard/stats", cancellationToken);
 
-    public Task<AdminApiResult<IReadOnlyList<AdminUserListItemDto>>> ListUsersAsync(
-        string? search,
-        string? role,
-        string? status,
+    public Task<AdminApiResult<AdminPagedResultDto<AdminUserListItemDto>>> ListUsersAsync(
+        AdminUserListQueryDto query,
         CancellationToken cancellationToken)
-        => GetAsync<IReadOnlyList<AdminUserListItemDto>>(
-            WithQuery("admin/users", ("search", search), ("role", role), ("status", status)),
+        => GetAsync<AdminPagedResultDto<AdminUserListItemDto>>(
+            WithQuery(
+                "admin/users",
+                ("search", query.Search),
+                ("role", query.Role),
+                ("status", query.Status),
+                ("page", query.Page?.ToString(CultureInfo.InvariantCulture)),
+                ("perPage", query.PerPage?.ToString(CultureInfo.InvariantCulture))),
             cancellationToken);
 
     public Task<AdminApiResult> FreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken)
@@ -70,8 +75,16 @@ public sealed class AdminClientService(
     public Task<AdminApiResult> RejectReviewAsync(Guid reviewId, string reason, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Post, $"admin/reviews/{reviewId}/reject", new AdminActionReasonDto(reason), cancellationToken);
 
-    public Task<AdminApiResult<IReadOnlyList<AdminListingListItemDto>>> ListListingsAsync(string? status, CancellationToken cancellationToken)
-        => GetAsync<IReadOnlyList<AdminListingListItemDto>>(WithQuery("admin/listings", ("status", status)), cancellationToken);
+    public Task<AdminApiResult<AdminPagedResultDto<AdminListingListItemDto>>> ListListingsAsync(
+        AdminListingListQueryDto query,
+        CancellationToken cancellationToken)
+        => GetAsync<AdminPagedResultDto<AdminListingListItemDto>>(
+            WithQuery(
+                "admin/listings",
+                ("status", query.Status),
+                ("page", query.Page?.ToString(CultureInfo.InvariantCulture)),
+                ("perPage", query.PerPage?.ToString(CultureInfo.InvariantCulture))),
+            cancellationToken);
 
     public Task<AdminApiResult<AdminListingDetailDto>> GetListingDetailAsync(Guid listingId, CancellationToken cancellationToken)
         => GetAsync<AdminListingDetailDto>($"admin/listings/{listingId}", cancellationToken);

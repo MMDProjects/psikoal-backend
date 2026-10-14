@@ -4,7 +4,7 @@ namespace PsikoAl.Services.Abstractions;
 
 public interface IAdminListingService
 {
-    Task<IReadOnlyList<AdminListingListItemDto>> ListAsync(string? status, CancellationToken cancellationToken);
+    Task<AdminPagedResultDto<AdminListingListItemDto>> ListAsync(AdminListingListQueryDto query, CancellationToken cancellationToken);
 
     Task<AdminListingDetailDto> GetDetailAsync(Guid listingId, CancellationToken cancellationToken);
 

@@ -508,3 +508,18 @@ h1:focus {
 .chart-card-body {
     height: 300px;
 }
+
+.pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    border-top: 1px solid hsl(var(--border));
+}
+
+.pager-actions {
+    display: flex;
+    gap: 8px;
+}

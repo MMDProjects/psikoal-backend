@@ -18,7 +18,7 @@
         <option value="frozen">Dondurulmuş</option>
         <option value="deleted">Silinmiş</option>
     </Select>
-    <Button Disabled="_isLoading" OnClick="LoadAsync">Filtrele</Button>
+    <Button Disabled="_isLoading" OnClick="FilterAsync">Filtrele</Button>
 </div>
 
 @if (_errorMessage is not null)
@@ -80,6 +80,7 @@
                 }
             </TableBody>
         </Table>
+        <Pager Meta="_meta" Disabled="_isLoading" OnPageChanged="GoToPageAsync" />
     }
 </Card>
 
@@ -92,7 +93,11 @@
                OnConfirm="FreezeConfirmedAsync" />
 
 @code {
+    private const int PerPage = 25;
+
     private IReadOnlyList<AdminUserListItemDto>? _users;
+    private AdminPageMetaDto? _meta;
+    private int _page = 1;
     private string _search = string.Empty;
     private string _role = string.Empty;
     private string _status = string.Empty;
@@ -103,14 +108,29 @@
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
+    private Task FilterAsync()
+    {
+        _page = 1;
+        return LoadAsync();
+    }
+
+    private Task GoToPageAsync(int page)
+    {
+        _page = page;
+        return LoadAsync();
+    }
+
     private async Task LoadAsync()
     {
         _isLoading = true;
         _errorMessage = null;
         try
         {
-            var result = await AdminClient.ListUsersAsync(_search, _role, _status, CancellationToken.None);
-            _users = result.Value;
+            var result = await AdminClient.ListUsersAsync(
+                new AdminUserListQueryDto(_search, _role, _status, _page, PerPage),
+                CancellationToken.None);
+            _users = result.Value?.Data;
+            _meta = result.Value?.Meta;
             _errorMessage = result.ErrorMessage;
         }
         finally

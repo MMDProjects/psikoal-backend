@@ -9,10 +9,8 @@ public interface IAdminClientService
 {
     Task<AdminApiResult<AdminDashboardStatsDto>> GetDashboardStatsAsync(CancellationToken cancellationToken);
 
-    Task<AdminApiResult<IReadOnlyList<AdminUserListItemDto>>> ListUsersAsync(
-        string? search,
-        string? role,
-        string? status,
+    Task<AdminApiResult<AdminPagedResultDto<AdminUserListItemDto>>> ListUsersAsync(
+        AdminUserListQueryDto query,
         CancellationToken cancellationToken);
 
     Task<AdminApiResult> FreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken);
@@ -43,7 +41,9 @@ public interface IAdminClientService
 
     Task<AdminApiResult> RejectReviewAsync(Guid reviewId, string reason, CancellationToken cancellationToken);
 
-    Task<AdminApiResult<IReadOnlyList<AdminListingListItemDto>>> ListListingsAsync(string? status, CancellationToken cancellationToken);
+    Task<AdminApiResult<AdminPagedResultDto<AdminListingListItemDto>>> ListListingsAsync(
+        AdminListingListQueryDto query,
+        CancellationToken cancellationToken);
 
     Task<AdminApiResult<AdminListingDetailDto>> GetListingDetailAsync(Guid listingId, CancellationToken cancellationToken);
 

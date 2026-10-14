@@ -597,7 +597,8 @@ public sealed class SystemUsersChainTests(E2EFixture fixture)
         var users = await fixture.Admin.GetFromJsonAsync<JsonElement>(
             $"/admin/users?search={Uri.EscapeDataString(email)}");
 
-        var user = users.EnumerateArray()
+        // Liste sayfalı zarf döner: { data: [...], meta }.
+        var user = users.GetProperty("data").EnumerateArray()
             .Single(item => string.Equals(
                 item.GetProperty("email").GetString(),
                 email,

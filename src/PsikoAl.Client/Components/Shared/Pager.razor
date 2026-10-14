@@ -1,0 +1,29 @@
+@if (Meta is not null)
+{
+    <div class="pager" data-testid="pager">
+        <span class="muted">
+            Sayfa @Meta.Page / @Meta.TotalPages · Toplam @Meta.Total kayıt
+        </span>
+        <div class="pager-actions">
+            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" data-testid="pager-previous"
+                    Disabled="@(Disabled || Meta.Page <= 1)" OnClick="() => OnPageChanged.InvokeAsync(Meta.Page - 1)">
+                Önceki
+            </Button>
+            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" data-testid="pager-next"
+                    Disabled="@(Disabled || Meta.Page >= Meta.TotalPages)" OnClick="() => OnPageChanged.InvokeAsync(Meta.Page + 1)">
+                Sonraki
+            </Button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public AdminPageMetaDto? Meta { get; set; }
+
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnPageChanged { get; set; }
+}

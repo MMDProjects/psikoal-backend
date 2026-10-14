@@ -463,11 +463,11 @@ public sealed class ListingsChainTests(E2EFixture fixture) : IAsyncLifetime
         return [.. raw.GetProperty("data").EnumerateArray()];
     }
 
-    /// <summary>Admin listesi sarmalsız, doğrudan dizi döner (mobil uçlardan farkı).</summary>
+    /// <summary>Admin listesi sayfalı döner: { data, meta: { page, perPage, total } }.</summary>
     private async Task<JsonElement[]> FetchAdminListingsAsync(string status)
     {
-        var raw = await fixture.Admin.GetFromJsonAsync<JsonElement>($"/admin/listings?status={status}");
-        return [.. raw.EnumerateArray()];
+        var raw = await fixture.Admin.GetFromJsonAsync<JsonElement>($"/admin/listings?status={status}&perPage=100");
+        return [.. raw.GetProperty("data").EnumerateArray()];
     }
 
     private async Task<string> ReadSystemSettingAsync(string key)
