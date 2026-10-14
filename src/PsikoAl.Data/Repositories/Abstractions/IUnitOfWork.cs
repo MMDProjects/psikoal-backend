@@ -40,5 +40,15 @@ public interface IUnitOfWork
 
     IBlogLikeRepository BlogLikes { get; }
 
+    ICreditPackageRepository CreditPackages { get; }
+
+    ICreditPaymentRepository CreditPayments { get; }
+
+    ICreditTransactionRepository CreditTransactions { get; }
+
+    IExpertCreditRepository ExpertCredits { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
+
+    Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken);
 }

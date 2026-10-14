@@ -23,6 +23,10 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
     private IAuditLogRepository? _auditLogs;
     private IBlogRepository? _blogs;
     private IBlogLikeRepository? _blogLikes;
+    private ICreditPackageRepository? _creditPackages;
+    private ICreditPaymentRepository? _creditPayments;
+    private ICreditTransactionRepository? _creditTransactions;
+    private IExpertCreditRepository? _expertCredits;
 
     public IProfileRepository Profiles => _profiles ??= new ProfileRepository(dbContext);
 
@@ -66,6 +70,18 @@ public sealed class UnitOfWork(AppDbContext dbContext) : IUnitOfWork
 
     public IBlogLikeRepository BlogLikes => _blogLikes ??= new BlogLikeRepository(dbContext);
 
+    public ICreditPackageRepository CreditPackages => _creditPackages ??= new CreditPackageRepository(dbContext);
+
+    public ICreditPaymentRepository CreditPayments => _creditPayments ??= new CreditPaymentRepository(dbContext);
+
+    public ICreditTransactionRepository CreditTransactions
+        => _creditTransactions ??= new CreditTransactionRepository(dbContext);
+
+    public IExpertCreditRepository ExpertCredits => _expertCredits ??= new ExpertCreditRepository(dbContext);
+
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken)
         => dbContext.SaveChangesAsync(cancellationToken);
+
+    public async Task<IUnitOfWorkTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
+        => new UnitOfWorkTransaction(await dbContext.Database.BeginTransactionAsync(cancellationToken));
 }

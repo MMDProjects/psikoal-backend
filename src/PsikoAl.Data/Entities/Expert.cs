@@ -32,6 +32,8 @@ public sealed class Expert
 
     public string? PendingRevision { get; set; }
 
+    public int CreditBalance { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }
