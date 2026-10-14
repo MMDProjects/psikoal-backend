@@ -82,10 +82,20 @@ public sealed class AssessmentService(IUnitOfWork unitOfWork) : IAssessmentServi
         return AssessmentMapper.ToResultDto(result);
     }
 
-    public async Task<AssessmentResultDto> GetResultAsync(Guid resultId, CancellationToken cancellationToken)
+    public async Task<AssessmentResultDto> GetResultAsync(
+        Guid resultId,
+        Guid? viewerUserId,
+        CancellationToken cancellationToken)
     {
         var result = await unitOfWork.AssessmentResults.GetByIdAsync(resultId, cancellationToken)
             ?? throw new DomainException(ErrorKeys.AssessmentResultNotFound);
+
+        // KVKK: sahibi belli bir sonuç özel nitelikli sağlık verisidir; yalnız sahibine açık.
+        // Başkasına 403 değil 404 dönülür — kaydın varlığı bile sızdırılmaz.
+        if (result.UserId is { } ownerId && ownerId != viewerUserId)
+        {
+            throw new DomainException(ErrorKeys.AssessmentResultNotFound);
+        }
 
         return AssessmentMapper.ToResultDto(result);
     }

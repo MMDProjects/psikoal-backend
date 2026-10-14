@@ -41,5 +41,5 @@ public sealed class AssessmentsController(IAssessmentService assessmentService) 
 
     [HttpGet("results/{id:guid}")]
     public Task<AssessmentResultDto> GetResult(Guid id, CancellationToken cancellationToken)
-        => assessmentService.GetResultAsync(id, cancellationToken);
+        => assessmentService.GetResultAsync(id, this.CurrentUserIdOrNull(), cancellationToken);
 }
