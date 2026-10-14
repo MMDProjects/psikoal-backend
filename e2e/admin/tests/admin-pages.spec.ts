@@ -26,10 +26,11 @@ const PAGES = [
   { href: '/assessments', navLabel: 'Testler', heading: 'Testler' },
   { href: '/notifications', navLabel: 'Bildirimler', heading: 'Bildirimler' },
   { href: '/settings', navLabel: 'Ayarlar', heading: 'Sistem Ayarları' },
-  // Dashboard en SONA bırakıldı: nav etiketi "Dashboard" ve giriş sonrası
+  { href: '/audit-logs', navLabel: 'Denetim Kaydı', heading: 'Denetim Kaydı' },
+  // Genel Bakış en SONA bırakıldı: giriş sonrası
   // zaten orada olduğumuz için ilk sırada tıklamak "aynı sayfaya gitme"
   // durumunu ölçer, gezinmeyi değil.
-  { href: '/', navLabel: 'Dashboard', heading: 'Dashboard' },
+  { href: '/', navLabel: 'Genel Bakış', heading: 'Genel Bakış' },
 ] as const
 
 test.describe('Admin paneli sayfaları', () => {
@@ -65,7 +66,7 @@ test.describe('Admin paneli sayfaları', () => {
   test('dashboard sayaçları gerçek veriyle dolu gelir', async ({ page }) => {
     await loginAsAdmin(page)
 
-    await expect(page.getByRole('heading', { name: 'Dashboard' }).first()).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Genel Bakış' }).first()).toBeVisible()
 
     // Sayaç kartlarının BULUNMASI yetmez, DEĞER taşımaları gerekir: uç 500
     // dönerken sayfa kartları çiziyor ama içleri boş kalıyordu.

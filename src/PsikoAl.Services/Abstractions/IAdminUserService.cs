@@ -4,11 +4,7 @@ namespace PsikoAl.Services.Abstractions;
 
 public interface IAdminUserService
 {
-    Task<IReadOnlyList<AdminUserListItemDto>> ListUsersAsync(
-        string? search,
-        string? role,
-        string? status,
-        CancellationToken cancellationToken);
+    Task<AdminPagedResultDto<AdminUserListItemDto>> ListUsersAsync(AdminUserListQueryDto query, CancellationToken cancellationToken);
 
     Task FreezeUserAsync(Guid actorAuthUserId, Guid targetUserId, string? reason, CancellationToken cancellationToken);
 

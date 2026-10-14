@@ -1,7 +1,9 @@
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using PsikoAl.Common.Constants;
 using PsikoAl.Common.Dtos.Admin;
 using PsikoAl.Common.Exceptions;
+using PsikoAl.Data.Entities;
 using PsikoAl.Data.Repositories.Abstractions;
 using PsikoAl.Services.Abstractions;
 
@@ -12,17 +14,43 @@ public sealed class AdminNotificationService(
     IAdminGuard adminGuard,
     INotificationService notificationService) : IAdminNotificationService
 {
+    private const string TargetTypeUser = "user";
+    private const string TargetTypeSegment = "segment";
+
+    public async Task<int> PreviewRecipientCountAsync(AdminSendNotificationDto request, CancellationToken cancellationToken)
+        => (await ResolveRecipientsAsync(request, cancellationToken)).Count;
+
     public async Task<int> SendAsync(Guid actorAuthUserId, AdminSendNotificationDto request, CancellationToken cancellationToken)
     {
-        _ = await adminGuard.GetActiveAdminAsync(actorAuthUserId, cancellationToken)
+        var actor = await adminGuard.GetActiveAdminAsync(actorAuthUserId, cancellationToken)
             ?? throw new DomainException(ErrorKeys.AdminUserNotFound);
 
-        var targetUserIds = request.TargetType switch
-        {
-            "user" => await ResolveSingleUserAsync(request.UserId, cancellationToken),
-            "segment" => await ResolveSegmentAsync(request, cancellationToken),
-            _ => throw new DomainException(ErrorKeys.ValidationFailed, "targetType"),
-        };
+        var targetUserIds = await ResolveRecipientsAsync(request, cancellationToken);
+
+        await unitOfWork.AuditLogs.AddAsync(
+            new AuditLog
+            {
+                AdminUserId = actor.Id,
+                ActorType = AuditActorTypes.Admin,
+                Action = AuditActions.NotificationSend,
+                EntityType = "notification",
+                EntityId = request.TargetType == TargetTypeUser
+                    ? request.UserId?.ToString() ?? string.Empty
+                    : $"{TargetTypeSegment}:{request.Role}",
+                NewValue = JsonSerializer.Serialize(new
+                {
+                    targetType = request.TargetType,
+                    userId = request.UserId,
+                    role = request.Role,
+                    city = request.City,
+                    specialization = request.Specialization,
+                    title = request.Title,
+                    body = request.Body,
+                    recipientCount = targetUserIds.Count,
+                }),
+            },
+            cancellationToken);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
 
         var variables = new Dictionary<string, string>
         {
@@ -37,6 +65,14 @@ public sealed class AdminNotificationService(
         return targetUserIds.Count;
     }
 
+    private Task<List<Guid>> ResolveRecipientsAsync(AdminSendNotificationDto request, CancellationToken cancellationToken)
+        => request.TargetType switch
+        {
+            TargetTypeUser => ResolveSingleUserAsync(request.UserId, cancellationToken),
+            TargetTypeSegment => ResolveSegmentAsync(request, cancellationToken),
+            _ => throw new DomainException(ErrorKeys.ValidationFailed, "targetType"),
+        };
+
     private async Task<List<Guid>> ResolveSingleUserAsync(Guid? userId, CancellationToken cancellationToken)
     {
         if (userId is null)
@@ -44,7 +80,7 @@ public sealed class AdminNotificationService(
             throw new DomainException(ErrorKeys.ValidationFailed, "userId");
         }
 
-        return await unitOfWork.Profiles.Query()
+        return await ActiveProfiles()
             .Where(profile => profile.Id == userId)
             .Select(profile => profile.Id)
             .ToListAsync(cancellationToken);
@@ -57,7 +93,7 @@ public sealed class AdminNotificationService(
             throw new DomainException(ErrorKeys.ValidationFailed, "role");
         }
 
-        var query = unitOfWork.Profiles.Query().Where(profile => profile.Role == request.Role);
+        var query = ActiveProfiles().Where(profile => profile.Role == request.Role);
 
         if (!string.IsNullOrWhiteSpace(request.City))
         {
@@ -74,4 +110,7 @@ public sealed class AdminNotificationService(
 
         return await query.Select(profile => profile.Id).ToListAsync(cancellationToken);
     }
+
+    private IQueryable<Profile> ActiveProfiles()
+        => unitOfWork.Profiles.Query().Where(profile => profile.Status == ProfileStatuses.Active);
 }

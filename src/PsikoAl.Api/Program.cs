@@ -142,6 +142,7 @@ builder.Services.AddScoped<IAdminNotificationService, AdminNotificationService>(
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IAdminAssessmentService, AdminAssessmentService>();
 builder.Services.AddScoped<IAdminGuard, AdminGuard>();
+builder.Services.AddScoped<IAdminAuditLogService, AdminAuditLogService>();
 builder.Services.AddScoped<Microsoft.AspNetCore.Authorization.IAuthorizationHandler, AdminRequirementHandler>();
 
 // Supabase artık JWT'leri asimetrik anahtarlarla (ES256) imzalıyor ve JWKS/OIDC discovery yayınlıyor;
@@ -176,12 +177,7 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("Admin", policy => policy
-        .RequireAuthenticatedUser()
-        .AddRequirements(new AdminRequirement()));
-});
+builder.Services.AddAuthorization(options => options.AddAdminPolicies());
 
 builder.Services.AddConfiguredRateLimiting(builder.Configuration);
 

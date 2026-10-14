@@ -240,6 +240,19 @@ Değişiklikler audit log'a yazılır ve mevcut kayıtları geriye dönük etkil
 | İçerik Editörü | CMS: blog, kategori, öneri, test, ui_content, bildirim şablonları |
 | Finans | Ödemeler, iadeler, paket yönetimi, gelir raporları |
 
+### 7.1 Uygulanan policy'ler (API)
+
+`admin_users.role` değeri `src/PsikoAl.Api/Authorization/AdminPolicies.cs` içindeki policy'lerle eşlenir. Her admin controller'ı bunlardan birini `[Authorize(Policy = AdminPolicies.X)]` ile **açıkça** seçer; eşleme `AdminAuthorizationContractTests` ile sabitlenmiştir.
+
+| Policy adı | İzinli roller | Kapsam |
+|---|---|---|
+| `Admin` (`AdminPolicies.Any`) | tüm aktif adminler | genel bakış, `GET /admin/me` |
+| `AdminSuperAdmin` | `super_admin` | sistem ayarları, bildirim gönderimi + şablonlar, audit log, admin kullanıcı yönetimi |
+| `AdminModeration` | `super_admin`, `moderator` | uzman/ilan/yorum onayları, eşleşmeler, kullanıcı dondurma |
+| `AdminContent` | `super_admin`, `content_editor` | kategoriler, testler, **blog** (yeni CMS uçları bu policy'yi kullanır) |
+
+Panel menüsü aynı rol kümelerini (`PsikoAl.Common.Constants.AdminRoleGroups`) kullanarak rolün açamayacağı sayfaları gizler; asıl yetki kontrolü API'dedir.
+
 ---
 
 ## 8. SUPABASE ŞEMA KARŞILIĞI

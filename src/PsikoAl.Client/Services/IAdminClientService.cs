@@ -7,84 +7,90 @@ namespace PsikoAl.Client.Services;
 
 public interface IAdminClientService
 {
-    Task<bool> LoginAsync(string email, string password, CancellationToken cancellationToken);
+    Task<AdminApiResult<AdminDashboardStatsDto>> GetDashboardStatsAsync(CancellationToken cancellationToken);
 
-    Task<AdminDashboardStatsDto?> GetDashboardStatsAsync(CancellationToken cancellationToken);
-
-    Task<IReadOnlyList<AdminUserListItemDto>?> ListUsersAsync(
-        string? search,
-        string? role,
-        string? status,
+    Task<AdminApiResult<AdminPagedResultDto<AdminUserListItemDto>>> ListUsersAsync(
+        AdminUserListQueryDto query,
         CancellationToken cancellationToken);
 
-    Task<bool> FreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken);
+    Task<AdminApiResult> FreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken);
 
-    Task<bool> UnfreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken);
+    Task<AdminApiResult> UnfreezeUserAsync(Guid userId, string? reason, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<AdminExpertListItemDto>?> ListExpertsAsync(string? status, CancellationToken cancellationToken);
+    Task<AdminApiResult<IReadOnlyList<AdminExpertListItemDto>>> ListExpertsAsync(string? status, CancellationToken cancellationToken);
 
-    Task<AdminExpertDetailDto?> GetExpertDetailAsync(Guid expertId, CancellationToken cancellationToken);
+    Task<AdminApiResult<AdminExpertDetailDto>> GetExpertDetailAsync(Guid expertId, CancellationToken cancellationToken);
 
-    Task<bool> ApproveExpertAsync(Guid expertId, CancellationToken cancellationToken);
+    Task<AdminApiResult> ApproveExpertAsync(Guid expertId, CancellationToken cancellationToken);
 
-    Task<bool> RejectExpertAsync(Guid expertId, string reason, CancellationToken cancellationToken);
+    Task<AdminApiResult> RejectExpertAsync(Guid expertId, string reason, CancellationToken cancellationToken);
 
-    Task<bool> SetExpertVerifiedAsync(Guid expertId, bool isVerified, CancellationToken cancellationToken);
+    Task<AdminApiResult> SetExpertVerifiedAsync(Guid expertId, bool isVerified, CancellationToken cancellationToken);
 
-    Task<AdminExpertDocumentUrls?> GetExpertDocumentUrlsAsync(Guid expertId, CancellationToken cancellationToken);
+    Task<AdminApiResult<AdminExpertDocumentUrls>> GetExpertDocumentUrlsAsync(Guid expertId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<AdminCategoryListItemDto>?> ListCategoriesAsync(CancellationToken cancellationToken);
+    Task<AdminApiResult<IReadOnlyList<AdminCategoryListItemDto>>> ListCategoriesAsync(CancellationToken cancellationToken);
 
-    Task<CategoryDto?> CreateCategoryAsync(CreateCategoryDto request, CancellationToken cancellationToken);
+    Task<AdminApiResult<CategoryDto>> CreateCategoryAsync(CreateCategoryDto request, CancellationToken cancellationToken);
 
-    Task<CategoryDto?> UpdateCategoryAsync(Guid categoryId, UpdateCategoryDto request, CancellationToken cancellationToken);
+    Task<AdminApiResult<CategoryDto>> UpdateCategoryAsync(Guid categoryId, UpdateCategoryDto request, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<AdminReviewListItemDto>?> ListReviewsAsync(string? status, CancellationToken cancellationToken);
+    Task<AdminApiResult<IReadOnlyList<AdminReviewListItemDto>>> ListReviewsAsync(string? status, CancellationToken cancellationToken);
 
-    Task<bool> ApproveReviewAsync(Guid reviewId, CancellationToken cancellationToken);
+    Task<AdminApiResult> ApproveReviewAsync(Guid reviewId, CancellationToken cancellationToken);
 
-    Task<bool> RejectReviewAsync(Guid reviewId, string reason, CancellationToken cancellationToken);
+    Task<AdminApiResult> RejectReviewAsync(Guid reviewId, string reason, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<AdminListingListItemDto>?> ListListingsAsync(string? status, CancellationToken cancellationToken);
+    Task<AdminApiResult<AdminPagedResultDto<AdminListingListItemDto>>> ListListingsAsync(
+        AdminListingListQueryDto query,
+        CancellationToken cancellationToken);
 
-    Task<AdminListingDetailDto?> GetListingDetailAsync(Guid listingId, CancellationToken cancellationToken);
+    Task<AdminApiResult<AdminListingDetailDto>> GetListingDetailAsync(Guid listingId, CancellationToken cancellationToken);
 
-    Task<bool> ApproveListingAsync(Guid listingId, CancellationToken cancellationToken);
+    Task<AdminApiResult> ApproveListingAsync(Guid listingId, CancellationToken cancellationToken);
 
-    Task<bool> RejectListingAsync(Guid listingId, string reason, CancellationToken cancellationToken);
+    Task<AdminApiResult> RejectListingAsync(Guid listingId, string reason, CancellationToken cancellationToken);
 
-    Task<bool> CloseListingAsync(Guid listingId, CancellationToken cancellationToken);
+    Task<AdminApiResult> CloseListingAsync(Guid listingId, CancellationToken cancellationToken);
 
-    Task<bool> ExtendListingAsync(Guid listingId, int additionalDays, CancellationToken cancellationToken);
+    Task<AdminApiResult> ExtendListingAsync(Guid listingId, int additionalDays, CancellationToken cancellationToken);
 
-    Task<bool> ReopenListingAsync(Guid listingId, string reason, CancellationToken cancellationToken);
+    Task<AdminApiResult> ReopenListingAsync(Guid listingId, string reason, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<SystemSettingDto>?> ListSystemSettingsAsync(CancellationToken cancellationToken);
+    Task<AdminApiResult<IReadOnlyList<SystemSettingDto>>> ListSystemSettingsAsync(CancellationToken cancellationToken);
 
-    Task<bool> UpdateSystemSettingAsync(string key, string value, CancellationToken cancellationToken);
+    Task<AdminApiResult> UpdateSystemSettingAsync(string key, string value, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<AdminMatchListItemDto>?> ListMatchesAsync(string? status, CancellationToken cancellationToken);
+    Task<AdminApiResult<IReadOnlyList<AdminMatchListItemDto>>> ListMatchesAsync(string? status, CancellationToken cancellationToken);
 
-    Task<AdminMatchDetailDto?> GetMatchDetailAsync(Guid matchId, CancellationToken cancellationToken);
+    Task<AdminApiResult<AdminMatchDetailDto>> GetMatchDetailAsync(Guid matchId, CancellationToken cancellationToken);
 
-    Task<bool> ForceReleaseMatchAsync(Guid matchId, string targetStatus, string reason, CancellationToken cancellationToken);
+    Task<AdminApiResult> ForceReleaseMatchAsync(Guid matchId, string targetStatus, string reason, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<AdminNotificationTemplateDto>?> ListNotificationTemplatesAsync(CancellationToken cancellationToken);
+    Task<AdminApiResult<IReadOnlyList<AdminNotificationTemplateDto>>> ListNotificationTemplatesAsync(CancellationToken cancellationToken);
 
-    Task<AdminNotificationTemplateDto?> UpdateNotificationTemplateAsync(
+    Task<AdminApiResult<AdminNotificationTemplateDto>> UpdateNotificationTemplateAsync(
         string type,
         UpdateAdminNotificationTemplateDto request,
         CancellationToken cancellationToken);
 
-    Task<int?> SendNotificationAsync(AdminSendNotificationDto request, CancellationToken cancellationToken);
+    Task<AdminApiResult<AdminNotificationPreviewDto>> PreviewNotificationAsync(
+        AdminSendNotificationDto request,
+        CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<AdminAssessmentListItemDto>?> ListAssessmentsAsync(CancellationToken cancellationToken);
+    Task<AdminApiResult<int>> SendNotificationAsync(AdminSendNotificationDto request, CancellationToken cancellationToken);
 
-    Task<AdminAssessmentDetailDto?> GetAssessmentDetailAsync(Guid assessmentId, CancellationToken cancellationToken);
+    Task<AdminApiResult<IReadOnlyList<AdminAssessmentListItemDto>>> ListAssessmentsAsync(CancellationToken cancellationToken);
 
-    Task<bool> UpdateAssessmentAsync(Guid assessmentId, UpdateAdminAssessmentDto request, CancellationToken cancellationToken);
+    Task<AdminApiResult<AdminAssessmentDetailDto>> GetAssessmentDetailAsync(Guid assessmentId, CancellationToken cancellationToken);
 
-    Task<bool> UpdateScoreRuleAsync(Guid scoreRuleId, UpdateAdminScoreRuleDto request, CancellationToken cancellationToken);
+    Task<AdminApiResult> UpdateAssessmentAsync(Guid assessmentId, UpdateAdminAssessmentDto request, CancellationToken cancellationToken);
+
+    Task<AdminApiResult> UpdateScoreRuleAsync(Guid scoreRuleId, UpdateAdminScoreRuleDto request, CancellationToken cancellationToken);
+
+    Task<AdminApiResult<AdminPagedResultDto<AdminAuditLogDto>>> ListAuditLogsAsync(
+        AdminAuditLogQueryDto query,
+        CancellationToken cancellationToken);
 }
 
 public sealed record AdminExpertDocumentUrls(string? CvUrl, IReadOnlyList<string> CertificateUrls);

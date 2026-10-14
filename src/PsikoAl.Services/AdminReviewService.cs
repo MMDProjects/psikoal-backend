@@ -80,7 +80,8 @@ public sealed class AdminReviewService(
         review.ModeratedAt = DateTimeOffset.UtcNow;
         review.ModeratedBy = actor.Id;
 
-        await AddAuditAsync(actor.Id, "admin.review_reject", review.Id, oldStatus, review.Status, reason, cancellationToken);
+        var action = oldStatus == ReviewStatuses.Approved ? AuditActions.ReviewUnpublish : "admin.review_reject";
+        await AddAuditAsync(actor.Id, action, review.Id, oldStatus, review.Status, reason, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
         await notificationService.NotifyAsync(

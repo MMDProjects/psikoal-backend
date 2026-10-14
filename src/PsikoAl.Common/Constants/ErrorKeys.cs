@@ -20,6 +20,8 @@ public static class ErrorKeys
     public const string AuthHealthDataConsentRequired = "AUTH_HEALTH_DATA_CONSENT_REQUIRED";
     public const string ProfileNotFound = "PROFILE_NOT_FOUND";
     public const string AdminUserNotFound = "ADMIN_USER_NOT_FOUND";
+    public const string AccountDeletedImmutable = "ACCOUNT_DELETED_IMMUTABLE";
+    public const string AccountStatusTransitionInvalid = "ACCOUNT_STATUS_TRANSITION_INVALID";
     public const string ExpertNotFound = "EXPERT_NOT_FOUND";
     public const string ExpertProfileAlreadyExists = "EXPERT_PROFILE_ALREADY_EXISTS";
     public const string ExpertRoleRequired = "EXPERT_ROLE_REQUIRED";

@@ -17,7 +17,7 @@ emülatör gerektirmediği için PR'larda da koşuyor.
 | # | Katman | Araç | Nerede | Test | Süre |
 |---|---|---|---|---|---|
 | 1 | API zinciri | xUnit + gerçek Postgres | `src/PsikoAl.Api.E2ETests/` | 52 | ~30 sn |
-| 2 | Admin paneli | Playwright + Chromium | `e2e/admin/` | 7 | ~20 sn |
+| 2 | Admin paneli | Playwright + Chromium | `e2e/admin/` | 10 | ~20 sn |
 | 3 | Mobil sözleşme | Jest + uygulamanın gerçek Zod şemaları | `psikoal-app/src/lib/contract.live.test.ts` | 17 | ~20 sn |
 | 4 | Mobil uygulama | Maestro + Android emülatör | `e2e/mobile/` | 3 akış | ~4 dk |
 
@@ -128,17 +128,20 @@ yok). E2E'ler `e2e.yml`'de `--filter "Category=E2E"` ile koşar.
 
 Üç Blazor'a özgü tuzak ve çözümleri:
 
-**1. Prerender yarışı.** Blazor Server önce statik HTML gönderir; DOM hazırdır
-ama `@bind` ve `OnClick` bağlı değildir. O anda yapılan `fill()` DOM değerini
-değiştirir, C# alanına hiç ulaşmaz, form boş gider. Çözüm: `gotoInteractive()`
-SignalR WebSocket'i açılana kadar bekler.
+**1. Circuit yarışı.** Prerender kapalı (App.razor); sayfa ancak SignalR circuit'i
+kurulunca çizilir ve o andan önce yapılan `fill()` C# alanına hiç ulaşmaz, form boş
+gider. Çözüm: `gotoInteractive()` SignalR WebSocket'i açılana kadar bekler.
 
-**2. Oturum circuit'e bağlı.** `AdminSessionState` scoped bir servistir, token'ı
-yalnız circuit belleğinde tutar. `page.goto('/categories')` yeni circuit açar,
-oturum ölür, sayfa `/login`'e döner. **Bu gerçekten yaşandı** — kurulumda iki
-test "tablo bulunamadı" diye kırmızı oldu. Çözüm: giriş sonrası geçişler
-`navigateTo()` ile nav bağlantısına tıklayarak (SPA geçişi, circuit korunur).
-Aynı sebeple `storageState` ile oturum önbelleğe **alınamaz**.
+**2. Oturum sekmeye bağlı.** Oturum (access + refresh token, rol) sekmenin
+sessionStorage'ında `ProtectedSessionStorage` ile şifreli tutulur; `page.goto` ve
+yenileme oturumu korur, MainLayout geri yükleyip `/admin/me` ile yeniden doğrular.
+Eskiden token yalnız circuit belleğindeydi ve `page.goto` oturumu öldürüyordu.
+`storageState` sessionStorage taşımadığı için oturum yeni bir bağlama yine
+**aktarılamaz**; geçişlerde `navigateTo()` (nav tıklaması) tercih edilir.
+
+`admin-hardening.spec.ts`: güvenlik başlıkları, admin olmayan hesabın reddi,
+yenilemede oturumun korunması, bildirim ve ilan kapatma onay diyalogları
+("Vazgeç" — veri değişmez), denetim kaydı sayfası ve çıkışın oturumu silmesi.
 
 **3. Rate limit.** API'de `auth` politikası IP başına dakikada 10 istek. Her
 test dosyası bir kez login olmak zorunda olduğundan `workers: 1` ve

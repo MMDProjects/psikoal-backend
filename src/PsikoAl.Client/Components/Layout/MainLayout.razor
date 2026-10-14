@@ -2,65 +2,86 @@
 @implements IDisposable
 @inject NavigationManager Navigation
 @inject AdminSessionState Session
+@inject IAdminAuthService Auth
 
-<div class="app-shell">
-    <Sidebar Collapsible="true" Collapsed="_isSidebarCollapsed" CollapsedChanged="OnSidebarCollapsedChanged">
-        <SidebarHeader>
-            <div class="sidebar-brand">
-                <span class="sidebar-brand-mark">PA</span>
-                <span class="sidebar-brand-text">
-                    <span class="sidebar-brand-name">PsikoAl</span>
-                    <span class="sidebar-brand-sub">Yönetim</span>
-                </span>
-            </div>
-        </SidebarHeader>
-
-        <SidebarContent>
-            <SidebarGroup>
-                <SidebarGroupLabel>Yönetim</SidebarGroupLabel>
-                <SidebarGroupContent>
-                    <SidebarMenu>
-                        @foreach (var item in AdminNavigation.Items)
-                        {
-                            <SidebarMenuItem Href="@item.Href" Active="IsActive(item.Href)" Title="@item.Label">
-                                <Icon><NavIcon Name="@item.Icon" /></Icon>
-                                <ChildContent>@item.Label</ChildContent>
-                            </SidebarMenuItem>
-                        }
-                    </SidebarMenu>
-                </SidebarGroupContent>
-            </SidebarGroup>
-        </SidebarContent>
-
-        <SidebarFooter>
-            @if (Session.Email is not null)
-            {
-                <div class="sidebar-user" title="@Session.Email">@Session.Email</div>
-            }
-        </SidebarFooter>
-    </Sidebar>
-
-    <div class="app-main">
-        <header class="app-topbar">
-            <div class="flex items-center gap-3">
-                <Button Variant="ButtonVariant.Ghost" Size="ButtonSize.Icon" OnClick="ToggleSidebar" aria-label="Menüyü aç/kapat">
-                    <NavIcon Name="menu" />
-                </Button>
-                <h1 class="app-topbar-title">@_pageTitle</h1>
-            </div>
-            <div class="app-topbar-actions">
-                <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" OnClick="SignOut">Çıkış</Button>
-            </div>
-        </header>
-
-        <main class="app-content">
-            @Body
-        </main>
+@if (!_isAuthorized)
+{
+    <div class="auth-shell" data-testid="auth-pending">
+        <div class="auth-card">
+            <LoadingSkeleton Rows="3" />
+        </div>
     </div>
-</div>
+}
+else
+{
+    <div class="app-shell">
+        <Sidebar Collapsible="true" Collapsed="_isSidebarCollapsed" CollapsedChanged="OnSidebarCollapsedChanged">
+            <SidebarHeader>
+                <div class="sidebar-brand">
+                    <span class="sidebar-brand-mark">PA</span>
+                    <span class="sidebar-brand-text">
+                        <span class="sidebar-brand-name">PsikoAl</span>
+                        <span class="sidebar-brand-sub">Yönetim</span>
+                    </span>
+                </div>
+            </SidebarHeader>
 
-<Sonner Position="SonnerPosition.BottomRight" />
-<DialogProvider />
+            <SidebarContent>
+                <SidebarGroup>
+                    <SidebarGroupLabel>Yönetim</SidebarGroupLabel>
+                    <SidebarGroupContent>
+                        <SidebarMenu>
+                            @foreach (var item in AdminNavigation.Items.Where(item => Session.CanAccess(item.AllowedRoles)))
+                            {
+                                <SidebarMenuItem Href="@item.Href" Active="IsActive(item.Href)" Title="@item.Label">
+                                    <Icon><NavIcon Name="@item.Icon" /></Icon>
+                                    <ChildContent>@item.Label</ChildContent>
+                                </SidebarMenuItem>
+                            }
+                        </SidebarMenu>
+                    </SidebarGroupContent>
+                </SidebarGroup>
+            </SidebarContent>
+
+            <SidebarFooter>
+                @if (Session.Email is not null)
+                {
+                    <div class="sidebar-user" title="@Session.Email">@Session.Email</div>
+                }
+            </SidebarFooter>
+        </Sidebar>
+
+        <div class="app-main">
+            <header class="app-topbar">
+                <div class="flex items-center gap-3">
+                    <Button Variant="ButtonVariant.Ghost" Size="ButtonSize.Icon" OnClick="ToggleSidebar" aria-label="Menüyü aç/kapat">
+                        <NavIcon Name="menu" />
+                    </Button>
+                    <h1 class="app-topbar-title">@_pageTitle</h1>
+                </div>
+                <div class="app-topbar-actions">
+                    <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" data-testid="logout" OnClick="SignOutAsync">Çıkış</Button>
+                </div>
+            </header>
+
+            <main class="app-content">
+                @if (CanAccessCurrentPage())
+                {
+                    @Body
+                }
+                else
+                {
+                    <EmptyState Title="Bu sayfaya erişim yetkiniz yok"
+                                Description="Yönetici rolünüz bu bölümü kapsamıyor. Erişim gerekiyorsa bir süper yöneticiyle iletişime geçin."
+                                Icon="settings" />
+                }
+            </main>
+        </div>
+    </div>
+
+    <Sonner Position="SonnerPosition.BottomRight" />
+    <DialogProvider />
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     Beklenmeyen bir hata oluştu.
@@ -69,6 +90,7 @@
 </div>
 
 @code {
+    private bool _isAuthorized;
     private bool _isSidebarCollapsed;
     private string _pageTitle = string.Empty;
 
@@ -79,13 +101,47 @@
         UpdatePageTitle();
     }
 
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        UpdatePageTitle();
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await Auth.RestoreAsync(CancellationToken.None);
+        if (!Session.IsAuthenticated)
+        {
+            RedirectToLogin();
+            return;
+        }
+
+        _isAuthorized = true;
         StateHasChanged();
     }
 
-    private void OnSessionChanged() => InvokeAsync(StateHasChanged);
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs args)
+    {
+        UpdatePageTitle();
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSessionChanged()
+    {
+        if (_isAuthorized && !Session.IsAuthenticated)
+        {
+            _isAuthorized = false;
+            InvokeAsync(RedirectToLogin);
+            return;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void RedirectToLogin()
+    {
+        var returnUrl = "/" + Navigation.ToBaseRelativePath(Navigation.Uri);
+        Navigation.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(returnUrl)}");
+    }
 
     private void UpdatePageTitle()
     {
@@ -95,9 +151,12 @@
     private string CurrentRelativePath()
     {
         var relative = Navigation.ToBaseRelativePath(Navigation.Uri);
-        var queryIndex = relative.IndexOf('?');
+        var queryIndex = relative.IndexOf('?', StringComparison.Ordinal);
         return queryIndex >= 0 ? relative[..queryIndex] : relative;
     }
+
+    private bool CanAccessCurrentPage()
+        => AdminNavigation.Find(CurrentRelativePath()) is not { } item || Session.CanAccess(item.AllowedRoles);
 
     private bool IsActive(string href)
     {
@@ -109,9 +168,10 @@
 
     private void OnSidebarCollapsedChanged(bool collapsed) => _isSidebarCollapsed = collapsed;
 
-    private void SignOut()
+    private async Task SignOutAsync()
     {
-        Session.SignOut();
+        _isAuthorized = false;
+        await Auth.LogoutAsync(CancellationToken.None);
         Navigation.NavigateTo("/login");
     }
 
