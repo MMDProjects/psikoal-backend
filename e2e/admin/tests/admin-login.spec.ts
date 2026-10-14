@@ -12,9 +12,11 @@ test.describe('Admin paneli', () => {
   test('giriş yapılmadan panel açılmaz', async ({ page }) => {
     await gotoInteractive(page, '/categories')
 
-    // Categories.razor OnAfterRenderAsync içinde Session.IsAuthenticated
-    // kontrolüyle /login'e yönlendiriyor.
+    // MainLayout oturumu bulamayınca @Body'yi hiç çizmeden /login'e yönlendiriyor;
+    // dönüş adresi returnUrl'de taşınıyor.
     await expect.poll(() => new URL(page.url()).pathname, { timeout: 20_000 }).toBe('/login')
+    expect(new URL(page.url()).searchParams.get('returnUrl')).toBe('/categories')
+    await expect(page.getByTestId('category-table')).toHaveCount(0)
   })
 
   test('yanlış şifre hata mesajı gösterir', async ({ page }) => {

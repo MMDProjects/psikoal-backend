@@ -28,7 +28,7 @@
     </Alert>
 }
 
-<Card Class="table-card">
+<Card Class="table-card" data-testid="audit-card">
     @if (_isLoading)
     {
         <LoadingSkeleton />
@@ -39,7 +39,7 @@
     }
     else if (_logs is not null)
     {
-        <Table data-testid="audit-table">
+        <Table>
             <TableHeader>
                 <TableRow>
                     <TableHead>Zaman</TableHead>

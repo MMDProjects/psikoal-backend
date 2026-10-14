@@ -156,11 +156,11 @@
 
                 <div class="field">
                     <Label>Başlık</Label>
-                    <Input @bind-Value="_sendTitle" />
+                    <Input data-testid="notification-title" @bind-Value="_sendTitle" />
                 </div>
                 <div class="field">
                     <Label>Mesaj</Label>
-                    <Textarea Rows="3" @bind-Value="_sendBody" />
+                    <div data-testid="notification-body"><Textarea Rows="3" @bind-Value="_sendBody" /></div>
                 </div>
             </CardContent>
             <CardFooter>
@@ -177,7 +177,7 @@
             }
             else if (_history is not null)
             {
-                <Table data-testid="notification-history">
+                <Table>
                     <TableHeader>
                         <TableRow>
                             <TableHead>Zaman</TableHead>

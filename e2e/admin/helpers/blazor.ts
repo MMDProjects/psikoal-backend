@@ -3,10 +3,9 @@ import { expect, type Page } from '@playwright/test'
 /**
  * Blazor Server sayfasına gider ve circuit kurulana kadar bekler.
  *
- * Neden gerekli: Blazor Server önce statik bir prerender gönderir. DOM o anda
- * hazırdır ama olay bağlantıları (`@bind`, `OnClick`) henüz yoktur. Prerender
- * üzerine yapılan `fill()` çağrısı DOM değerini değiştirir, C# alanına HİÇ
- * ulaşmaz — form boş gönderilir ve test "sebepsiz" kırmızı olur.
+ * Neden gerekli: prerender kapalı (App.razor) — sayfa içeriği ancak SignalR
+ * circuit'i kurulunca çizilir. Circuit hazır olmadan yapılan `fill()` C# alanına
+ * HİÇ ulaşmaz — form boş gönderilir ve test "sebepsiz" kırmızı olur.
  *
  * Beklenen sinyal SignalR WebSocket'i: Blazor Server circuit'i onun üzerinden
  * kurar, yani açılmış bir WebSocket = interaktif render başlamış demektir.
@@ -22,11 +21,11 @@ export async function gotoInteractive(page: Page, path: string): Promise<void> {
 /**
  * Admin paneline gerçek kimlikle giriş yapar.
  *
- * `storageState` ile oturum ÖNBELLEĞE ALINAMAZ: AdminSessionState scoped bir
- * servistir ve token'ı yalnız Blazor circuit'inin belleğinde tutar
- * (src/PsikoAl.Client/Services/AdminSessionState.cs). Sayfa yenilendiğinde ya da
- * yeni bir bağlam açıldığında oturum ölür. Bu yüzden her test dosyası bir kez
- * login olur — ve tam bu yüzden worker sayısı 1 (rate limit).
+ * Oturum sekmenin sessionStorage'ında (ProtectedSessionStorage, Data Protection
+ * ile şifreli) tutulur: aynı sekmede yenileme oturumu korur, ama `storageState`
+ * yalnız cookie + localStorage taşıdığı için oturum yeni bir bağlama AKTARILAMAZ.
+ * Bu yüzden her test bir kez login olur — ve tam bu yüzden worker sayısı 1
+ * (rate limit).
  */
 export async function loginAsAdmin(page: Page): Promise<void> {
   const email = requireEnv('E2E_ADMIN_EMAIL')
@@ -53,12 +52,10 @@ export async function loginAsAdmin(page: Page): Promise<void> {
 /**
  * Panel içi sayfa geçişi — nav bağlantısına tıklayarak.
  *
- * `page.goto('/categories')` KULLANILAMAZ. Tam sayfa yüklemesi yeni bir Blazor
- * circuit'i açar; AdminSessionState scoped olduğu için token o circuit'te yoktur
- * ve Categories.razor OnAfterRenderAsync anında /login'e yönlendirir. Bu, testin
- * "tablo bulunamadı" diye kırmızı olmasının gerçek sebebiydi.
- *
- * Nav bağlantısı SPA geçişi yapar, circuit ve dolayısıyla oturum korunur.
+ * `page.goto` artık oturumu düşürmez (MainLayout oturumu sessionStorage'dan geri
+ * yükleyip /admin/me ile doğrular), ama her seferinde yeni circuit demektir. Nav
+ * bağlantısı SPA geçişi yapar: daha hızlı, ve menünün role göre süzüldüğünü de
+ * dolaylı olarak doğrular (super_admin'e her bağlantı görünmeli).
  */
 export async function navigateTo(page: Page, label: string): Promise<void> {
   await page.getByRole('link', { name: label, exact: true }).click()
