@@ -3,8 +3,10 @@ using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Http.Resilience;
 using Microsoft.IdentityModel.Tokens;
 using PsikoAl.Api.Authorization;
+using PsikoAl.Api.BackgroundServices;
 using PsikoAl.Api.Extensions;
 using PsikoAl.Api.Middleware;
 using PsikoAl.Api.Serialization;
@@ -13,6 +15,7 @@ using PsikoAl.Data.Repositories;
 using PsikoAl.Data.Repositories.Abstractions;
 using PsikoAl.Services;
 using PsikoAl.Services.Abstractions;
+using PsikoAl.Services.Notifications;
 using PsikoAl.Services.Options;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -93,10 +96,24 @@ builder.Services.AddHttpClient<IEmailService, BrevoEmailService>(client =>
     client.BaseAddress = new Uri("https://api.brevo.com/");
 });
 
+// Push artık arka planda gidiyor (PushDispatchWorker) ama Expo yanıt vermezse işçi
+// kilitlenmemeli: deneme ve toplam süre sınırlı. POST tekrar DENENMEZ — Expo isteği
+// almış ama yanıtı kaybolmuşsa kullanıcıya aynı bildirim iki kez giderdi.
 builder.Services.AddHttpClient<IPushNotificationService, ExpoPushNotificationService>(client =>
 {
     client.BaseAddress = new Uri("https://exp.host/");
-});
+    client.Timeout = TimeSpan.FromSeconds(30);
+})
+    .AddStandardResilienceHandler(options =>
+    {
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(5);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(15);
+        options.Retry.DisableForUnsafeHttpMethods();
+    });
+
+builder.Services.AddSingleton<IPushOutbox, PushOutbox>();
+builder.Services.AddScoped<PushDispatcher>();
+builder.Services.AddHostedService<PushDispatchWorker>();
 
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IAccountStatusService, AccountStatusService>();
