@@ -478,6 +478,73 @@ public sealed class ListingsChainTests(E2EFixture fixture) : IAsyncLifetime
         return setting.GetProperty("value").GetString()!;
     }
 
+    /// <summary>
+    /// Başkasının test sonucu ilana bağlanamaz (sözleşme §5).
+    /// </summary>
+    /// <remarks>
+    /// Sonuç admin hesabına ait olarak SQL ile üretiliyor — API'nin anonim gönderimi
+    /// sahipsiz sonuç doğurur ve o da reddedilir, ama "başkasına ait" kolu ancak sahibi
+    /// dolu bir satırla ölçülebilir. Reddedilen istek ilan yazmamalı.
+    /// </remarks>
+    [Fact]
+    public async Task Başkasına_ait_test_sonucu_ilana_bağlanamaz()
+    {
+        var categoryName = await CreateCategoryAsync();
+        var foreignResultId = await InsertAdminOwnedAssessmentResultAsync();
+        try
+        {
+            var response = await fixture.Client.PostAsJsonAsync(
+                "/listings",
+                new
+                {
+                    title = $"E2E ilan {Guid.NewGuid():N}",
+                    description = "E2E sahiplik testi.",
+                    specialization = new[] { categoryName },
+                    budgetMin = 750m,
+                    budgetMax = 1500m,
+                    preferredSessionType = "online",
+                    city = (string?)null,
+                    assessmentResultId = foreignResultId,
+                });
+
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+            Assert.Equal("ASSESSMENT_RESULT_NOT_OWNED", await ErrorCodeAsync(response));
+        }
+        finally
+        {
+            await ExecuteSqlAsync("delete from public.assessment_results where id = @id;", foreignResultId);
+        }
+    }
+
+    private static async Task<Guid> InsertAdminOwnedAssessmentResultAsync()
+    {
+        await using var dataSource = new NpgsqlDataSourceBuilder(LocalStack.PostgresConnectionString).Build();
+        await using var connection = await dataSource.OpenConnectionAsync(CancellationToken.None);
+        await using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            insert into public.assessment_results (assessment_id, user_id, score, level, summary)
+            select (select id from public.assessments order by sort_order limit 1),
+                   (select id from public.profiles where email = @email),
+                   0, 'low', 'E2E sahiplik testi'
+            returning id;
+            """;
+        command.Parameters.AddWithValue("email", SupabaseTestIdentity.AdminEmail);
+        return await command.ExecuteScalarAsync(CancellationToken.None) is Guid id
+            ? id
+            : throw new InvalidOperationException("Sahipli test sonucu üretilemedi.");
+    }
+
+    private static async Task ExecuteSqlAsync(string sql, Guid id)
+    {
+        await using var dataSource = new NpgsqlDataSourceBuilder(LocalStack.PostgresConnectionString).Build();
+        await using var connection = await dataSource.OpenConnectionAsync(CancellationToken.None);
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("id", id);
+        await command.ExecuteNonQueryAsync(CancellationToken.None);
+    }
+
     /// <summary>DomainExceptionMiddleware'in ürettiği ApiErrorDto.Code alanı.</summary>
     private static async Task<string?> ErrorCodeAsync(HttpResponseMessage response)
     {

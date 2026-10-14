@@ -357,6 +357,38 @@ public sealed class AssessmentsChainTests(E2EFixture fixture) : IAsyncLifetime
     }
 
     /// <summary>
+    /// Giriş yapmış kullanıcının sonucu yalnız kendisine açık; anonim sonuç id ile açık kalır.
+    /// </summary>
+    /// <remarks>
+    /// Sözleşme §5. Önceden id'yi bilen herkes başkasının sonucunu okuyabiliyordu —
+    /// özel nitelikli sağlık verisi. Başkasına 403 değil 404 dönülür: kaydın varlığı
+    /// bile sızdırılmaz.
+    /// </remarks>
+    [Fact]
+    public async Task Sahibi_olan_sonuç_yalnız_sahibine_açık_anonim_sonuç_herkese_açık()
+    {
+        var owned = await fixture.Client.PostAsJsonAsync("/assessment/submit", NewSubmitPayload(0, 2, 0));
+        Assert.Equal(HttpStatusCode.OK, owned.StatusCode);
+        var ownedId = (await owned.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        Assert.Equal(HttpStatusCode.OK, (await fixture.Client.GetAsync($"/assessment/results/{ownedId}")).StatusCode);
+
+        var anonymousRead = await fixture.Mobile.GetAsync($"/assessment/results/{ownedId}");
+        Assert.Equal(HttpStatusCode.NotFound, anonymousRead.StatusCode);
+        Assert.Equal(
+            "ASSESSMENT_RESULT_NOT_FOUND",
+            (await anonymousRead.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+
+        Assert.Equal(HttpStatusCode.NotFound, (await fixture.Admin.GetAsync($"/assessment/results/{ownedId}")).StatusCode);
+
+        var anonymous = await fixture.Mobile.PostAsJsonAsync("/assessment/submit", NewSubmitPayload(0, 2, 0));
+        Assert.Equal(HttpStatusCode.OK, anonymous.StatusCode);
+        var anonymousId = (await anonymous.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        Assert.Equal(HttpStatusCode.OK, (await fixture.Mobile.GetAsync($"/assessment/results/{anonymousId}")).StatusCode);
+    }
+
+    /// <summary>
     /// BUGÜNKÜ GERÇEĞİ ÖLÇER: gönderim cevapları doğrulanmaz ve skor yalnız ilk değeri toplar.
     /// </summary>
     /// <remarks>
