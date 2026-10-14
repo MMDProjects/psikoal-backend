@@ -6,6 +6,8 @@ public sealed class FakeStorageService : ISupabaseStorageService
 {
     public List<(string Bucket, string Folder)> DeletedFolders { get; } = [];
 
+    public List<(string Bucket, string Path)> DeletedObjects { get; } = [];
+
     public List<(string Bucket, string Path)> SignedPaths { get; } = [];
 
     public Exception? DeleteFailure { get; set; }
@@ -29,6 +31,19 @@ public sealed class FakeStorageService : ISupabaseStorageService
         DeletedFolders.Add((bucket, folder));
         return Task.CompletedTask;
     }
+
+    public Task DeleteObjectAsync(string bucket, string path, CancellationToken cancellationToken)
+    {
+        if (DeleteFailure is not null)
+        {
+            throw DeleteFailure;
+        }
+
+        DeletedObjects.Add((bucket, path));
+        return Task.CompletedTask;
+    }
+
+    public string GetPublicUrl(string bucket, string path) => $"https://public.test/{bucket}/{path}";
 
     public Task<string> CreateSignedUrlAsync(
         string bucket,

@@ -26,6 +26,7 @@ public sealed class AdminAuthorizationContractTests(ApiFactory factory) : IClass
         { "AdminMatchesController", AdminPolicies.Moderation },
         { "AdminCategoriesController", AdminPolicies.Content },
         { "AdminAssessmentsController", AdminPolicies.Content },
+        { "AdminBlogsController", AdminPolicies.Content },
         { "AdminNotificationsController", AdminPolicies.SuperAdmin },
         { "AdminNotificationTemplatesController", AdminPolicies.SuperAdmin },
         { "AdminSystemSettingsController", AdminPolicies.SuperAdmin },

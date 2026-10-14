@@ -104,6 +104,13 @@ public static class ErrorMessagesTr
         [ErrorKeys.AssessmentAnswersInvalid] = "Cevaplarınız bu testle eşleşmiyor. Testi baştan çözüp tekrar gönderin.",
         [ErrorKeys.AssessmentResultNotOwned] = "Seçtiğiniz test sonucu hesabınıza ait değil. Kendi sonuçlarınızdan birini seçin.",
 
+        // --- Blog ---
+        [ErrorKeys.BlogNotFound] = "Blog yazısı bulunamadı.",
+        [ErrorKeys.BlogSlugAlreadyExists] = "Bu kısa ad başka bir blog yazısında kullanılıyor.",
+        [ErrorKeys.BlogSlugInvalid] = "Kısa ad yalnız küçük harf, rakam ve tire içerebilir.",
+        [ErrorKeys.BlogNotPublishable] = "Yayınlamak için başlık, özet, içerik ve kapak görseli gerekli.",
+        [ErrorKeys.BlogScheduleMustBeFuture] = "Planlanan yayın zamanı ileri bir tarih olmalı.",
+
         // --- Genel ---
         [ErrorKeys.ValidationFailed] = "Girdiğiniz bilgileri kontrol edin.",
         [ErrorKeys.ResourceConflict] = "Bu kayıt zaten mevcut. Sayfayı yenileyip tekrar deneyin.",
