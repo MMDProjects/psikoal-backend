@@ -542,3 +542,15 @@ h1:focus {
     border-radius: var(--radius);
     border: 1px solid hsl(var(--border));
 }
+
+.credit-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    border: 1px solid hsl(var(--border));
+    border-radius: var(--radius);
+    background: hsl(var(--muted));
+}

@@ -331,6 +331,11 @@ Platform girişi yapmadan erişilebilen bağımsız bir modüldür. Lead magnet 
 
 ### 16. Ödeme Sistemi — Kontör & Paket Satışı
 
+> **TERK EDİLDİ (2026-10-14).** Danışan ödemesi (kontör cüzdanı, seans paketi, Iyzico)
+> uygulanmayacak. Yerine uzman kredisi geldi: uzman teklif gönderirken kredi harcar, kredi
+> yalnız web sitesinden PayTR ile alınır. Güncel sözleşme: `docs/PAYMENTS.md`. Aşağıdaki
+> metin yalnız tarihsel kayıttır.
+
 **Kontör cüzdanı**
 - Danışanın hesabında bir bakiye bulunur
 - Seans onaylandıktan sonra bakiyeden ilgili tutar düşülür, psikoloğa aktarılır

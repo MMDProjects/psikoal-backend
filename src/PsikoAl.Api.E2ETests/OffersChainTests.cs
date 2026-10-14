@@ -57,13 +57,14 @@ public sealed class OffersChainTests(E2EFixture fixture) : IAsyncLifetime
         _expertId = identity.Id;
         _expertToken = identity.Token;
 
-        // Profil her testte yeniden onaylı duruma çekiliyor: başka bir test
+        // Profil her testte yeniden onaylı duruma çekiliyor ve bol kredi veriliyor
+        // (teklif kredi harcar; bakiye CreditsChainTests'in konusu, bu dosyanın değil): başka bir test
         // (ya da önceki bir koşum) status'u bozmuş olabilir ve o zaman belirti
         // "teklif gönderilemedi" olur — sözleşme hatası değil, kurulum kaymasıdır.
         await ExecuteSqlAsync(
             """
             update public.experts
-               set status = 'approved', specializations = array[@spec]
+               set status = 'approved', specializations = array[@spec], credit_balance = 1000
              where id = @id;
             """,
             _expertId,

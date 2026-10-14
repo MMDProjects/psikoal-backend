@@ -19,6 +19,12 @@ namespace PsikoAl.Api.E2ETests;
 /// </remarks>
 public sealed class E2EFactory : WebApplicationFactory<Program>
 {
+    // Sahte PayTR mağaza bilgileri: get-token ucu E2E'de ÇAĞRILMAZ (gerçek PayTR'ye gider);
+    // bunlar yalnız callback hash'ini testte üretip API'ye doğrulatmak için.
+    public const string PayTrMerchantId = "E2E000";
+    public const string PayTrMerchantKey = "e2e-merchant-key";
+    public const string PayTrMerchantSalt = "e2e-merchant-salt";
+
     protected override IHost CreateHost(IHostBuilder builder)
     {
         builder.ConfigureHostConfiguration(configuration =>
@@ -29,6 +35,10 @@ public sealed class E2EFactory : WebApplicationFactory<Program>
                 ["Supabase:AnonKey"] = LocalStack.AnonKey,
                 ["Supabase:ServiceRoleKey"] = LocalStack.ServiceRoleKey,
                 ["ConnectionStrings:Postgres"] = LocalStack.PostgresConnectionString,
+                ["PayTR:MerchantId"] = PayTrMerchantId,
+                ["PayTR:MerchantKey"] = PayTrMerchantKey,
+                ["PayTR:MerchantSalt"] = PayTrMerchantSalt,
+                ["PayTR:TestMode"] = "true",
             });
         });
 

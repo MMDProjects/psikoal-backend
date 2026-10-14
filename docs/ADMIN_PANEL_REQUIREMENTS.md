@@ -99,11 +99,11 @@ Genel kural: her varlık için **listeleme (filtre + arama + sıralama + sayfala
 - Manuel sonlandırma: normalde RELEASED iki taraf onayı ister; **ihtilaf durumunda admin tek taraflı RELEASED/COMPLETED yapabilir** (sebep zorunlu, loglanır).
 - İhtilaf/şikayet kaydı: eşleşmeye not ekleme, taraflarla yazışma geçmişi (opsiyonel destek modülü).
 
-### 2.7 Ödemeler (payments / wallet)
-- Paket satın alımları: kim, hangi paket, tutar, Iyzico işlem no, 3D Secure sonucu.
-- Cüzdan hareketleri (credit/debit) görüntüleme + **manuel düzeltme kaydı** ekleme (iade, jest, hata düzeltme — çift onay önerilir).
-- İade tetikleme: paket süresi dolduğunda kullanılmayan seansların otomatik iade kuyruğu + manuel iade.
-- Satın alınan paketlerin durumu: usedSessions / kalan / expiresAt; admin süre uzatabilir.
+### 2.7 Uzman kredisi (eski "Ödemeler / cüzdan" bölümünün yerine — 2026-10-14)
+Danışan cüzdanı, seans paketi ve iade kuyruğu terk edildi. Sözleşme: `docs/PAYMENTS.md`.
+- **Satın Almalar** (`/credit-payments`): kim, hangi paket, kredi, tutar, PayTR sipariş no (`merchantOid`), durum (`PENDING / PAID / FAILED`); sayfalı, durum filtreli.
+- **Uzman kredisi** (Uzmanlar → Krediler sekmesi, Satın Almalar → Uzman Kredisi): bakiye + defter (sayfalı) + **elle düzeltme** (+/-, gerekçe zorunlu, onay diyaloğu, audit log; bakiye eksiye düşemez). Gerekçe uzmanın kredi geçmişinde görünür.
+- Harcanan kredi otomatik iade edilmez; telafi gerekirse elle düzeltme kullanılır.
 
 ### 2.8 Bildirimler (notifications)
 - Gönderilen bildirimlerin logu (tip, alıcı, okundu bilgisi).
@@ -163,11 +163,10 @@ assessment_score_rules:
 - Sonuç seviye etiketleri ("Düşük/Orta/Yüksek") ve seviye başına uzman yönlendirme CTA metni de admin'den düzenlenebilir.
 - Gönderilen test sonuçları (assessment-results) salt-okunur liste: skor dağılımı, email lead'leri (opsiyonel bırakılan emailler → pazarlama listesi ihracı).
 
-### 3.5 Paketler (`packages`)
-- Alanlar: name, sessionCount, price, unitPrice, discountPct, validDays, isPopular + **isActive** (yeni).
-- Backend validasyonu (admin formunda da zorlanır): `3 ≤ sessionCount ≤ 20`, `price ≤ unitPrice × sessionCount` (indirim şart), `originalPrice` backend hesaplar.
-- `isPopular` rozeti tek pakette olabilir (öneri).
-- Fiyat değişikliği geçmişi loglanır; satın alınmış paketler eski koşullarıyla devam eder.
+### 3.5 Kredi Paketleri (`credit_packages`) — finans
+- Seans paketleri terk edildi. Alanlar: `name`, `credits (> 0)`, `priceTry (> 0, 2 ondalık)`, `isActive`, `sortOrder`.
+- Sayfa: **Kredi Paketleri** (`/credit-packages`), finans rolü. Pasif paket web sitesinde listelenmez; satın alma geçmişi olan paket silinmez (409), pasife alınır.
+- Fiyat değişikliği audit log'a düşer; satın alma kaydı, alındığı andaki kredi ve tutarı saklar.
 
 ### 3.6 Bildirim Şablonları (yeni tablo: `notification_templates`)
 Şu an bildirim gövdeleri backend'de hazır string olarak üretiliyor — şablonlaştırılır:
@@ -217,8 +216,8 @@ Kodda sabit olan iş kuralları admin'den ayarlanabilir olur (key-value, tip ve 
 |---|---|---|
 | LISTING_MAX_ACTIVE | 3 | `listing.constants.ts` |
 | LISTING_EXPIRE_DAYS | 30 | `listing.constants.ts` |
-| PACKAGE_VALID_DAYS | 180 | `payment.constants.ts` |
-| PACKAGE_MIN_SESSIONS / MAX_SESSIONS | 3 / 20 | iş kuralı |
+| OFFER_CREDIT_COST | 1 | teklif başına kredi (0–1000; 0 = ücretsiz) |
+| PACKAGE_VALID_DAYS / PACKAGE_MIN_SESSIONS / MAX_SESSIONS | 180 / 3 / 20 | **kullanılmıyor** — eski seans paketi modeli; satırlar DB'de duruyor (additive kuralı) |
 | NOTIFICATION_RATE_LIMIT | — | bildirim başına saatlik/günlük limit |
 | LISTING_AUTO_APPROVE | false | onay akışını acil durumda bypass etme anahtarı |
 | MAINTENANCE_MODE + mesajı | false | uygulamayı bakım moduna alma |
@@ -232,7 +231,7 @@ Değişiklikler audit log'a yazılır ve mevcut kayıtları geriye dönük etkil
 - **Bekleyen onay sayaçları:** ilan / uzman / yorum (panelin ana ekranı, tıklayınca kuyruğa gider).
 - **Günlük metrikler:** yeni kayıt (rol bazlı), açılan ilan, gönderilen teklif, oluşan eşleşme, çözülen test, blog okuma/beğeni.
 - **Dönüşüm hunisi:** ilan → teklif → kabul → eşleşme oranları; ortalama ilk teklif süresi.
-- **Gelir raporu:** paket satışları (günlük/aylık), iade tutarları, Iyzico başarısız işlem oranı.
+- **Gelir raporu:** kredi paketi satışları (günlük/aylık), PayTR başarısız ödeme oranı (henüz yok; veri `credit_payments`'ta).
 - **Audit log:** hangi admin, hangi kaydı, ne zaman, hangi alanları (eski→yeni değer) değiştirdi — tüm admin yazma işlemleri için zorunlu, silinemez.
 
 ---
@@ -241,10 +240,10 @@ Değişiklikler audit log'a yazılır ve mevcut kayıtları geriye dönük etkil
 
 | Rol | Yetki |
 |---|---|
-| Süper Admin | Her şey + admin kullanıcı yönetimi + sistem parametreleri + cüzdan düzeltme |
+| Süper Admin | Her şey + admin kullanıcı yönetimi + sistem parametreleri (`OFFER_CREDIT_COST` dahil) |
 | Moderatör | Onay kuyrukları (ilan/uzman/yorum), kullanıcı dondurma, eşleşme müdahalesi |
 | İçerik Editörü | CMS: blog, kategori, öneri, test, ui_content, bildirim şablonları |
-| Finans | Ödemeler, iadeler, paket yönetimi, gelir raporları |
+| Finans | Uzman kredisi: kredi paketleri, satın almalar, uzman defteri, elle kredi düzeltme |
 
 ### 7.1 Uygulanan policy'ler (API)
 
@@ -256,6 +255,7 @@ Değişiklikler audit log'a yazılır ve mevcut kayıtları geriye dönük etkil
 | `AdminSuperAdmin` | `super_admin` | sistem ayarları, bildirim gönderimi + şablonlar, audit log, admin kullanıcı yönetimi |
 | `AdminModeration` | `super_admin`, `moderator` | uzman/ilan/yorum onayları, eşleşmeler, kullanıcı dondurma |
 | `AdminContent` | `super_admin`, `content_editor` | kategoriler, testler, **blog** (yeni CMS uçları bu policy'yi kullanır) |
+| `AdminFinance` | `super_admin`, `finance` | uzman kredisi: `/admin/credits/*` — paketler, satın almalar, uzman defteri, elle düzeltme (bkz. `docs/PAYMENTS.md`) |
 
 Panel menüsü aynı rol kümelerini (`PsikoAl.Common.Constants.AdminRoleGroups`) kullanarak rolün açamayacağı sayfaları gizler; asıl yetki kontrolü API'dedir.
 
@@ -272,11 +272,12 @@ Her mock-db JSON dosyası bir tabloya karşılık gelir; onay akışları için 
 | reviews | `status`, `rejectionReason`, `moderatedAt`, `moderatedBy` |
 | blogs | `status` (draft/published/scheduled), `published_at` (plânlı yayın anı da burada), `category_id`, `tags`, `cover_image_path`; beğeniler ayrı `blog_likes` tablosunda |
 | assessments | `status` (draft/published) |
-| packages | `isActive` |
+| credit_packages (yeni; eski `packages` terk edildi) | `name`, `credits`, `price_try`, `is_active`, `sort_order` |
+| experts | `credit_balance` (+ `credit_payments`, `credit_transactions` yeni tablolar) |
 | suggestions | `isActive`, `sortOrder` |
 | **Yeni tablolar** | `assessment_score_rules`, `notification_templates`, `ui_content`, `system_settings`, `audit_logs`, `admin_users` (+roller) |
 
-Diğer tablolar (auth/users, clients, matches, offers, notifications, wallet, assessment-results) mevcut şemayla taşınır.
+Diğer tablolar (auth/users, clients, matches, offers, notifications, assessment-results) mevcut şemayla taşınır. `wallet` taşınmaz (danışan ödemesi terk edildi).
 
 ---
 

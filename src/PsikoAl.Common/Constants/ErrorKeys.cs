@@ -68,6 +68,13 @@ public static class ErrorKeys
     public const string BlogSlugInvalid = "BLOG_SLUG_INVALID";
     public const string BlogNotPublishable = "BLOG_NOT_PUBLISHABLE";
     public const string BlogScheduleMustBeFuture = "BLOG_SCHEDULE_MUST_BE_FUTURE";
+    public const string InsufficientCredits = "INSUFFICIENT_CREDITS";
+    public const string CreditPackageNotFound = "CREDIT_PACKAGE_NOT_FOUND";
+    public const string CreditPackageInUse = "CREDIT_PACKAGE_IN_USE";
+    public const string CreditBalanceNegative = "CREDIT_BALANCE_NEGATIVE";
+    public const string CreditAdjustReasonRequired = "CREDIT_ADJUST_REASON_REQUIRED";
+    public const string CreditPurchaseExpertNotApproved = "CREDIT_PURCHASE_EXPERT_NOT_APPROVED";
+    public const string PaymentProviderUnavailable = "PAYMENT_PROVIDER_UNAVAILABLE";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string ResourceConflict = "RESOURCE_CONFLICT";
     public const string InternalError = "INTERNAL_ERROR";

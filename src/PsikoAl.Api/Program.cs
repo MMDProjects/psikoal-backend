@@ -17,6 +17,7 @@ using PsikoAl.Services;
 using PsikoAl.Services.Abstractions;
 using PsikoAl.Services.Notifications;
 using PsikoAl.Services.Options;
+using PsikoAl.Services.Payments;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +39,10 @@ builder.Services
 builder.Services
     .AddOptions<LegalOptions>()
     .Bind(builder.Configuration.GetSection(LegalOptions.SectionName));
+
+builder.Services
+    .AddOptions<PayTrOptions>()
+    .Bind(builder.Configuration.GetSection(PayTrOptions.SectionName));
 
 builder.Services
     .AddOptions<AuthOptions>()
@@ -111,6 +116,15 @@ builder.Services.AddHttpClient<IPushNotificationService, ExpoPushNotificationSer
         options.Retry.DisableForUnsafeHttpMethods();
     });
 
+// PayTR get-token: yanıt gelmezse ödeme sayfası sonsuza dek beklemesin. POST tekrar
+// DENENMEZ — PayTR token üretmiş ama yanıt kaybolmuşsa aynı oid ikinci kez gönderilirdi.
+// Belge: https://dev.paytr.com/iframe-api/iframe-api-1-adim
+builder.Services.AddHttpClient<IPayTrClient, PayTrClient>(client =>
+{
+    client.BaseAddress = new Uri("https://www.paytr.com/");
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+
 builder.Services.AddSingleton<IPushOutbox, PushOutbox>();
 builder.Services.AddScoped<PushDispatcher>();
 builder.Services.AddHostedService<PushDispatchWorker>();
@@ -143,6 +157,9 @@ builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IAdminAssessmentService, AdminAssessmentService>();
 builder.Services.AddScoped<IBlogService, BlogService>();
 builder.Services.AddScoped<IAdminBlogService, AdminBlogService>();
+builder.Services.AddScoped<ICreditService, CreditService>();
+builder.Services.AddScoped<ICreditPaymentService, CreditPaymentService>();
+builder.Services.AddScoped<IAdminCreditService, AdminCreditService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IAdminGuard, AdminGuard>();
 builder.Services.AddScoped<IAdminAuditLogService, AdminAuditLogService>();

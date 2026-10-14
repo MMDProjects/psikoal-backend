@@ -111,6 +111,15 @@ public static class ErrorMessagesTr
         [ErrorKeys.BlogNotPublishable] = "Yayınlamak için başlık, özet, içerik ve kapak görseli gerekli.",
         [ErrorKeys.BlogScheduleMustBeFuture] = "Planlanan yayın zamanı ileri bir tarih olmalı.",
 
+        // --- Kredi ---
+        [ErrorKeys.InsufficientCredits] = "Teklif göndermek için yeterli krediniz yok.",
+        [ErrorKeys.CreditPackageNotFound] = "Kredi paketi bulunamadı.",
+        [ErrorKeys.CreditPackageInUse] = "Bu paketle yapılmış satın almalar var; silmek yerine pasif hâle getirin.",
+        [ErrorKeys.CreditBalanceNegative] = "Bu düzeltme uzmanın bakiyesini eksiye düşürür.",
+        [ErrorKeys.CreditAdjustReasonRequired] = "Kredi düzeltmesi için gerekçe yazmanız gerekiyor.",
+        [ErrorKeys.CreditPurchaseExpertNotApproved] = "Kredi satın almak için uzman profilinizin onaylanması gerekiyor.",
+        [ErrorKeys.PaymentProviderUnavailable] = "Ödeme servisine şu an ulaşılamıyor. Biraz sonra tekrar deneyin.",
+
         // --- Genel ---
         [ErrorKeys.ValidationFailed] = "Girdiğiniz bilgileri kontrol edin.",
         [ErrorKeys.ResourceConflict] = "Bu kayıt zaten mevcut. Sayfayı yenileyip tekrar deneyin.",

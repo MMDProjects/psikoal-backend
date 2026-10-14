@@ -11,11 +11,12 @@ public static class NotificationTypes
     public const string ExpertRejected = "EXPERT_REJECTED";
     public const string ReviewApproved = "REVIEW_APPROVED";
     public const string ReviewRejected = "REVIEW_REJECTED";
+    public const string CreditPurchased = "CREDIT_PURCHASED";
     public const string System = "SYSTEM";
 
     public static readonly IReadOnlyList<string> All =
     [
         OfferReceived, OfferAccepted, ListingExpiring, ListingApproved, ListingRejected,
-        ExpertApproved, ExpertRejected, ReviewApproved, ReviewRejected, System,
+        ExpertApproved, ExpertRejected, ReviewApproved, ReviewRejected, CreditPurchased, System,
     ];
 }

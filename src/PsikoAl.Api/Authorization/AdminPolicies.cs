@@ -9,6 +9,7 @@ namespace PsikoAl.Api.Authorization;
 //   SuperAdmin  — sistem ayarları, bildirim gönderimi/şablonları, audit log, admin yönetimi
 //   Moderation  — onay kuyrukları (uzman/ilan/yorum), eşleşme müdahalesi, kullanıcı dondurma
 //   Content     — CMS: kategoriler, testler, blog
+//   Finance     — uzman kredisi: paketler, satın almalar, uzman defteri, elle kredi düzeltme
 // super_admin her kümede vardır.
 public static class AdminPolicies
 {
@@ -16,6 +17,7 @@ public static class AdminPolicies
     public const string SuperAdmin = "AdminSuperAdmin";
     public const string Moderation = "AdminModeration";
     public const string Content = "AdminContent";
+    public const string Finance = "AdminFinance";
 
     public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> RolesByPolicy =
         new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
@@ -24,6 +26,7 @@ public static class AdminPolicies
             [SuperAdmin] = AdminRoleGroups.SuperAdminOnly,
             [Moderation] = AdminRoleGroups.Moderation,
             [Content] = AdminRoleGroups.Content,
+            [Finance] = AdminRoleGroups.Finance,
         };
 
     public static void AddAdminPolicies(this AuthorizationOptions options)

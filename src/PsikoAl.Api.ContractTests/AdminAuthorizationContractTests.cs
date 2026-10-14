@@ -31,6 +31,7 @@ public sealed class AdminAuthorizationContractTests(ApiFactory factory) : IClass
         { "AdminNotificationTemplatesController", AdminPolicies.SuperAdmin },
         { "AdminSystemSettingsController", AdminPolicies.SuperAdmin },
         { "AdminAuditLogsController", AdminPolicies.SuperAdmin },
+        { "AdminCreditsController", AdminPolicies.Finance },
     };
 
     [Theory]
@@ -76,6 +77,12 @@ public sealed class AdminAuthorizationContractTests(ApiFactory factory) : IClass
     [InlineData(AdminRoles.ContentEditor, AdminPolicies.SuperAdmin, false)]
     [InlineData(AdminRoles.Finance, AdminPolicies.Any, true)]
     [InlineData(AdminRoles.Finance, AdminPolicies.Moderation, false)]
+    [InlineData(AdminRoles.Finance, AdminPolicies.Finance, true)]
+    [InlineData(AdminRoles.Finance, AdminPolicies.Content, false)]
+    [InlineData(AdminRoles.Finance, AdminPolicies.SuperAdmin, false)]
+    [InlineData(AdminRoles.SuperAdmin, AdminPolicies.Finance, true)]
+    [InlineData(AdminRoles.Moderator, AdminPolicies.Finance, false)]
+    [InlineData(AdminRoles.ContentEditor, AdminPolicies.Finance, false)]
     public async Task Handler_grants_access_only_to_roles_in_the_policy(string role, string policy, bool expected)
     {
         var authUserId = Guid.NewGuid();

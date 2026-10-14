@@ -14,32 +14,11 @@ namespace PsikoAl.Services;
 
 public sealed class OfferService(IUnitOfWork unitOfWork, INotificationService notificationService) : IOfferService
 {
-    /// <summary>Uzman satırı yoksa, sebebi ROL mü yoksa eksik profil mi olduğunu ayırır.</summary>
-    /// <remarks>
-    /// Her ikisi de isteği reddediyor, ama kullanıcıya gösterilen mesaj farklı olmak
-    /// zorunda: bir DANIŞAN'a "Uzman profili bulunamadı, profilinizi tamamlayın"
-    /// demek onu var olmayan bir işe yönlendirir. Ek sorgu yalnız HATA yolunda
-    /// koşuyor; mutlu yola maliyeti yok.
-    ///
-    /// OFFER_EXPERT_ROLE_REQUIRED sabiti bir dönem hiç kullanılmıyordu: kod doğrudan
-    /// experts tablosuna gidiyor ve danışan için EXPERT_NOT_FOUND'a düşüyordu.
-    /// </remarks>
-    private async Task<DomainException> NotAnExpertAsync(Guid userId, CancellationToken cancellationToken)
-    {
-        var role = await unitOfWork.Profiles.Query()
-            .Where(profile => profile.Id == userId)
-            .Select(profile => profile.Role)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        return role is not null && role != ProfileRoles.Expert
-            ? new DomainException(ErrorKeys.OfferExpertRoleRequired)
-            : new DomainException(ErrorKeys.ExpertNotFound);
-    }
-
     public async Task<OfferDto> CreateAsync(Guid expertUserId, CreateOfferDto request, CancellationToken cancellationToken)
     {
         var expert = await unitOfWork.Experts.GetWithProfileAsync(expertUserId, cancellationToken)
-            ?? throw await NotAnExpertAsync(expertUserId, cancellationToken);
+            ?? throw await ExpertAccess.MissingExpertErrorAsync(
+                unitOfWork, expertUserId, ErrorKeys.OfferExpertRoleRequired, cancellationToken);
         var expertProfile = expert.Profile ?? throw new DomainException(ErrorKeys.ProfileNotFound);
 
         if (expert.Status != ExpertStatuses.Approved)
@@ -70,9 +49,7 @@ public sealed class OfferService(IUnitOfWork unitOfWork, INotificationService no
             SessionType = request.SessionType,
         };
 
-        await unitOfWork.Offers.AddAsync(offer, cancellationToken);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        await unitOfWork.Offers.IncrementListingOfferCountAsync(request.ListingId, cancellationToken);
+        await AddOfferChargingCreditsAsync(offer, cancellationToken);
 
         await notificationService.NotifyAsync(
             listing.ClientId,
@@ -86,6 +63,43 @@ public sealed class OfferService(IUnitOfWork unitOfWork, INotificationService no
             cancellationToken);
 
         return await GetByIdAsync(offer.Id, expertUserId, cancellationToken);
+    }
+
+    // Kredi düşümü, teklif ve defter kaydı TEK transaction'da: teklif yazılamazsa
+    // (ör. eşzamanlı ikinci teklif uq_offers_listing_expert'e takılırsa) kredi geri gelir.
+    // Düşüm koşullu UPDATE'tir; bakiye yetmiyorsa hiçbir şey yazılmadan reddedilir.
+    // Harcanan kredi teklif reddedilse/geri çekilse de iade edilmez (ürün kararı).
+    private async Task AddOfferChargingCreditsAsync(Offer offer, CancellationToken cancellationToken)
+    {
+        var cost = await OfferCreditCost.ReadAsync(unitOfWork.SystemSettings, cancellationToken);
+
+        await using var transaction = await unitOfWork.BeginTransactionAsync(cancellationToken);
+
+        int? balanceAfter = null;
+        if (cost > 0)
+        {
+            balanceAfter = await unitOfWork.ExpertCredits.TryApplyDeltaAsync(offer.ExpertId, -cost, cancellationToken)
+                ?? throw new DomainException(ErrorKeys.InsufficientCredits);
+        }
+
+        await unitOfWork.Offers.AddAsync(offer, cancellationToken);
+        if (balanceAfter is { } balance)
+        {
+            await unitOfWork.CreditTransactions.AddAsync(
+                new CreditTransaction
+                {
+                    ExpertId = offer.ExpertId,
+                    Amount = -cost,
+                    BalanceAfter = balance,
+                    Type = CreditTransactionTypes.OfferSpend,
+                    OfferId = offer.Id,
+                },
+                cancellationToken);
+        }
+
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await unitOfWork.Offers.IncrementListingOfferCountAsync(offer.ListingId, cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<OfferListResult> ListMyAsync(Guid expertUserId, string? status, CancellationToken cancellationToken)
