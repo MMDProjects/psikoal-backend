@@ -1,7 +1,5 @@
 @page "/"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Dashboard — PsikoAl Admin</PageTitle>
 
@@ -114,22 +112,7 @@ else if (_stats is not null)
 
     private IReadOnlyList<object> _chartData = [];
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -137,10 +120,11 @@ else if (_stats is not null)
         _errorMessage = null;
         try
         {
-            _stats = await AdminClient.GetDashboardStatsAsync(CancellationToken.None);
+            var result = await AdminClient.GetDashboardStatsAsync(CancellationToken.None);
+            _stats = result.Value;
             if (_stats is null)
             {
-                _errorMessage = "Özet veriler alınamadı. Admin yetkiniz olmayabilir.";
+                _errorMessage = result.ErrorMessage;
                 return;
             }
 

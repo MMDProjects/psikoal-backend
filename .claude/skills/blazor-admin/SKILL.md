@@ -102,8 +102,6 @@ Yeni bir durum değeri eklenirse `StatusChip.razor` içindeki `Descriptors` söz
 ```razor
 @page "/ornek"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Başlık — PsikoAl Admin</PageTitle>
 
@@ -164,12 +162,15 @@ Yeni bir durum değeri eklenirse `StatusChip.razor` içindeki `Descriptors` söz
 @code {
     private bool _isLoading = true;   // ilk render'da skeleton görünsün
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    // Oturum kontrolü sayfada YAPILMAZ: MainLayout oturumu geri yükleyip doğrulamadan
+    // @Body'yi render etmez, rolün açamayacağı sayfada da yetki uyarısı gösterir.
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        if (!firstRender) { return; }
-        if (!Session.IsAuthenticated) { Navigation.NavigateTo("/login"); return; }
-        await LoadAsync();
-        StateHasChanged();
+        var result = await AdminClient.ListXAsync(_status, CancellationToken.None);
+        _items = result.Value;
+        _errorMessage = result.ErrorMessage;   // API'nin Türkçe mesajı (AdminApiResult)
     }
 }
 ```

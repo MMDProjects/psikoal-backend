@@ -1,7 +1,5 @@
 @page "/categories"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Kategoriler — PsikoAl Admin</PageTitle>
 
@@ -112,22 +110,7 @@
     private string _newDescription = string.Empty;
     private string _newBlogTag = string.Empty;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -135,11 +118,9 @@
         _errorMessage = null;
         try
         {
-            _categories = await AdminClient.ListCategoriesAsync(CancellationToken.None);
-            if (_categories is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListCategoriesAsync(CancellationToken.None);
+            _categories = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -165,9 +146,9 @@
                 new CreateCategoryDto(_newSlug, _newName, _newIcon, _newSummary, _newDescription, _newBlogTag, null),
                 CancellationToken.None);
 
-            if (created is null)
+            if (!created.Succeeded)
             {
-                _errorMessage = "Kategori oluşturulamadı (slug zaten kullanılıyor olabilir).";
+                _errorMessage = created.ErrorMessage;
                 return;
             }
 
@@ -187,7 +168,8 @@
             new UpdateCategoryDto(null, null, null, null, null, null, !category.IsActive, null),
             CancellationToken.None);
 
-        if (updated is not null)
+        _errorMessage = updated.ErrorMessage;
+        if (updated.Succeeded)
         {
             await LoadAsync();
         }

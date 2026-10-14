@@ -1,7 +1,5 @@
 @page "/notifications"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Bildirimler — PsikoAl Admin</PageTitle>
 
@@ -196,22 +194,7 @@
     private string? _errorMessage;
     private string? _infoMessage;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -219,11 +202,9 @@
         _errorMessage = null;
         try
         {
-            _templates = await AdminClient.ListNotificationTemplatesAsync(CancellationToken.None);
-            if (_templates is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListNotificationTemplatesAsync(CancellationToken.None);
+            _templates = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -277,15 +258,14 @@
             new UpdateAdminNotificationTemplateDto(_editTitle, _editBody, _editHtmlBody, _editPush, _editEmail, _editInApp, _editActive),
             CancellationToken.None);
 
-        if (updated is not null)
+        if (!updated.Succeeded)
         {
-            _editingType = null;
-            await LoadAsync();
+            _errorMessage = updated.ErrorMessage;
+            return;
         }
-        else
-        {
-            _errorMessage = "Şablon güncellenemedi.";
-        }
+
+        _editingType = null;
+        await LoadAsync();
     }
 
     private async Task SendAsync()
@@ -323,14 +303,14 @@
                 _sendTitle,
                 _sendBody);
 
-            var recipientCount = await AdminClient.SendNotificationAsync(request, CancellationToken.None);
-            if (recipientCount is null)
+            var sent = await AdminClient.SendNotificationAsync(request, CancellationToken.None);
+            if (!sent.Succeeded)
             {
-                _errorMessage = "Bildirim gönderilemedi.";
+                _errorMessage = sent.ErrorMessage;
                 return;
             }
 
-            _infoMessage = $"{recipientCount} kullanıcıya bildirim gönderildi.";
+            _infoMessage = $"{sent.Value} kullanıcıya bildirim gönderildi.";
             _sendTitle = string.Empty;
             _sendBody = string.Empty;
         }

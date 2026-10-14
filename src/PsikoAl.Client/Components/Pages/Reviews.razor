@@ -1,7 +1,5 @@
 @page "/reviews"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Yorumlar — PsikoAl Admin</PageTitle>
 
@@ -96,22 +94,7 @@
     private bool _isRejectDialogOpen;
     private Guid? _pendingRejectReviewId;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -119,11 +102,9 @@
         _errorMessage = null;
         try
         {
-            _reviews = await AdminClient.ListReviewsAsync(_status, CancellationToken.None);
-            if (_reviews is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListReviewsAsync(_status, CancellationToken.None);
+            _reviews = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -133,7 +114,9 @@
 
     private async Task ApproveAsync(Guid reviewId)
     {
-        if (await AdminClient.ApproveReviewAsync(reviewId, CancellationToken.None))
+        var result = await AdminClient.ApproveReviewAsync(reviewId, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -154,7 +137,9 @@
 
         _pendingRejectReviewId = null;
 
-        if (await AdminClient.RejectReviewAsync(reviewId, reason, CancellationToken.None))
+        var result = await AdminClient.RejectReviewAsync(reviewId, reason, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }

@@ -8,15 +8,13 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddShadCnBlazorComponents();
+
+var apiBaseAddress = ResolveApiBaseAddress(builder.Configuration);
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<AdminSessionState>();
-builder.Services.AddHttpClient<IAdminClientService, AdminClientService>(client =>
-{
-    var apiBaseUrl = builder.Configuration["Api:BaseUrl"];
-    if (!string.IsNullOrWhiteSpace(apiBaseUrl))
-    {
-        client.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/') + "/");
-    }
-});
+builder.Services.AddScoped<AdminSessionStore>();
+builder.Services.AddHttpClient<IAdminAuthService, AdminAuthService>(client => client.BaseAddress = apiBaseAddress);
+builder.Services.AddHttpClient<IAdminClientService, AdminClientService>(client => client.BaseAddress = apiBaseAddress);
 
 var app = builder.Build();
 
@@ -34,3 +32,15 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+static Uri ResolveApiBaseAddress(IConfiguration configuration)
+{
+    var apiBaseUrl = configuration["Api:BaseUrl"];
+    if (string.IsNullOrWhiteSpace(apiBaseUrl))
+    {
+        throw new InvalidOperationException(
+            "Api:BaseUrl yapılandırılmamış. Ortam değişkeni Api__BaseUrl ile API adresini verin.");
+    }
+
+    return new Uri(apiBaseUrl.TrimEnd('/') + "/");
+}

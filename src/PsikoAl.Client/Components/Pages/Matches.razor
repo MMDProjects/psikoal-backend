@@ -1,7 +1,5 @@
 @page "/matches"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Eşleşmeler — PsikoAl Admin</PageTitle>
 
@@ -133,22 +131,7 @@
     private Guid? _pendingMatchId;
     private string? _pendingTargetStatus;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -157,11 +140,9 @@
         _openMatchId = null;
         try
         {
-            _matches = await AdminClient.ListMatchesAsync(_status, CancellationToken.None);
-            if (_matches is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListMatchesAsync(_status, CancellationToken.None);
+            _matches = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -179,7 +160,9 @@
         }
 
         _openMatchId = matchId;
-        _detail = await AdminClient.GetMatchDetailAsync(matchId, CancellationToken.None);
+        var detailResult = await AdminClient.GetMatchDetailAsync(matchId, CancellationToken.None);
+        _detail = detailResult.Value;
+        _errorMessage = detailResult.ErrorMessage;
     }
 
     private void AskForceRelease(Guid matchId, string targetStatus)
@@ -199,7 +182,9 @@
         _pendingMatchId = null;
         _pendingTargetStatus = null;
 
-        if (await AdminClient.ForceReleaseMatchAsync(matchId, targetStatus, reason, CancellationToken.None))
+        var result = await AdminClient.ForceReleaseMatchAsync(matchId, targetStatus, reason, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }

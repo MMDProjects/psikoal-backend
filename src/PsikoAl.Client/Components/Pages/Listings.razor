@@ -1,7 +1,5 @@
 @page "/listings"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>İlanlar — PsikoAl Admin</PageTitle>
 
@@ -175,22 +173,7 @@
     private string ReasonDialogConfirmLabel =>
         _pendingAction == ListingAction.Reject ? "Reddet" : "Yeniden Aç";
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -199,11 +182,9 @@
         _openListingId = null;
         try
         {
-            _listings = await AdminClient.ListListingsAsync(_status, CancellationToken.None);
-            if (_listings is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListListingsAsync(_status, CancellationToken.None);
+            _listings = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -221,7 +202,9 @@
         }
 
         _openListingId = listingId;
-        _detail = await AdminClient.GetListingDetailAsync(listingId, CancellationToken.None);
+        var detailResult = await AdminClient.GetListingDetailAsync(listingId, CancellationToken.None);
+        _detail = detailResult.Value;
+        _errorMessage = detailResult.ErrorMessage;
     }
 
     private void AskReason(Guid listingId, ListingAction action)
@@ -241,11 +224,12 @@
         var action = _pendingAction;
         _pendingListingId = null;
 
-        var succeeded = action == ListingAction.Reject
+        var result = action == ListingAction.Reject
             ? await AdminClient.RejectListingAsync(listingId, reason, CancellationToken.None)
             : await AdminClient.ReopenListingAsync(listingId, reason, CancellationToken.None);
 
-        if (succeeded)
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -253,7 +237,9 @@
 
     private async Task ApproveAsync(Guid listingId)
     {
-        if (await AdminClient.ApproveListingAsync(listingId, CancellationToken.None))
+        var result = await AdminClient.ApproveListingAsync(listingId, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -261,7 +247,9 @@
 
     private async Task CloseAsync(Guid listingId)
     {
-        if (await AdminClient.CloseListingAsync(listingId, CancellationToken.None))
+        var result = await AdminClient.CloseListingAsync(listingId, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -275,7 +263,9 @@
             return;
         }
 
-        if (await AdminClient.ExtendListingAsync(listingId, days, CancellationToken.None))
+        var result = await AdminClient.ExtendListingAsync(listingId, days, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }

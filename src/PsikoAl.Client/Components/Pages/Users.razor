@@ -1,7 +1,5 @@
 @page "/users"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Kullanıcılar — PsikoAl Admin</PageTitle>
 
@@ -103,22 +101,7 @@
     private bool _isFreezeDialogOpen;
     private Guid? _pendingFreezeUserId;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -126,11 +109,9 @@
         _errorMessage = null;
         try
         {
-            _users = await AdminClient.ListUsersAsync(_search, _role, _status, CancellationToken.None);
-            if (_users is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListUsersAsync(_search, _role, _status, CancellationToken.None);
+            _users = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -154,7 +135,9 @@
         _isFreezeDialogOpen = false;
         _pendingFreezeUserId = null;
 
-        if (await AdminClient.FreezeUserAsync(userId, null, CancellationToken.None))
+        var result = await AdminClient.FreezeUserAsync(userId, null, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -162,7 +145,9 @@
 
     private async Task UnfreezeAsync(Guid userId)
     {
-        if (await AdminClient.UnfreezeUserAsync(userId, null, CancellationToken.None))
+        var result = await AdminClient.UnfreezeUserAsync(userId, null, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }

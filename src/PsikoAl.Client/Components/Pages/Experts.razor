@@ -1,7 +1,5 @@
 @page "/experts"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Uzmanlar — PsikoAl Admin</PageTitle>
 
@@ -206,22 +204,7 @@
     private bool _isRejectDialogOpen;
     private Guid? _pendingRejectExpertId;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -230,11 +213,9 @@
         _openExpertId = null;
         try
         {
-            _experts = await AdminClient.ListExpertsAsync(_status, CancellationToken.None);
-            if (_experts is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListExpertsAsync(_status, CancellationToken.None);
+            _experts = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -253,13 +234,19 @@
         }
 
         _openExpertId = expertId;
-        _detail = await AdminClient.GetExpertDetailAsync(expertId, CancellationToken.None);
-        _documents = await AdminClient.GetExpertDocumentUrlsAsync(expertId, CancellationToken.None);
+        var detailResult = await AdminClient.GetExpertDetailAsync(expertId, CancellationToken.None);
+        _detail = detailResult.Value;
+        _errorMessage = detailResult.ErrorMessage;
+        var documentsResult = await AdminClient.GetExpertDocumentUrlsAsync(expertId, CancellationToken.None);
+        _documents = documentsResult.Value;
+        _errorMessage ??= documentsResult.ErrorMessage;
     }
 
     private async Task ApproveAsync(Guid expertId)
     {
-        if (await AdminClient.ApproveExpertAsync(expertId, CancellationToken.None))
+        var result = await AdminClient.ApproveExpertAsync(expertId, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -280,7 +267,9 @@
 
         _pendingRejectExpertId = null;
 
-        if (await AdminClient.RejectExpertAsync(expertId, reason, CancellationToken.None))
+        var result = await AdminClient.RejectExpertAsync(expertId, reason, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }
@@ -288,7 +277,9 @@
 
     private async Task ToggleVerifiedAsync(Guid expertId, bool isVerified)
     {
-        if (await AdminClient.SetExpertVerifiedAsync(expertId, isVerified, CancellationToken.None))
+        var result = await AdminClient.SetExpertVerifiedAsync(expertId, isVerified, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }

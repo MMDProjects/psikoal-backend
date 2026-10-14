@@ -1,7 +1,5 @@
 @page "/settings"
 @inject IAdminClientService AdminClient
-@inject AdminSessionState Session
-@inject NavigationManager Navigation
 
 <PageTitle>Sistem Ayarları — PsikoAl Admin</PageTitle>
 
@@ -62,22 +60,7 @@
     private bool _isLoading = true;
     private string? _errorMessage;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (!firstRender)
-        {
-            return;
-        }
-
-        if (!Session.IsAuthenticated)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadAsync();
-        StateHasChanged();
-    }
+    protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
@@ -85,11 +68,9 @@
         _errorMessage = null;
         try
         {
-            _settings = await AdminClient.ListSystemSettingsAsync(CancellationToken.None);
-            if (_settings is null)
-            {
-                _errorMessage = "Liste alınamadı. Admin yetkiniz olmayabilir.";
-            }
+            var result = await AdminClient.ListSystemSettingsAsync(CancellationToken.None);
+            _settings = result.Value;
+            _errorMessage = result.ErrorMessage;
         }
         finally
         {
@@ -105,7 +86,9 @@
             return;
         }
 
-        if (await AdminClient.UpdateSystemSettingAsync(key, value, CancellationToken.None))
+        var result = await AdminClient.UpdateSystemSettingAsync(key, value, CancellationToken.None);
+        _errorMessage = result.ErrorMessage;
+        if (result.Succeeded)
         {
             await LoadAsync();
         }

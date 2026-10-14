@@ -1,6 +1,7 @@
 @page "/login"
 @layout PsikoAl.Client.Components.Layout.BareLayout
-@inject IAdminClientService AdminClient
+@inject IAdminAuthService Auth
+@inject AdminSessionState Session
 @inject NavigationManager Navigation
 
 <PageTitle>Giriş — PsikoAl Admin</PageTitle>
@@ -39,10 +40,27 @@
 </div>
 
 @code {
+    [SupplyParameterFromQuery]
+    public string? ReturnUrl { get; set; }
+
     private string _email = string.Empty;
     private string _password = string.Empty;
     private string? _errorMessage;
     private bool _isBusy;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        await Auth.RestoreAsync(CancellationToken.None);
+        if (Session.IsAuthenticated)
+        {
+            Navigation.NavigateTo(SafeReturnUrl());
+        }
+    }
 
     private async Task SubmitAsync()
     {
@@ -50,18 +68,28 @@
         _isBusy = true;
         try
         {
-            var succeeded = await AdminClient.LoginAsync(_email, _password, CancellationToken.None);
-            if (!succeeded)
+            var result = await Auth.LoginAsync(_email, _password, CancellationToken.None);
+            if (!result.Succeeded)
             {
-                _errorMessage = "Giriş başarısız. Bilgilerinizi kontrol edin.";
+                _errorMessage = result.ErrorMessage;
                 return;
             }
 
-            Navigation.NavigateTo("/");
+            _password = string.Empty;
+            Navigation.NavigateTo(SafeReturnUrl());
         }
         finally
         {
             _isBusy = false;
         }
     }
+
+    private string SafeReturnUrl()
+        => ReturnUrl is { Length: > 0 } url
+           && url.StartsWith('/')
+           && !url.StartsWith("//", StringComparison.Ordinal)
+           && !url.StartsWith("/\\", StringComparison.Ordinal)
+           && !url.StartsWith("/login", StringComparison.OrdinalIgnoreCase)
+            ? url
+            : "/";
 }
