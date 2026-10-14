@@ -1,0 +1,57 @@
+name: Haftalık yedek
+
+# Deploy'dan bağımsız: deploy seyrekleşse de kurtarma noktası en fazla bir hafta geride kalır.
+# Yedekler GitHub artifact'ı olarak 30 gün tutulur. Repo PUBLIC: public repoda artifact'ları
+# GitHub'a giriş yapmış HERKES indirebilir. Bu yüzden dump şifrelenmeden asla yüklenmez
+# (AES256, anahtar BACKUP_PASSPHRASE sırrında). Geri yükleme: docs/DEPLOY.md
+
+on:
+  schedule:
+    - cron: '0 2 * * 1' # Pazartesi 05:00 TSİ
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: Şema + veri dump'ı
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
+        with:
+          version: 2.120.0
+
+      - name: Supabase projesine bağlan
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+      - name: Dump al ve şifrele
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_PASSPHRASE"
+          mkdir -p backup
+          supabase db dump --linked -f backup/schema.sql
+          supabase db dump --linked --data-only -f backup/data.sql
+          test -s backup/schema.sql
+          test -s backup/data.sql
+          tar -czf - -C backup . | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$BACKUP_PASSPHRASE" --symmetric --cipher-algo AES256 \
+            -o "psikoal-backup-$(date -u +%Y%m%d).tar.gz.gpg"
+          rm -rf backup
+
+      - name: Yedeği sakla
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: weekly-backup-${{ github.run_id }}
+          path: psikoal-backup-*.tar.gz.gpg
+          retention-days: 30

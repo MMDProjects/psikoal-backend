@@ -1,0 +1,104 @@
+name: Deploy (production)
+
+# Elle tetiklenir; yalnız main'den. Sıra bilinçli:
+#   1) prod veritabanının ŞEMA + VERİ dump'ı (artifact, 30 gün)
+#   2) supabase db push  — migration'lar forward-only/additive, API'den ÖNCE uygulanır
+#   3) Render deploy hook'ları (API, sonra admin paneli)
+#   4) dış /health doğrulaması
+# Sırlar ve ilk kurulum: docs/DEPLOY.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_migrations:
+        description: 'Migration adımını atla (yalnız uygulama yeniden deploy)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: supabase/setup-cli@46f7f98c7f948ad727d22c1e67fab04c223a0520 # v3
+        with:
+          version: 2.120.0
+
+      - name: Supabase projesine bağlan
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+
+      # Varsayılan `db dump` yalnız şemadır — veri ayrıca alınmazsa "yedek" boş çıkar.
+      # Repo PUBLIC: artifact'ı giriş yapmış herkes indirebilir, dump şifrelenmeden yüklenmez.
+      - name: Deploy öncesi yedek (şema + veri, şifreli)
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          test -n "$BACKUP_PASSPHRASE"
+          mkdir -p backup
+          supabase db dump --linked -f backup/schema.sql
+          supabase db dump --linked --data-only -f backup/data.sql
+          test -s backup/schema.sql
+          test -s backup/data.sql
+          tar -czf - -C backup . | gpg --batch --yes --pinentry-mode loopback \
+            --passphrase "$BACKUP_PASSPHRASE" --symmetric --cipher-algo AES256 \
+            -o predeploy-backup.tar.gz.gpg
+          rm -rf backup
+
+      - name: Yedeği sakla
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: predeploy-backup-${{ github.run_id }}
+          path: predeploy-backup.tar.gz.gpg
+          retention-days: 30
+
+      - name: Bekleyen migration'lar
+        if: ${{ !inputs.skip_migrations }}
+        run: supabase migration list --linked
+
+      - name: Migration'ları uygula
+        if: ${{ !inputs.skip_migrations }}
+        run: supabase db push --linked
+
+      - name: API deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_API }}
+        run: curl --fail --silent --show-error -X POST "$HOOK"
+
+      - name: Admin paneli deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_ADMIN }}
+        run: curl --fail --silent --show-error -X POST "$HOOK"
+
+      # Render deploy hook'u asenkron döner; yeni sürüm canlıya geçene kadar /health'i yokla.
+      # Render sağlık kontrolü geçmeyen sürümü canlıya almaz, eskisi çalışmaya devam eder.
+      - name: Dış sağlık kontrolü
+        env:
+          API_URL: ${{ vars.PRODUCTION_API_URL }}
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 40); do
+            if curl --fail --silent "$API_URL/health" > /dev/null; then
+              echo "API sağlıklı."
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "::error::API /health 10 dakika içinde 200 dönmedi."
+          exit 1
