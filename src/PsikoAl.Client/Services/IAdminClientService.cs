@@ -1,4 +1,6 @@
 using PsikoAl.Common.Dtos.Admin;
+using PsikoAl.Common.Dtos.Blog.Create;
+using PsikoAl.Common.Dtos.Blog.Update;
 using PsikoAl.Common.Dtos.Category;
 using PsikoAl.Common.Dtos.Category.Create;
 using PsikoAl.Common.Dtos.Category.Update;
@@ -91,6 +93,29 @@ public interface IAdminClientService
     Task<AdminApiResult<AdminPagedResultDto<AdminAuditLogDto>>> ListAuditLogsAsync(
         AdminAuditLogQueryDto query,
         CancellationToken cancellationToken);
+
+    Task<AdminApiResult<IReadOnlyList<AdminBlogListItemDto>>> ListBlogsAsync(string? status, CancellationToken cancellationToken);
+
+    Task<AdminApiResult<AdminBlogDetailDto>> GetBlogDetailAsync(Guid blogId, CancellationToken cancellationToken);
+
+    Task<AdminApiResult<AdminBlogDetailDto>> CreateBlogAsync(CreateBlogDto request, CancellationToken cancellationToken);
+
+    Task<AdminApiResult<AdminBlogDetailDto>> UpdateBlogAsync(Guid blogId, UpdateBlogDto request, CancellationToken cancellationToken);
+
+    Task<AdminApiResult<AdminBlogDetailDto>> PublishBlogAsync(Guid blogId, CancellationToken cancellationToken);
+
+    Task<AdminApiResult<AdminBlogDetailDto>> UnpublishBlogAsync(Guid blogId, CancellationToken cancellationToken);
+
+    Task<AdminApiResult<AdminBlogDetailDto>> ScheduleBlogAsync(Guid blogId, DateTimeOffset publishAt, CancellationToken cancellationToken);
+
+    Task<AdminApiResult<AdminBlogDetailDto>> UploadBlogCoverAsync(
+        Guid blogId,
+        byte[] content,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken);
+
+    Task<AdminApiResult> DeleteBlogAsync(Guid blogId, CancellationToken cancellationToken);
 }
 
 public sealed record AdminExpertDocumentUrls(string? CvUrl, IReadOnlyList<string> CertificateUrls);

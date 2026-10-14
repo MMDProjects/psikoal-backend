@@ -4,6 +4,8 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using PsikoAl.Common.Constants;
 using PsikoAl.Common.Dtos.Admin;
+using PsikoAl.Common.Dtos.Blog.Create;
+using PsikoAl.Common.Dtos.Blog.Update;
 using PsikoAl.Common.Dtos.Category;
 using PsikoAl.Common.Dtos.Category.Create;
 using PsikoAl.Common.Dtos.Category.Update;
@@ -182,6 +184,46 @@ public sealed class AdminClientService(
                 ("perPage", query.PerPage?.ToString(CultureInfo.InvariantCulture))),
             cancellationToken);
 
+    public Task<AdminApiResult<IReadOnlyList<AdminBlogListItemDto>>> ListBlogsAsync(string? status, CancellationToken cancellationToken)
+        => GetAsync<IReadOnlyList<AdminBlogListItemDto>>(WithQuery("admin/blogs", ("status", status)), cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> GetBlogDetailAsync(Guid blogId, CancellationToken cancellationToken)
+        => GetAsync<AdminBlogDetailDto>($"admin/blogs/{blogId}", cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> CreateBlogAsync(CreateBlogDto request, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(HttpMethod.Post, "admin/blogs", request, cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> UpdateBlogAsync(Guid blogId, UpdateBlogDto request, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(HttpMethod.Put, $"admin/blogs/{blogId}", request, cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> PublishBlogAsync(Guid blogId, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(HttpMethod.Post, $"admin/blogs/{blogId}/publish", EmptyBody, cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> UnpublishBlogAsync(Guid blogId, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(HttpMethod.Post, $"admin/blogs/{blogId}/unpublish", EmptyBody, cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> ScheduleBlogAsync(Guid blogId, DateTimeOffset publishAt, CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(
+            HttpMethod.Post,
+            $"admin/blogs/{blogId}/schedule",
+            new AdminScheduleBlogDto(publishAt),
+            cancellationToken);
+
+    public Task<AdminApiResult<AdminBlogDetailDto>> UploadBlogCoverAsync(
+        Guid blogId,
+        byte[] content,
+        string fileName,
+        string contentType,
+        CancellationToken cancellationToken)
+        => SendForResultAsync<AdminBlogDetailDto>(
+            HttpMethod.Post,
+            $"admin/blogs/{blogId}/cover",
+            new FileUpload(content, fileName, contentType),
+            cancellationToken);
+
+    public Task<AdminApiResult> DeleteBlogAsync(Guid blogId, CancellationToken cancellationToken)
+        => SendAsync(HttpMethod.Delete, $"admin/blogs/{blogId}", body: null, cancellationToken);
+
     private static string WithQuery(string path, params (string Name, string? Value)[] parameters)
     {
         var query = parameters
@@ -271,13 +313,27 @@ public sealed class AdminClientService(
     {
         using var request = new HttpRequestMessage(method, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-        if (body is not null)
+        // Gövde her denemede YENİDEN kurulur: 401 sonrası yenilenen token'la ikinci
+        // gönderimde aynı HttpContent tekrar kullanılamaz.
+        request.Content = body switch
         {
-            request.Content = JsonContent.Create(body, body.GetType());
-        }
+            null => null,
+            FileUpload upload => upload.ToContent(),
+            _ => JsonContent.Create(body, body.GetType()),
+        };
 
         return await httpClient.SendAsync(request, cancellationToken);
     }
 
     private sealed record AdminSendNotificationResult(bool Success, int RecipientCount);
+
+    private sealed record FileUpload(byte[] Content, string FileName, string ContentType)
+    {
+        public MultipartFormDataContent ToContent()
+        {
+            var file = new ByteArrayContent(Content);
+            file.Headers.ContentType = new MediaTypeHeaderValue(ContentType);
+            return new MultipartFormDataContent { { file, "file", FileName } };
+        }
+    }
 }

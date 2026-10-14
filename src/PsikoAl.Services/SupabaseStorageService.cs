@@ -37,10 +37,11 @@ public sealed class SupabaseStorageService(HttpClient httpClient) : ISupabaseSto
             throw new DomainException(ErrorKeys.StorageUploadFailed);
         }
 
-        return isPublicBucket
-            ? $"{httpClient.BaseAddress}storage/v1/object/public/{bucket}/{path}"
-            : path;
+        return isPublicBucket ? GetPublicUrl(bucket, path) : path;
     }
+
+    public string GetPublicUrl(string bucket, string path)
+        => $"{httpClient.BaseAddress}storage/v1/object/public/{bucket}/{path}";
 
     public async Task<string> CreateSignedUrlAsync(
         string bucket,
@@ -86,6 +87,20 @@ public sealed class SupabaseStorageService(HttpClient httpClient) : ISupabaseSto
             {
                 throw new DomainException(ErrorKeys.StorageUploadFailed);
             }
+        }
+    }
+
+    public async Task DeleteObjectAsync(string bucket, string path, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, $"storage/v1/object/{bucket}")
+        {
+            Content = JsonContent.Create(new { prefixes = new[] { path } }, options: JsonOptions),
+        };
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new DomainException(ErrorKeys.StorageUploadFailed);
         }
     }
 

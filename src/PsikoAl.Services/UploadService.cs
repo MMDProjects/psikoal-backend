@@ -72,6 +72,18 @@ public sealed class UploadService(
         return expert.Certificates;
     }
 
+    public async Task<string> UploadBlogCoverAsync(
+        Guid blogId,
+        Stream content,
+        string contentType,
+        CancellationToken cancellationToken)
+    {
+        var validated = await ValidateAsync(content, contentType, ImageContentTypes, cancellationToken);
+        var path = $"{blogId}/cover-{Guid.NewGuid():N}.{FileSignatures.ExtensionFor(contentType)}";
+        await storage.UploadAsync(StorageBuckets.BlogMedia, path, validated, contentType, isPublicBucket: true, cancellationToken);
+        return path;
+    }
+
     private static async Task<Stream> ValidateAsync(
         Stream content,
         string contentType,

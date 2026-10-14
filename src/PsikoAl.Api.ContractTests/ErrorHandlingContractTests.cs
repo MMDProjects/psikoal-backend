@@ -52,6 +52,7 @@ public sealed class ErrorHandlingContractTests(ApiFactory factory) : IClassFixtu
     [InlineData("uq_reviews_client_match", ErrorKeys.ReviewAlreadyExists)]
     [InlineData("experts_pkey", ErrorKeys.ExpertProfileAlreadyExists)]
     [InlineData("categories_slug_key", ErrorKeys.CategorySlugAlreadyExists)]
+    [InlineData("blogs_slug_key", ErrorKeys.BlogSlugAlreadyExists)]
     [InlineData("some_future_constraint", ErrorKeys.ResourceConflict)]
     [InlineData(null, ErrorKeys.ResourceConflict)]
     public void Unique_violations_map_to_domain_error_keys(string? constraintName, string expectedKey)

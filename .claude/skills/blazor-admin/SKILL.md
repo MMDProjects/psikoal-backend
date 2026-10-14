@@ -11,7 +11,7 @@ description: Build Blazor components, pages, and layouts for the PsikoAl admin p
 ## When to Use
 
 - `PsikoAl.Client` içinde yeni sayfa, bileşen veya layout oluştururken
-- Mevcut admin sayfalarını düzenlerken (Users, Experts, Listings, Reviews, Matches, Categories, Assessments, Notifications, SystemSettings)
+- Mevcut admin sayfalarını düzenlerken (Users, Experts, Listings, Reviews, Matches, Categories, Assessments, Blogs, Notifications, SystemSettings)
 - Onay kuyrukları, CRUD ekranları, dashboard kartları veya grafik eklerken
 
 ## Core References

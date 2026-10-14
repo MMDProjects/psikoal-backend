@@ -42,6 +42,12 @@
 ### Blog
 - `GET /blogs` → param `category`, `limit` (ana sayfa 3 öğe için `limit=3` kullanır). Her blog: `liked` (oturum kullanıcısı beğenmiş mi), `likeCount`.
 - `POST /blogs/:slug/like` → toggle; yanıt `{ likeCount, liked }` — frontend optimistic artırma/azaltma yapmaz.
+- **Uygulandı (2026-10-14).** Sözleşme `native-atomic/src/domains/blog/schemas/blog.schema.ts`:
+  - `GET /blogs` (oturumsuz da açık; Bearer varsa `liked` doldurulur) → `{ data: BlogListItem[], meta: { page, total, perPage } }`. Parametreler: `category` (kategori `blogTag`'i ya da serbest etiket), `page` (vars. 1), `perPage` (vars. 20, en çok 50), `limit` (verilirse `page=1`, `perPage=limit`). Sıralama `publishedAt` azalan.
+  - `GET /blogs/{slug}` → `Blog` (`content` dahil). Mock gibi id ile de çağrılabilir. Görünmeyen/olmayan yazı → `BLOG_NOT_FOUND`.
+  - `POST /blogs/{slug}/like` → `[Authorize]`, toggle, `{ likeCount, liked }`.
+  - Alanlar sunucuda hesaplanır: `readingTime` (içerik kelime sayısı / 200, yukarı yuvarlanır, en az 1), `categories` (birincil kategorinin `blogTag`'i + ek etiketler, tekrarsız), `coverImage` (blog-media public URL), `publishedAt` (`Z` sonekli ISO).
+  - Görünürlük: `status = published` ya da (`status = scheduled` ve `published_at <= now()`); kapak zorunlu. Taslaklar yalnız `/admin/blogs`'ta görünür.
 
 ### Assessment
 - `GET /assessment` → her test `questionCount` içerir.

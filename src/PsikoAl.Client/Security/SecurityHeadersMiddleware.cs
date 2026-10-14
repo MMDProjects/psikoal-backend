@@ -24,7 +24,9 @@ public sealed class SecurityHeadersMiddleware(RequestDelegate next, IHostEnviron
             "default-src 'self'",
             "script-src 'self'",
             "style-src 'self' 'unsafe-inline'",
-            "img-src 'self' data:",
+            // https: — blog kapakları Supabase Storage'dan (başka origin) yükleniyor; görsel
+            // kaynağı betik çalıştıramadığı için geniş izin düşük risklidir.
+            "img-src 'self' data: https:",
             "font-src 'self' data:",
             $"connect-src {connectSources}",
             "object-src 'none'",

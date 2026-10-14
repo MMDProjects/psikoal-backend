@@ -136,6 +136,12 @@ Kaynak tablolar `mock-db/data/*.json` — hepsi admin panelden tam CRUD.
 - Yeni alanlar: **status: draft / published / archived**, plânlı yayın tarihi.
 - likeCount salt izlenir; admin sahte beğeni ekleyemez.
 - Rich text editör + görsel yükleme (Supabase Storage).
+- **Uygulandı (2026-10-14), kararlar:**
+  - Durumlar `draft / published / scheduled` (yukarıdaki `archived` yerine): "arşiv" = yayından kaldırıp taslağa almak, ayrı durum gerekmedi. Plânlı yayın `published_at` alanında tutulur, cron yok — saat gelince sorgu anında görünür.
+  - İçerik **düz metin** (paragraflar boş satırla ayrılır): uygulama `content.split('\n\n')` ile paragraf basıyor, markdown/rich text işlemiyor. Rich text editör uygulama tarafı render desteklenene kadar ertelendi.
+  - Kategori ilişkisi: bir birincil kategori (`category_id` → `categories`, kategori sayfasındaki "İlgili Bloglar" bunun `blogTag`'i ile süzülür) + serbest ek etiketler.
+  - Yayınlama/planlama için kapak, özet ve içerik zorunlu (`BLOG_NOT_PUBLISHABLE`). Kısa ad başlıktan Türkçe karakter katlanarak üretilir, elle değiştirilebilir.
+  - Uçlar: `GET/POST /admin/blogs`, `GET/PUT/DELETE /admin/blogs/{id}`, `POST /admin/blogs/{id}/publish|unpublish|schedule|cover`. Her yazma `audit_logs`'a `entity_type = 'blog'` ile düşer.
 
 ### 3.4 Testler (`assessments`) — sorular + SKORLAMA
 Test yapısı: id, title, category (→ kategori ilişkisi), description, estimatedMinutes, questions[] {text, type: single_choice/multiple_choice/scale, options[] {text, **value**}}.
@@ -264,7 +270,7 @@ Her mock-db JSON dosyası bir tabloya karşılık gelir; onay akışları için 
 | listings | `status`'a `PENDING_APPROVAL`, `REJECTED_BY_ADMIN` değerleri; `rejectionReason`, `approvedAt`, `approvedBy` |
 | experts | (status zaten var) `rejectionReason`, `approvedAt`, `approvedBy`, `pendingRevision` (versiyonlu onay için JSON) |
 | reviews | `status`, `rejectionReason`, `moderatedAt`, `moderatedBy` |
-| blogs | `status` (draft/published/archived), `scheduledAt` |
+| blogs | `status` (draft/published/scheduled), `published_at` (plânlı yayın anı da burada), `category_id`, `tags`, `cover_image_path`; beğeniler ayrı `blog_likes` tablosunda |
 | assessments | `status` (draft/published) |
 | packages | `isActive` |
 | suggestions | `isActive`, `sortOrder` |

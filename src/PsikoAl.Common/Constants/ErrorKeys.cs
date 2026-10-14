@@ -63,6 +63,11 @@ public static class ErrorKeys
     public const string AssessmentScoreRuleNotFound = "ASSESSMENT_SCORE_RULE_NOT_FOUND";
     public const string AssessmentResultNotOwned = "ASSESSMENT_RESULT_NOT_OWNED";
     public const string AssessmentAnswersInvalid = "ASSESSMENT_ANSWERS_INVALID";
+    public const string BlogNotFound = "BLOG_NOT_FOUND";
+    public const string BlogSlugAlreadyExists = "BLOG_SLUG_ALREADY_EXISTS";
+    public const string BlogSlugInvalid = "BLOG_SLUG_INVALID";
+    public const string BlogNotPublishable = "BLOG_NOT_PUBLISHABLE";
+    public const string BlogScheduleMustBeFuture = "BLOG_SCHEDULE_MUST_BE_FUTURE";
     public const string ValidationFailed = "VALIDATION_FAILED";
     public const string ResourceConflict = "RESOURCE_CONFLICT";
     public const string InternalError = "INTERNAL_ERROR";

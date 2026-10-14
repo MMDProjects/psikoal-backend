@@ -13,6 +13,7 @@ public static class UniqueViolationErrorKeys
         ["uq_reviews_client_match"] = ErrorKeys.ReviewAlreadyExists,
         ["experts_pkey"] = ErrorKeys.ExpertProfileAlreadyExists,
         ["categories_slug_key"] = ErrorKeys.CategorySlugAlreadyExists,
+        ["blogs_slug_key"] = ErrorKeys.BlogSlugAlreadyExists,
     };
 
     public static string For(string? constraintName)
