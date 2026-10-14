@@ -42,6 +42,8 @@ Sözleşme kaynakları: `docs/BACKEND_REQUIREMENTS.md`, `docs/ADMIN_PANEL_REQUIR
 7. **Assessment** — assessments + `assessment_score_rules` (skorlama DB kuralından C#'ta), sonuçlar kullanıcıya bağlı, Admin: test/soru/puan kuralı CRUD.
 8. **Ödeme** — packages + wallet + transactions, Iyzico 3DS init + webhook (idempotency), atomik bakiye hareketi, Admin: işlem izleme + manuel düzeltme (çift onay) + iade kuyruğu.
 9. **İçerik** — blogs (draft/published/scheduled, Storage görselleri), suggestions, `ui_content` (+ `GET /ui-content`, frontend'e cache'li bağlama).
+   - **Durum (2026-10-14):** Blog **tamam** — migration `20261014110000_blogs.sql` (`blogs` + `blog_likes`), `GET /blogs` (`category`, `page`, `perPage`, `limit`), `GET /blogs/{slug}`, `POST /blogs/{slug}/like` (toggle, oturum zorunlu), `/admin/blogs` CRUD + yayınla/yayından kaldır/planla + kapak yükleme (blog-media), audit log, admin paneli **Blog** sayfası. Plânlı yayın cron'suz: `published_at <= now()` sorgu anında. Uygulama tarafında şema değişikliği gerekmiyor.
+   - **Ertelendi:** `suggestions` ve `ui_content` v1'de yok (ürün kararı 2026-10-14: öneriler uygulamadan sökülüyor). Ödeme (dilim 8) de v1 dışı.
 10. **Dashboard + sertleştirme** — admin dashboard (onay sayaçları, huni, gelir), audit log görüntüleyici, RLS/negatif test taraması, `PRODUCTION_CHECKLIST.md` uygulanması (mock söküm), prod yayın. *(Landing page bundan sonra ayrı iş.)*
 
 Her dilim sonunda **Review checkpoint**: contract testleri yeşil + frontend'de ilgili ekranların gerçek API ile smoke testi + kullanıcı onayı alınmadan sonraki dilime geçilmez.
