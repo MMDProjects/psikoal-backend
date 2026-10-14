@@ -1,3 +1,9 @@
 namespace PsikoAl.Common.Dtos.Match;
 
-public sealed record MatchExpertDto(Guid Id, string Name, string Title, string? Initials);
+public sealed record MatchExpertDto(
+    Guid Id,
+    string Name,
+    string Title,
+    string? Initials,
+    string? Email,
+    string? Phone);
