@@ -61,7 +61,8 @@ public sealed class AssessmentService(IUnitOfWork unitOfWork) : IAssessmentServi
             throw new DomainException(ErrorKeys.AssessmentNotFound);
         }
 
-        var score = request.Answers.Sum(answer => answer.Values.Count > 0 ? answer.Values[0] : 0);
+        var questions = await unitOfWork.AssessmentQuestions.ListForAssessmentAsync(assessment.Id, cancellationToken);
+        var score = AssessmentScoring.Score(questions, request.Answers);
         var rule = await unitOfWork.AssessmentScoreRules.FindMatchingRuleAsync(assessment.Id, score, cancellationToken)
             ?? throw new DomainException(ErrorKeys.AssessmentScoreRuleNotFound);
 
@@ -73,7 +74,11 @@ public sealed class AssessmentService(IUnitOfWork unitOfWork) : IAssessmentServi
             Level = rule.Level,
             Summary = rule.Summary,
             Suggestions = [.. rule.Suggestions],
-            Email = request.Email,
+
+            // E-posta artık saklanmıyor: hiçbir akış kullanmıyor ve sağlık sonucunu
+            // kimliğe bağlayan, açık rızası alınmamış kişisel veri olurdu. Alan eski
+            // istemciler kırılmasın diye DTO'da kabul edilip yok sayılır.
+            Email = null,
         };
 
         await unitOfWork.AssessmentResults.AddAsync(result, cancellationToken);
