@@ -2,14 +2,21 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
 using PsikoAl.Common.Constants;
 using PsikoAl.Common.Exceptions;
 using PsikoAl.Services.Abstractions;
+using PsikoAl.Services.Options;
 
 namespace PsikoAl.Services;
 
-public sealed class SupabaseStorageService(HttpClient httpClient) : ISupabaseStorageService
+public sealed class SupabaseStorageService(HttpClient httpClient, IOptions<SupabaseOptions>? options = null)
+    : ISupabaseStorageService
 {
+    private readonly string _publicBaseUrl = string.IsNullOrWhiteSpace(options?.Value.PublicUrl)
+        ? httpClient.BaseAddress?.ToString() ?? string.Empty
+        : options.Value.PublicUrl.TrimEnd('/') + "/";
+
     private const int ListPageSize = 1000;
     private const int DeleteBatchSize = 100;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -41,7 +48,7 @@ public sealed class SupabaseStorageService(HttpClient httpClient) : ISupabaseSto
     }
 
     public string GetPublicUrl(string bucket, string path)
-        => $"{httpClient.BaseAddress}storage/v1/object/public/{bucket}/{path}";
+        => $"{_publicBaseUrl}storage/v1/object/public/{bucket}/{path}";
 
     public async Task<string> CreateSignedUrlAsync(
         string bucket,
