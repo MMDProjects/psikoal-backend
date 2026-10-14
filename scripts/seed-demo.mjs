@@ -11,7 +11,9 @@
 //   admin kategori ekler → uzman kaydolur + profil açar → admin onaylar/doğrular
 //   → danışan ilan açar → admin onaylar → uzman teklif verir → danışan kabul eder
 //   → iki taraf da bırakır → danışan yorum yazar → admin yorumu onaylar
-//   → admin bildirim gönderir
+//   → admin bildirim gönderir → admin blog yazılarını yayınlar/planlar
+
+import { deflateSync } from 'node:zlib'
 
 const API = process.env.E2E_API_URL ?? 'http://localhost:5089'
 
@@ -153,6 +155,90 @@ const LISTINGS = [
   },
 ]
 
+// Blog yazıları admin uçlarından basılır: oluştur (taslak) → kapak yükle →
+// yayınla ya da planla. `category` kanonik kategori SLUG'ı; mobil kategori
+// sayfası GET /blogs?category={blogTag} ile bu bağ üzerinden süzer.
+// İçerik düz metin, paragraflar boş satırla ayrılır (app/blog/[slug].tsx
+// content.split('\n\n') yapıyor).
+const BLOGS = [
+  {
+    category: 'anksiyete',
+    tags: ['kendinebakım', 'teknikler'],
+    title: 'Kaygı Anında Bedeninizi Sakinleştirmenin 4 Yolu',
+    excerpt:
+      'Kaygı yükseldiğinde zihin "tehlike var" der, beden de buna inanır. Nefes, kas gevşetme ve dikkat odağını değiştirme gibi basit tekniklerle bu alarmı birkaç dakika içinde kısabilirsiniz.',
+    content: [
+      'Kaygı, bedenin bizi korumak için geliştirdiği eski bir alarm sistemidir. Kalp hızlanır, nefes sıklaşır, kaslar gerilir. Sorun, bu alarmın gerçek bir tehlike yokken de çalabilmesidir. İyi haber şu: bedeni sakinleştirdiğinizde zihin de onu takip eder.',
+      'Birinci yol diyafram nefesidir. Bir elinizi göğsünüze, diğerini karnınıza koyun. Burnunuzdan dört saniyede nefes alın, karnınızın şiştiğini hissedin; altı saniyede ağzınızdan verin. Nefes verişin alıştan uzun olması parasempatik sinir sistemini devreye sokar.',
+      'İkinci yol kademeli kas gevşetmedir. Ellerinizi beş saniye sıkıp bırakın, aradaki farkı fark edin. Aynısını omuzlar, yüz ve bacaklar için tekrarlayın. Gerginliği bilinçli olarak yaratıp bırakmak, bedene gevşemenin nasıl bir his olduğunu hatırlatır.',
+      'Üçüncü yol 5-4-3-2-1 tekniğidir: Gördüğünüz beş şeyi, duyduğunuz dört sesi, dokunabildiğiniz üç yüzeyi, aldığınız iki kokuyu ve bir tadı sayın. Dikkat, kaygı veren düşünceden şimdiki ana taşınır.',
+      'Dördüncü yol düzenli harekettir. Haftada üç gün otuz dakikalık tempolu yürüyüş bile kaygı belirtilerini belirgin biçimde azaltır. Bu teknikler işe yaramıyorsa ya da kaygı günlük yaşamınızı kısıtlıyorsa bir uzmandan destek almak en doğru adımdır; Bilişsel Davranışçı Terapi kaygı bozukluklarında güçlü bir kanıt tabanına sahiptir.',
+    ].join('\n\n'),
+    author: { name: 'Uzm. Psk. Elif Kaya', title: 'Klinik Psikolog' },
+    color: [14, 165, 233],
+  },
+  {
+    category: 'uyku-sorunlari',
+    tags: ['uykuhijyeni', 'ruhsağlığı'],
+    title: 'Uyku Hijyeni: Daha İyi Uyumak İçin Küçük Alışkanlıklar',
+    excerpt:
+      'Uyku ile ruh sağlığı arasındaki ilişki iki yönlüdür: kötü uyku kaygıyı ve çökkün ruh halini artırır, onlar da uykuyu bozar. Döngüyü kırmanın ilk adımı akşam rutininizdedir.',
+    content: [
+      'Uykusuz geçen bir gecenin ertesinde her şey daha zor görünür. Araştırmalar, yetersiz uykunun duygu düzenlemeyi zayıflattığını ve kaygıya yatkınlığı artırdığını gösteriyor. Uyku bir lüks değil, ruh sağlığının temel taşlarından biridir.',
+      'Her gün aynı saatte kalkmaya çalışın, hafta sonu da dahil. Biyolojik saatiniz en çok uyanma saatine göre ayarlanır. Geç yattığınız bir gecenin ardından bile aynı saatte kalkmak, bir sonraki gece uykuya dalmayı kolaylaştırır.',
+      'Yatak odasını yalnız uyku için kullanın. Yatakta telefon karıştırmak, iş yazışmalarına bakmak beyne "burası uyanık kalınacak yer" mesajı verir. Yirmi dakika içinde uyuyamadıysanız kalkın, loş ışıkta sakin bir şey yapın, uykunuz gelince geri dönün.',
+      'Öğleden sonra kafeini azaltın, akşam yemeğini hafif tutun ve yatmadan bir saat önce ekranları kapatın. Haftalarca süren uykusuzluk yaşıyorsanız, uykusuzluk için Bilişsel Davranışçı Terapi (BDT-U) ilaçsız ve kalıcı bir çözüm sunabilir.',
+    ].join('\n\n'),
+    author: { name: 'Uzm. Psk. Mehmet Demir', title: 'Uzman Psikolog' },
+    color: [99, 102, 241],
+  },
+  {
+    category: 'depresyon',
+    tags: ['psikoloji', 'farkındalık'],
+    title: 'Depresyon ile Üzüntü Arasındaki Fark',
+    excerpt:
+      'Üzüntü hayatın doğal bir parçasıdır ve zamanla hafifler. Depresyon ise haftalarca süren, enerjiyi, uykuyu ve zevk alma yetisini etkileyen bir tablodur. Farkı bilmek, yardım istemeyi kolaylaştırır.',
+    content: [
+      'Bir kayıp, bir hayal kırıklığı ya da zor bir dönem sonrasında üzgün hissetmek sağlıklı bir tepkidir. Üzüntü genellikle bir olaya bağlıdır, dalgalar hâlinde gelir ve güzel anlar onu kısa süreliğine de olsa hafifletebilir.',
+      'Depresyonda ise çökkün ruh hali ya da eskiden keyif alınan şeylere karşı ilgisizlik en az iki hafta boyunca, günün büyük bölümünde sürer. Buna uyku ve iştah değişiklikleri, yorgunluk, odaklanma güçlüğü, değersizlik ya da suçluluk duyguları eşlik edebilir.',
+      'Depresyon bir karakter zayıflığı değildir ve "kendini toparla" telkinleriyle geçmez. Psikoterapi, gerektiğinde ilaç tedavisiyle birlikte, depresyonun tedavisinde etkili yöntemlerdir. Belirtiler tanıdık geliyorsa bir ruh sağlığı uzmanıyla görüşmeyi ertelemeyin.',
+      'Kendinize zarar verme düşünceleriniz varsa beklemeyin: 112 Acil Çağrı Merkezi\'ni arayın ya da en yakın acil servise başvurun.',
+    ].join('\n\n'),
+    author: { name: 'Uzm. Psk. Elif Kaya', title: 'Klinik Psikolog' },
+    color: [100, 116, 139],
+  },
+  {
+    category: 'iliski-problemleri',
+    tags: ['iletişim', 'sınırlar'],
+    title: 'İlişkilerde Sağlıklı Sınır Koymak',
+    excerpt:
+      'Sınır koymak karşınızdakini uzaklaştırmak değil, ilişkinin ikiniz için de güvenli kalmasını sağlamaktır. "Hayır" demeyi öğrenmek suçluluk değil, öz saygı işidir.',
+    content: [
+      'Sınırlar, neyin bizim için kabul edilebilir olduğunu belirleyen görünmez çizgilerdir. Sağlıklı sınırları olmayan ilişkilerde kırgınlık birikir, iletişim kopar ve taraflardan biri kendini sürekli tükenmiş hisseder.',
+      'İlk adım kendi ihtiyacınızı fark etmektir. Hangi durumlarda gerildiğinizi, hangi isteklere istemeden "evet" dediğinizi not edin. Bu notlar sınırlarınızın nerede olduğunu gösterir.',
+      'Sınırı ifade ederken "ben" diliyle konuşun: "Beni hiç dinlemiyorsun" yerine "Konuşurken sözüm kesildiğinde kendimi değersiz hissediyorum, sözümü bitirmeme izin vermeni istiyorum" deyin. Suçlamadan, açık ve sakin bir dille konuşmak karşı tarafın savunmaya geçmesini azaltır.',
+      'Sınırlar ilk başta tepki görebilir; bu, yanlış yaptığınız anlamına gelmez. Tutarlı kaldıkça ilişki yeni dengesini bulur. Tekrarlayan çatışmalar varsa çift terapisi, iki tarafın da duyulduğu güvenli bir alan sunar.',
+    ].join('\n\n'),
+    author: { name: 'Psk. Dan. Zeynep Aksoy', title: 'Aile ve Çift Terapisti' },
+    color: [244, 114, 182],
+  },
+  {
+    category: 'panik-atak',
+    tags: ['teknikler'],
+    title: 'Panik Atak Sırasında Ne Yapmalı?',
+    excerpt:
+      'Panik atak korkutucudur ama tehlikeli değildir. Atak sırasında bedeninizde neler olduğunu bilmek ve birkaç basit adımı uygulamak, korkunun korkusunu azaltır.',
+    content: [
+      'Panik atak, birkaç dakika içinde zirveye ulaşan yoğun bir korku dalgasıdır. Çarpıntı, nefes darlığı, baş dönmesi ve "kontrolümü kaybediyorum" hissi sık görülen belirtilerdir. Atak ne kadar yoğun olursa olsun genellikle on dakika içinde hafiflemeye başlar.',
+      'Atak sırasında kaçmaya ya da belirtilerle savaşmaya çalışmayın. Kendinize "Bu bir panik atak, geçecek" deyin. Nefes verişinizi uzatın ve ayaklarınızın yere bastığını hissedin.',
+      'Ataklar tekrarlıyorsa ve onları yaşamamak için bazı yerlerden kaçınmaya başladıysanız, bir uzmandan destek alma zamanı gelmiştir. Panik bozukluğu tedaviye en iyi yanıt veren durumlardan biridir.',
+    ].join('\n\n'),
+    author: { name: 'Uzm. Psk. Mehmet Demir', title: 'Uzman Psikolog' },
+    color: [245, 158, 11],
+    scheduleInDays: 7, // bilinçli: panelde "Planlandı" durumu görünsün, mobilde henüz görünmesin
+  },
+]
+
 // ---------------------------------------------------------------- HTTP katmanı
 
 const calls = []
@@ -214,6 +300,74 @@ async function call(method, path, { token, body, soft = false, expected = [], la
   console.log(`  ${mark} ${String(response.status).padEnd(3)} ${method} ${path}  ${detail}`.trimEnd())
 
   return { ok, status: response.status, data, text }
+}
+
+/** Çok parçalı dosya yükleme — `call` yalnız JSON taşıdığı için ayrı. */
+async function upload(path, { token, bytes, fileName, contentType, label = '' }) {
+  const form = new FormData()
+  form.append('file', new Blob([bytes], { type: contentType }), fileName)
+  let response
+  let text = ''
+  try {
+    response = await fetch(`${API}${path}`, {
+      method: 'POST',
+      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
+      body: form,
+    })
+    text = await response.text()
+  } catch (error) {
+    calls.push({ method: 'POST', path, status: 0, ok: false, label, error: String(error) })
+    failed += 1
+    console.log(`  ✗ ---  POST ${path}  ${label}  → ${error}`)
+    return { ok: false, status: 0, data: null }
+  }
+
+  calls.push({ method: 'POST', path, status: response.status, ok: response.ok, label })
+  if (!response.ok) failed += 1
+  const mark = response.ok ? '✓' : '✗'
+  console.log(`  ${mark} ${String(response.status).padEnd(3)} POST ${path}  ${response.ok ? label : `${label} ${text.slice(0, 200)}`}`)
+  return { ok: response.ok, status: response.status, data: text ? JSON.parse(text) : null }
+}
+
+// Kapak görseli için düz renkli 16:9 PNG üretir. Dışarıdan görsel indirmek
+// seed'i ağ erişimine bağlardı; API ise yalnız gerçek dosya imzasını
+// (magic bytes) kabul ediyor — bu yüzden geçerli bir PNG şart.
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let c = n
+  for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
+  return c >>> 0
+})
+
+function crc32(buffer) {
+  let crc = 0xffffffff
+  for (const byte of buffer) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8)
+  return (crc ^ 0xffffffff) >>> 0
+}
+
+function pngChunk(type, data) {
+  const length = Buffer.alloc(4)
+  length.writeUInt32BE(data.length)
+  const body = Buffer.concat([Buffer.from(type, 'ascii'), data])
+  const crc = Buffer.alloc(4)
+  crc.writeUInt32BE(crc32(body))
+  return Buffer.concat([length, body, crc])
+}
+
+function solidPng(width, height, [r, g, b]) {
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(width, 0)
+  header.writeUInt32BE(height, 4)
+  header[8] = 8 // bit derinliği
+  header[9] = 2 // truecolor RGB
+  const row = Buffer.alloc(1 + width * 3)
+  for (let x = 0; x < width; x += 1) row.set([r, g, b], 1 + x * 3)
+  const raw = Buffer.concat(Array.from({ length: height }, () => row))
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk('IHDR', header),
+    pngChunk('IDAT', deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ])
 }
 
 function section(title) {
@@ -561,8 +715,69 @@ async function main() {
     },
   })
 
-  // --- 10. Mobilin gördüğü uçlar ------------------------------------------
-  section('10. Mobil uçları doğrula (danışan gözüyle)')
+  // --- 10. Blog yazıları ---------------------------------------------------
+  // Oluştur (taslak) → kapak → yayınla ya da planla. İkinci koşumda yazı zaten
+  // admin listesinde durur; o zaman yalnız eksik adımlar tamamlanır.
+  section('10. Admin blog yazılarını yayınlar')
+  const existingBlogs = await call('GET', '/admin/blogs', { token: adminToken, label: 'mevcut yazılar' })
+  const blogsByTitle = new Map(
+    (Array.isArray(existingBlogs.data) ? existingBlogs.data : []).map((b) => [b.title, b]),
+  )
+  let firstBlogSlug = null
+
+  for (const post of BLOGS) {
+    let blog = blogsByTitle.get(post.title)
+    if (blog) {
+      console.log(`  · --- zaten var: ${post.title}`)
+    } else {
+      const created = await call('POST', '/admin/blogs', {
+        token: adminToken,
+        label: post.title,
+        body: {
+          title: post.title,
+          slug: null,
+          excerpt: post.excerpt,
+          content: post.content,
+          categoryId: bySlug.get(post.category)?.id ?? null,
+          tags: post.tags,
+          authorName: post.author.name,
+          authorTitle: post.author.title,
+        },
+      })
+      if (!created.ok) continue
+      blog = { ...created.data, hasCover: false }
+    }
+
+    if (!blog.hasCover) {
+      await upload(`/admin/blogs/${blog.id}/cover`, {
+        token: adminToken,
+        bytes: solidPng(320, 180, post.color),
+        fileName: 'kapak.png',
+        contentType: 'image/png',
+        label: 'kapak',
+      })
+    }
+
+    if (post.scheduleInDays) {
+      if (blog.status !== 'scheduled') {
+        const publishAt = new Date(Date.now() + post.scheduleInDays * 86_400_000).toISOString()
+        await call('POST', `/admin/blogs/${blog.id}/schedule`, {
+          token: adminToken,
+          label: `${post.scheduleInDays} gün sonraya planlandı`,
+          body: { publishAt },
+        })
+      }
+      continue
+    }
+
+    if (blog.status !== 'published') {
+      await call('POST', `/admin/blogs/${blog.id}/publish`, { token: adminToken, label: 'yayınlandı' })
+    }
+    firstBlogSlug ??= blog.slug
+  }
+
+  // --- 11. Mobilin gördüğü uçlar ------------------------------------------
+  section('11. Mobil uçları doğrula (danışan gözüyle)')
   await call('GET', '/categories', { token: clientToken, label: 'keşfet' })
   await call('GET', '/listings/my', { token: clientToken, label: 'ilanlarım' })
   await call('GET', '/offers/my', { token: clientToken, label: 'tekliflerim' })
@@ -576,8 +791,20 @@ async function main() {
     await call('GET', `/experts/${experts[0].id}/reviews`, { token: clientToken, label: 'uzman yorumları' })
   }
   await call('GET', '/categories/anksiyete', { token: clientToken, label: 'kategori detayı' })
+  await call('GET', '/blogs?limit=3', { token: clientToken, label: 'ana sayfa blog karuseli' })
+  await call('GET', '/blogs?category=anksiyete', { token: clientToken, label: 'kategori sayfası blogları' })
+  await call('GET', '/blogs', { label: 'blog akışı (oturumsuz)' })
+  if (firstBlogSlug) {
+    await call('GET', `/blogs/${firstBlogSlug}`, { token: clientToken, label: 'blog detayı' })
+    // Beğeni bir toggle: script tekrar koşunca beğeniyi geri almasın diye
+    // sonuç "beğenmedi" ise bir kez daha basılır.
+    const like = await call('POST', `/blogs/${firstBlogSlug}/like`, { token: clientToken, label: 'beğeni', body: {} })
+    if (like.ok && like.data?.liked === false) {
+      await call('POST', `/blogs/${firstBlogSlug}/like`, { token: clientToken, label: 'beğeni (geri)', body: {} })
+    }
+  }
 
-  section('11. Mobil uçları doğrula (uzman gözüyle)')
+  section('12. Mobil uçları doğrula (uzman gözüyle)')
   if (experts[0]) {
     await call('GET', '/listings', { token: experts[0].token, label: 'ilan akışı' })
     await call('GET', '/offers/my', { token: experts[0].token, label: 'verdiğim teklifler' })
