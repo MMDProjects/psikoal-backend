@@ -23,6 +23,8 @@ public sealed class AuthContractTests : IClassFixture<ApiFactory>
             firstName = "Contract",
             lastName = "Test",
             role = "superuser",
+            termsAccepted = true,
+            healthDataConsent = true,
         }, CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -35,6 +37,49 @@ public sealed class AuthContractTests : IClassFixture<ApiFactory>
         {
             email = "contract@test.com",
             password = "short",
+            firstName = "Contract",
+            lastName = "Test",
+            role = "client",
+            termsAccepted = true,
+            healthDataConsent = true,
+        }, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData(false, true, "TermsAccepted")]
+    [InlineData(true, false, "HealthDataConsent")]
+    public async Task Register_without_kvkk_consent_returns_bad_request(
+        bool termsAccepted,
+        bool healthDataConsent,
+        string expectedField)
+    {
+        var response = await _client.PostAsJsonAsync("/auth/register", new
+        {
+            email = "contract@test.com",
+            password = "TestPass123!",
+            firstName = "Contract",
+            lastName = "Test",
+            role = "client",
+            termsAccepted,
+            healthDataConsent,
+        }, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(CancellationToken.None);
+        var fields = body.GetProperty("errors").EnumerateObject().Select(property => property.Name).ToList();
+        Assert.Contains(fields, field => string.Equals(field, expectedField, StringComparison.OrdinalIgnoreCase));
+        Assert.Single(fields);
+    }
+
+    [Fact]
+    public async Task Register_from_an_old_client_without_consent_fields_is_rejected()
+    {
+        var response = await _client.PostAsJsonAsync("/auth/register", new
+        {
+            email = "contract@test.com",
+            password = "TestPass123!",
             firstName = "Contract",
             lastName = "Test",
             role = "client",

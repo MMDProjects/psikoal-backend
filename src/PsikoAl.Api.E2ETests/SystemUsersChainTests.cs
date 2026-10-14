@@ -225,7 +225,16 @@ public sealed class SystemUsersChainTests(E2EFixture fixture)
         {
             var registered = await fixture.Mobile.PostAsJsonAsync(
                 "/auth/register",
-                new { email, password, firstName = "E2E", lastName = "Dondurma", role = "client" });
+                new
+                {
+                    email,
+                    password,
+                    firstName = "E2E",
+                    lastName = "Dondurma",
+                    role = "client",
+                    termsAccepted = true,
+                    healthDataConsent = true,
+                });
             Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
 
             var session = await registered.Content.ReadFromJsonAsync<JsonElement>();

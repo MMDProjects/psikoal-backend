@@ -32,6 +32,10 @@ builder.Services
     .AddOptions<BrevoOptions>()
     .Bind(builder.Configuration.GetSection(BrevoOptions.SectionName));
 
+builder.Services
+    .AddOptions<LegalOptions>()
+    .Bind(builder.Configuration.GetSection(LegalOptions.SectionName));
+
 var supabase = builder.Configuration.GetSection(SupabaseOptions.SectionName).Get<SupabaseOptions>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>

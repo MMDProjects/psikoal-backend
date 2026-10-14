@@ -13,6 +13,8 @@ public static class ErrorKeys
     public const string AuthAccountFrozen = "AUTH_ACCOUNT_FROZEN";
     public const string AuthCurrentPasswordInvalid = "AUTH_CURRENT_PASSWORD_INVALID";
     public const string AuthProviderError = "AUTH_PROVIDER_ERROR";
+    public const string AuthTermsNotAccepted = "AUTH_TERMS_NOT_ACCEPTED";
+    public const string AuthHealthDataConsentRequired = "AUTH_HEALTH_DATA_CONSENT_REQUIRED";
     public const string ProfileNotFound = "PROFILE_NOT_FOUND";
     public const string AdminUserNotFound = "ADMIN_USER_NOT_FOUND";
     public const string ExpertNotFound = "EXPERT_NOT_FOUND";

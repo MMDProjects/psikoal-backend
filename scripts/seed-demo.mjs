@@ -306,6 +306,8 @@ async function main() {
       firstName: CLIENT.firstName,
       lastName: CLIENT.lastName,
       role: 'client',
+      termsAccepted: true,
+      healthDataConsent: true,
     },
     { soft: true, label: CLIENT.email }
   )
@@ -346,6 +348,8 @@ async function main() {
         firstName: expert.firstName,
         lastName: expert.lastName,
         role: 'expert',
+        termsAccepted: true,
+        healthDataConsent: true,
       },
       { soft: true, label: expert.email }
     )

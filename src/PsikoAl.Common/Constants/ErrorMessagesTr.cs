@@ -31,6 +31,8 @@ public static class ErrorMessagesTr
         [ErrorKeys.AuthAccountFrozen] = "Hesabınız donduruldu. Destek ekibiyle iletişime geçin.",
         [ErrorKeys.AuthCurrentPasswordInvalid] = "Mevcut şifreniz hatalı.",
         [ErrorKeys.AuthProviderError] = "Kimlik doğrulama servisine şu an ulaşılamıyor. Biraz sonra tekrar deneyin.",
+        [ErrorKeys.AuthTermsNotAccepted] = "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul edin.",
+        [ErrorKeys.AuthHealthDataConsentRequired] = "Devam etmek için sağlık verilerinizin işlenmesine açık rıza verin.",
 
         // --- Profil ---
         [ErrorKeys.ProfileNotFound] = "Profil bulunamadı.",

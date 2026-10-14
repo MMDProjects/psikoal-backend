@@ -30,6 +30,12 @@ public sealed class Profile
 
     public string Status { get; set; } = ProfileStatuses.Active;
 
+    public DateTimeOffset? TermsAcceptedAt { get; set; }
+
+    public DateTimeOffset? HealthDataConsentAt { get; set; }
+
+    public string? ConsentVersion { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public DateTimeOffset UpdatedAt { get; set; }

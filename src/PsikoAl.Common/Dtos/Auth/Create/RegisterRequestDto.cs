@@ -5,4 +5,6 @@ public sealed record RegisterRequestDto(
     string Password,
     string FirstName,
     string LastName,
-    string Role);
+    string Role,
+    bool TermsAccepted,
+    bool HealthDataConsent);
