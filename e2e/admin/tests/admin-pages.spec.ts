@@ -24,6 +24,7 @@ const PAGES = [
   { href: '/matches', navLabel: 'Eşleşmeler', heading: 'Eşleşmeler' },
   { href: '/categories', navLabel: 'Kategoriler', heading: 'Kategoriler' },
   { href: '/assessments', navLabel: 'Testler', heading: 'Testler' },
+  { href: '/blogs', navLabel: 'Blog', heading: 'Blog Yazıları' },
   { href: '/notifications', navLabel: 'Bildirimler', heading: 'Bildirimler' },
   { href: '/settings', navLabel: 'Ayarlar', heading: 'Sistem Ayarları' },
   { href: '/audit-logs', navLabel: 'Denetim Kaydı', heading: 'Denetim Kaydı' },
@@ -85,5 +86,27 @@ test.describe('Admin paneli sayfaları', () => {
     // totalUsers ve openListings kesinlikle dolu. Hepsi sıfırsa uç ya kırık ya
     // da yanlış veritabanına bakıyor — ikisi de bilinmesi gereken bir durum.
     expect(texts.some((text) => Number(text.trim()) > 0), 'tüm sayaçlar sıfır').toBe(true)
+  })
+
+  // Blog formu yazma yapmadan doğrulanır: başlıktan üretilen kısa ad mobilde
+  // /blog/{slug} adresinin kendisi. Türkçe karakter katlaması bozulursa API
+  // kaydı BLOG_SLUG_INVALID ile reddeder ve panel kullanılamaz hâle gelir.
+  test('blog formu başlıktan Türkçe karakterleri katlayarak kısa ad üretir', async ({ page }) => {
+    await loginAsAdmin(page)
+    await navigateTo(page, 'Blog')
+
+    await expect(page.getByRole('heading', { name: 'Blog Yazıları' }).first()).toBeVisible({
+      timeout: 20_000,
+    })
+    await expect(page.getByTestId('blog-table')).toBeVisible()
+
+    await page.getByTestId('blog-new').click()
+    const title = page.getByTestId('blog-title')
+    await title.fill('Çift Terapisinde İlk Görüşme: Neler Olur?')
+    await title.blur()
+
+    await expect(page.getByTestId('blog-slug')).toHaveValue('cift-terapisinde-ilk-gorusme-neler-olur', {
+      timeout: 10_000,
+    })
   })
 })
