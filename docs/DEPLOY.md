@@ -4,7 +4,7 @@ Bu belge API'nin ve admin panelinin canlıya nasıl çıktığını anlatır. Al
 
 | Dosya | Ne yapar |
 |---|---|
-| `render.yaml` | Render Blueprint: `psikoal-api` + `psikoal-admin` (Docker, Frankfurt, starter) |
+| `render.yaml` | Render Blueprint: `psikoal-api` + `psikoal-admin` (Docker, Frankfurt, ücretsiz plan) |
 | `src/PsikoAl.Api/Dockerfile` | API imajı (build bağlamı repo kökü) |
 | `src/PsikoAl.Client/Dockerfile` | Admin paneli imajı (Blazor Server) |
 | `.github/workflows/deploy.yml` | Elle tetiklenen deploy: şifreli yedek → `db push` → Render deploy hook'ları → `/health` |
@@ -95,6 +95,20 @@ almaz; başarısız sürümde eski sürüm çalışmaya devam eder.
   ```
 
   Geri yüklemeyi önce ayrı (staging) bir Supabase projesinde prova et.
+
+## Render ücretsiz planı ve uyanık tutma
+
+İki servis de ücretsiz planda. Ücretsiz plan 15 dakika istek gelmeyen servisi uyutur;
+ilk istek ~1 dakika bekler. API, Supabase'teki `keep_alive_ping` cron işiyle her 10
+dakikada bir pinglenir (migration `20261015080000_keep_alive.sql`):
+
+1. Admin paneli → **Ayarlar** → `KEEP_ALIVE_URL` = `https://<api-adresi>/health`
+2. `KEEP_ALIVE_ENABLED` = `true`
+
+**Admin paneline ping ATILMAZ:** Render ücretsiz planı ayda 750 saati tüm ücretsiz servisler
+arasında paylaştırır; 7/24 uyanık tek servis ~744 saat harcar. Panel açılırken bir kez
+bekler, sorun değil. Kullanıcı sayısı arttığında API'yi Starter'a geçirin
+(`render.yaml` → `plan: starter`) ve `KEEP_ALIVE_ENABLED` = `false` yapın.
 
 ## Bilinen sınırlar
 
