@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.DataProtection;
 using PsikoAl.Client.Components;
+using PsikoAl.Client.Security;
 using PsikoAl.Client.Services;
 using ShadCn.Blazor.Components;
 
@@ -8,6 +10,13 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddShadCnBlazorComponents();
+
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("PsikoAl.Admin");
+var dataProtectionKeysPath = builder.Configuration["DataProtection:KeysPath"];
+if (!string.IsNullOrWhiteSpace(dataProtectionKeysPath))
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeysPath));
+}
 
 var apiBaseAddress = ResolveApiBaseAddress(builder.Configuration);
 builder.Services.AddSingleton(TimeProvider.System);
@@ -24,12 +33,13 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
 app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode(options => options.ContentSecurityFrameAncestorsPolicy = null);
 
 app.Run();
 

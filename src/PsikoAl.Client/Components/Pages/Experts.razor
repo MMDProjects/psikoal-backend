@@ -138,13 +138,13 @@
                                             <div class="detail-documents">
                                                 @if (_documents?.CvUrl is not null)
                                                 {
-                                                    <a class="link-button" href="@_documents.CvUrl" target="_blank">CV'yi Görüntüle</a>
+                                                    <a class="link-button" href="@_documents.CvUrl" target="_blank" rel="noopener noreferrer">CV'yi Görüntüle</a>
                                                 }
                                                 @if (_documents is not null)
                                                 {
                                                     @foreach (var (url, index) in _documents.CertificateUrls.Select((url, index) => (url, index)))
                                                     {
-                                                        <a class="link-button" href="@url" target="_blank">Sertifika @(index + 1)</a>
+                                                        <a class="link-button" href="@url" target="_blank" rel="noopener noreferrer">Sertifika @(index + 1)</a>
                                                     }
                                                 }
                                                 @if (_documents is null || (_documents.CvUrl is null && _documents.CertificateUrls.Count == 0))

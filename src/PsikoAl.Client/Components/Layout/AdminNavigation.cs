@@ -8,7 +8,7 @@ public static class AdminNavigation
 {
     public static IReadOnlyList<AdminNavItem> Items { get; } =
     [
-        new("/", "Dashboard", "dashboard", AdminRoleGroups.Any),
+        new("/", "Genel Bakış", "dashboard", AdminRoleGroups.Any),
         new("/users", "Kullanıcılar", "users", AdminRoleGroups.Moderation),
         new("/experts", "Uzmanlar", "expert", AdminRoleGroups.Moderation),
         new("/listings", "İlanlar", "listing", AdminRoleGroups.Moderation),
