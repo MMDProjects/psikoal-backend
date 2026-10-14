@@ -16,6 +16,7 @@ public static class AdminNavigation
         new("/matches", "Eşleşmeler", "match", AdminRoleGroups.Moderation),
         new("/categories", "Kategoriler", "category", AdminRoleGroups.Content),
         new("/assessments", "Testler", "assessment", AdminRoleGroups.Content),
+        new("/blogs", "Blog", "blog", AdminRoleGroups.Content),
         new("/notifications", "Bildirimler", "notification", AdminRoleGroups.SuperAdminOnly),
         new("/settings", "Ayarlar", "settings", AdminRoleGroups.SuperAdminOnly),
         new("/audit-logs", "Denetim Kaydı", "audit", AdminRoleGroups.SuperAdminOnly),

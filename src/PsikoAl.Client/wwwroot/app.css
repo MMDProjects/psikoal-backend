@@ -533,3 +533,12 @@ h1:focus {
     white-space: pre-wrap;
     word-break: break-all;
 }
+
+.blog-cover-preview {
+    width: 100%;
+    max-width: 480px;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: var(--radius);
+    border: 1px solid hsl(var(--border));
+}
