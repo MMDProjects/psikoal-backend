@@ -131,7 +131,7 @@ internal static class SupabaseTestIdentity
             """
             insert into public.admin_users (auth_user_id, display_name, role, is_active)
             values (@auth_user_id, 'E2E Admin', 'super_admin', true)
-            on conflict (auth_user_id) do update set is_active = true;
+            on conflict (auth_user_id) do update set is_active = true, role = 'super_admin';
             """;
         command.Parameters.AddWithValue("auth_user_id", authUserId);
         await command.ExecuteNonQueryAsync(cancellationToken);

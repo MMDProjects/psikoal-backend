@@ -176,12 +176,7 @@ builder.Services
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("Admin", policy => policy
-        .RequireAuthenticatedUser()
-        .AddRequirements(new AdminRequirement()));
-});
+builder.Services.AddAuthorization(options => options.AddAdminPolicies());
 
 builder.Services.AddConfiguredRateLimiting();
 

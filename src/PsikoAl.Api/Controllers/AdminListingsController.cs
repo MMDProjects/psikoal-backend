@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PsikoAl.Api.Authorization;
 using PsikoAl.Api.Extensions;
 using PsikoAl.Common.Dtos.Admin;
 using PsikoAl.Services.Abstractions;
@@ -8,7 +9,7 @@ namespace PsikoAl.Api.Controllers;
 
 [ApiController]
 [Route("admin/listings")]
-[Authorize(Policy = "Admin")]
+[Authorize(Policy = AdminPolicies.Moderation)]
 public sealed class AdminListingsController(IAdminListingService adminListingService) : ControllerBase
 {
     [HttpGet]

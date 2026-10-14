@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using PsikoAl.Api.Authorization;
 using PsikoAl.Api.Extensions;
 using PsikoAl.Common.Dtos.Admin;
 using PsikoAl.Common.Exceptions;
@@ -10,7 +11,7 @@ namespace PsikoAl.Api.Controllers;
 
 [ApiController]
 [Route("admin/experts")]
-[Authorize(Policy = "Admin")]
+[Authorize(Policy = AdminPolicies.Moderation)]
 public sealed class AdminExpertsController(
     IAdminExpertService adminExpertService,
     ISupabaseStorageService storage) : ControllerBase
