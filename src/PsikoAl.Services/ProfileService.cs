@@ -12,7 +12,8 @@ namespace PsikoAl.Services;
 
 public sealed class ProfileService(
     IUnitOfWork unitOfWork,
-    ISupabaseAdminService supabaseAdmin) : IProfileService
+    ISupabaseAdminService supabaseAdmin,
+    IAccountStatusService accountStatus) : IProfileService
 {
     public async Task<AuthUserDto> GetMeAsync(Guid userId, CancellationToken cancellationToken)
     {
@@ -72,6 +73,7 @@ public sealed class ProfileService(
         await supabaseAdmin.BanUserAsync(userId, cancellationToken);
         await AddStatusAuditAsync(profile.Id, "user.freeze_self", oldStatus, profile.Status, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        accountStatus.Invalidate(userId);
     }
 
     public async Task DeleteMeAsync(Guid userId, CancellationToken cancellationToken)
@@ -91,6 +93,7 @@ public sealed class ProfileService(
         await supabaseAdmin.BanUserAsync(userId, cancellationToken);
         await AddStatusAuditAsync(profile.Id, "user.delete_self", oldStatus, profile.Status, cancellationToken);
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        accountStatus.Invalidate(userId);
     }
 
     private async Task<Profile> GetRequiredProfileAsync(Guid userId, CancellationToken cancellationToken)

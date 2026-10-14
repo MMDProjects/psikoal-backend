@@ -12,7 +12,8 @@ namespace PsikoAl.Services;
 public sealed class AdminUserService(
     IUnitOfWork unitOfWork,
     ISupabaseAdminService supabaseAdmin,
-    IAdminGuard adminGuard) : IAdminUserService
+    IAdminGuard adminGuard,
+    IAccountStatusService accountStatus) : IAdminUserService
 {
     public async Task<IReadOnlyList<AdminUserListItemDto>> ListUsersAsync(
         string? search,
@@ -100,5 +101,6 @@ public sealed class AdminUserService(
             cancellationToken);
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
+        accountStatus.Invalidate(targetUserId);
     }
 }

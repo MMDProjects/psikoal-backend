@@ -94,6 +94,8 @@ builder.Services.AddHttpClient<IPushNotificationService, ExpoPushNotificationSer
     client.BaseAddress = new Uri("https://exp.host/");
 });
 
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IAccountStatusService, AccountStatusService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IExpertService, ExpertService>();
@@ -195,6 +197,7 @@ app.UseMiddleware<DomainExceptionMiddleware>();
 app.UseHttpsRedirection();
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<AccountStatusMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/health");
