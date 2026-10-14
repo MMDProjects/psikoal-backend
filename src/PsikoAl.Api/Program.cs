@@ -182,7 +182,7 @@ builder.Services
 
 builder.Services.AddAuthorization(options => options.AddAdminPolicies());
 
-builder.Services.AddConfiguredRateLimiting();
+builder.Services.AddConfiguredRateLimiting(builder.Configuration);
 
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddFluentValidationAutoValidation();

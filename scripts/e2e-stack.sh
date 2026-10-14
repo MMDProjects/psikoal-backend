@@ -64,6 +64,7 @@ start_service() {
     ConnectionStrings__Postgres="$E2E_POSTGRES" \
     Api__BaseUrl="$E2E_API_URL" \
     ASPNETCORE_ENVIRONMENT=Development \
+    RateLimiting__AuthPermitLimit=1000 \
     dotnet run --project "$project" --no-launch-profile --urls "$bind" >"$log" 2>&1 & )
 
   for _ in $(seq 1 60); do
