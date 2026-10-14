@@ -27,7 +27,13 @@ env:
   DOTNET_NOLOGO: 'true'
   DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
   E2E_ADMIN_EMAIL: e2e-admin@psikoal.test
+  # Seed + sözleşme testleri aynı IP'den dakikada onlarca giriş yapar; prod limiti
+  # (10/dk) yalnız bu test ortamında yükseltilir. Bkz. RateLimitingSetup.
+  RateLimiting__AuthPermitLimit: '1000'
   E2E_ADMIN_PASSWORD: E2eAdminPass123!
+  # Playwright "admin olmayan hesap panele giremez" testi danışan fixture'ıyla giriş dener.
+  E2E_CLIENT_EMAIL: e2e-client@psikoal.test
+  E2E_CLIENT_PASSWORD: E2eClientPass123!
   E2E_API_URL: http://localhost:5089
   ADMIN_URL: http://localhost:5057
 
@@ -226,10 +232,24 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+      # Uygulama reposunda AYNI ADLI dal varsa o çekilir: iki repoda birlikte değişen
+      # sözleşme birlikte ölçülür. Yoksa dev. Sabit 'dev' merge edilmemiş uygulama
+      # şemalarını hiç görmüyordu.
+      - name: Uygulama dalını seç
+        id: app-ref
+        env:
+          REF: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads https://github.com/MMDProjects/psikoal-app.git "$REF" > /dev/null; then
+            echo "value=$REF" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=dev" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           repository: MMDProjects/psikoal-app
-          ref: dev
+          ref: ${{ steps.app-ref.outputs.value }}
           path: _app
 
       - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
@@ -263,6 +283,11 @@ jobs:
 
       - name: Build
         run: dotnet build src/PsikoAl.slnx
+
+      # Seed admin uçlarını kullanır; admin kimliğini .NET E2E kurulumu üretir
+      # (Playwright ve Maestro job'larındaki adımın aynısı).
+      - name: Admin kimliğini hazırla
+        run: dotnet test src/PsikoAl.Api.E2ETests --no-build --filter "Category=E2E"
 
       - name: API'yi başlat
         run: |
