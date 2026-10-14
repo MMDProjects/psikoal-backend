@@ -81,6 +81,7 @@ public sealed class AdminAuthService(
             var accessToken = await GetValidAccessTokenAsync(cancellationToken);
             if (accessToken is null)
             {
+                await ClearSessionAsync();
                 return;
             }
 
