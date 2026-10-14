@@ -93,6 +93,7 @@ public static class ErrorMessagesTr
         [ErrorKeys.AssessmentNotFound] = "Test bulunamadı.",
         [ErrorKeys.AssessmentResultNotFound] = "Test sonucu bulunamadı.",
         [ErrorKeys.AssessmentScoreRuleNotFound] = "Bu test için puanlama kuralı tanımlı değil.",
+        [ErrorKeys.AssessmentResultNotOwned] = "Seçtiğiniz test sonucu hesabınıza ait değil. Kendi sonuçlarınızdan birini seçin.",
 
         // --- Genel ---
         [ErrorKeys.ValidationFailed] = "Girdiğiniz bilgileri kontrol edin.",
