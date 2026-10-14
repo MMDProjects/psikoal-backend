@@ -38,6 +38,22 @@ services:
         sync: false
       - key: Brevo__ApiKey
         sync: false
+      # PayTR iFrame API (uzman kredisi satın alma, yalnız web sitesi) — docs/PAYMENTS.md.
+      # Mağaza bilgileri YALNIZ burada (gizli); boşsa ödeme uçları PAYMENT_PROVIDER_UNAVAILABLE döner.
+      - key: PayTR__MerchantId
+        sync: false
+      - key: PayTR__MerchantKey
+        sync: false
+      - key: PayTR__MerchantSalt
+        sync: false
+      # Canlı satışa geçerken "false" yapılır; o güne kadar PayTR test kartlarıyla çalışır.
+      - key: PayTR__TestMode
+        value: "true"
+      # Ödeme sonrası kullanıcının döneceği web sitesi sayfaları (tam adres).
+      - key: PayTR__OkUrl
+        sync: false
+      - key: PayTR__FailUrl
+        sync: false
 
   - type: web
     name: psikoal-admin
