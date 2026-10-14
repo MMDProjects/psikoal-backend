@@ -9,3 +9,12 @@ useDefault = true
 # Buraya bir kayıt eklemeden önce bulguyu elle aç ve gerçek bir anahtar olmadığını
 # kanıtla. Gerçek bir anahtar sızmışsa allowlist DEĞİL, ROTASYON gerekir —
 # commit silmek yeterli değildir, public repoda içerik kopyalanmış sayılır.
+
+# SupabaseStorageServiceTests.cs — imzalı URL ayrıştırma testinin SAHTE token'ı:
+# "eyJhbGciOiJIUzI1NiJ9.test" = base64('{"alg":"HS256"}') + ".test". Gövde ve imza yok,
+# hiçbir sisteme karşı geçerli değil. Muafiyet commit parmak izine değil bu DEĞERE bağlı:
+# squash merge her seferinde yeni commit ürettiği için parmak izi (.gitleaksignore) tutmuyordu.
+[allowlist]
+description = "Testlerdeki sahte imzalı URL token'ı"
+regexTarget = "match"
+regexes = ['''eyJhbGciOiJIUzI1NiJ9\.test''']
