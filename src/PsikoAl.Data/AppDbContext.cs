@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using PsikoAl.Data.Entities;
 
 namespace PsikoAl.Data;
@@ -45,6 +47,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<BlogLike> BlogLikes => Set<BlogLike>();
 
+    public DbSet<CreditPackage> CreditPackages => Set<CreditPackage>();
+
+    public DbSet<CreditPayment> CreditPayments => Set<CreditPayment>();
+
+    public DbSet<CreditTransaction> CreditTransactions => Set<CreditTransaction>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Profile>(entity =>
@@ -60,6 +68,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasKey(expert => expert.Id);
             entity.Property(expert => expert.Id).ValueGeneratedNever();
             entity.Property(expert => expert.PendingRevision).HasColumnType("jsonb");
+            ConfigureStoreManagedBalance(entity.Property(expert => expert.CreditBalance));
             entity.Property(expert => expert.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
             entity.Property(expert => expert.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
             entity.HasOne(expert => expert.Profile)
@@ -240,5 +249,59 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.HasKey(like => new { like.BlogId, like.UserId });
             entity.Property(like => like.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
         });
+
+        modelBuilder.Entity<CreditPackage>(entity =>
+        {
+            entity.ToTable("credit_packages");
+            entity.HasKey(package => package.Id);
+            entity.Property(package => package.PriceTry).HasColumnType("numeric(10,2)");
+            entity.Property(package => package.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.Property(package => package.UpdatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+        });
+
+        modelBuilder.Entity<CreditPayment>(entity =>
+        {
+            entity.ToTable("credit_payments");
+            entity.HasKey(payment => payment.Id);
+            entity.HasIndex(payment => payment.MerchantOid).IsUnique();
+            entity.Property(payment => payment.AmountTry).HasColumnType("numeric(10,2)");
+            entity.Property(payment => payment.ProviderPayload).HasColumnType("jsonb");
+            entity.Property(payment => payment.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.HasOne(payment => payment.Expert)
+                .WithMany()
+                .HasForeignKey(payment => payment.ExpertId);
+            entity.HasOne(payment => payment.Package)
+                .WithMany()
+                .HasForeignKey(payment => payment.PackageId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<CreditTransaction>(entity =>
+        {
+            entity.ToTable("credit_transactions");
+            entity.HasKey(transaction => transaction.Id);
+            entity.Property(transaction => transaction.CreatedAt).HasDefaultValueSql("now()").ValueGeneratedOnAdd();
+            entity.HasOne(transaction => transaction.Offer)
+                .WithMany()
+                .HasForeignKey(transaction => transaction.OfferId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(transaction => transaction.Payment)
+                .WithMany()
+                .HasForeignKey(transaction => transaction.PaymentId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(transaction => transaction.AdminUser)
+                .WithMany()
+                .HasForeignKey(transaction => transaction.AdminUserId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+    }
+
+    // Bakiye yalnız koşullu UPDATE ile değişir (ExpertCreditRepository). EF bu kolonu
+    // ASLA yazmaz: izlenen bir Expert kaydedilirken bayat bakiye atomik düşümün üzerine
+    // yazılamasın. Ekleme anında da gönderilmez; veritabanı varsayılanı (0) geçerlidir.
+    private static void ConfigureStoreManagedBalance(PropertyBuilder<int> property)
+    {
+        property.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+        property.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
     }
 }

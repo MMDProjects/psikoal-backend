@@ -31,6 +31,8 @@ public sealed class SystemSettingsService(
         var setting = await unitOfWork.SystemSettings.GetAsync(key, cancellationToken)
             ?? throw new DomainException(ErrorKeys.SystemSettingNotFound, key);
 
+        EnsureValidValue(key, value);
+
         var oldValue = setting.Value;
         setting.Value = value;
         setting.UpdatedBy = actor.Id;
@@ -51,5 +53,15 @@ public sealed class SystemSettingsService(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return new SystemSettingDto(setting.Key, setting.Value, setting.Description, setting.UpdatedAt);
+    }
+
+    // Teklif maliyeti tam sayı ve 0..1000 aralığında olmalı; bozuk bir değer teklif akışında
+    // sessizce varsayılana düşerdi ve panelde girilenle uygulanan farklı olurdu.
+    private static void EnsureValidValue(string key, string value)
+    {
+        if (key == SystemSettingKeys.OfferCreditCost && !OfferCreditCost.TryParse(value, out _))
+        {
+            throw new DomainException(ErrorKeys.ValidationFailed, "value");
+        }
     }
 }

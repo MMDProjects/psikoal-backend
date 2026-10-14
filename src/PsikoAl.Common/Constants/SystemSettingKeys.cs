@@ -9,4 +9,5 @@ public static class SystemSettingKeys
     public const string PackageMinSessions = "PACKAGE_MIN_SESSIONS";
     public const string PackageMaxSessions = "PACKAGE_MAX_SESSIONS";
     public const string MaintenanceMode = "MAINTENANCE_MODE";
+    public const string OfferCreditCost = "OFFER_CREDIT_COST";
 }

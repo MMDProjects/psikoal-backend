@@ -35,9 +35,11 @@
 - `initials`, `acceptsOffers` (= `status === 'approved'`) alanları döner. Frontend teklif uygunluğunu `role === 'client' && expert.acceptsOffers` ile belirler.
 - `GET /experts/:id/reviews` → her review'a `createdAtRelative`.
 
-### Payment
-- `GET /payment/packages` → her pakete `originalPrice` (indirimsiz toplam). Frontend `unitPrice × sessionCount` hesaplamaz.
-- Cüzdan verisi `wallet.json` yapısında döner.
+### Uzman kredisi (eski "Payment" bölümünün yerine — 2026-10-14)
+- Danışan ödemesi (cüzdan, seans paketi, `/payment/*`, Iyzico) **terk edildi**; mock'taki `/payment/packages`, `/payment/wallet`, `/payment/checkout/initiate` uçları gerçek backend'de **yazılmayacak** ve uygulamadan sökülür.
+- Yeni model: uzman teklif gönderirken kredi harcar; kredi yalnız web sitesinden PayTR ile alınır. Mobil yalnız `GET /credits/me` ve `GET /credits/transactions` kullanır; satın alma yolu yoktur (App Store kuralı).
+- `POST /offers` bakiye yetmezse 422 `INSUFFICIENT_CREDITS`.
+- Uç şekilleri, hata kodları ve web ödeme sözleşmesi: **`docs/PAYMENTS.md`** (kanonik).
 
 ### Blog
 - `GET /blogs` → param `category`, `limit` (ana sayfa 3 öğe için `limit=3` kullanır). Her blog: `liked` (oturum kullanıcısı beğenmiş mi), `likeCount`.

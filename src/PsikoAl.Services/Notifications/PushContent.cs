@@ -26,6 +26,7 @@ public static class PushContent
         [NotificationTypes.ExpertRejected] = ("Profil güncellemesi", "Uzman profilinizle ilgili bir güncelleme var."),
         [NotificationTypes.ReviewApproved] = ("Değerlendirme güncellemesi", "Değerlendirmenizle ilgili bir güncelleme var."),
         [NotificationTypes.ReviewRejected] = ("Değerlendirme güncellemesi", "Değerlendirmenizle ilgili bir güncelleme var."),
+        [NotificationTypes.CreditPurchased] = ("Krediniz yüklendi", "Kredi satın alımınız tamamlandı."),
     };
 
     public static (string Title, string Body) TextFor(string type, string renderedTitle, string renderedBody)

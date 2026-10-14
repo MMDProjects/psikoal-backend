@@ -21,6 +21,7 @@ public static class DomainErrorStatusCodes
         ErrorKeys.PushTokenNotFound,
         ErrorKeys.AssessmentNotFound,
         ErrorKeys.AssessmentResultNotFound,
+        ErrorKeys.CreditPackageNotFound,
     };
 
     private static readonly HashSet<string> Forbidden = new(StringComparer.Ordinal)
@@ -39,6 +40,7 @@ public static class DomainErrorStatusCodes
         ErrorKeys.CategorySlugAlreadyExists,
         ErrorKeys.ReviewAlreadyExists,
         ErrorKeys.OfferAlreadyExists,
+        ErrorKeys.CreditPackageInUse,
         ErrorKeys.ResourceConflict,
     };
 

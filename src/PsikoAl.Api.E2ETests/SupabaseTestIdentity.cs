@@ -49,6 +49,14 @@ internal static class SupabaseTestIdentity
         return new AuthenticatedUser(authUserId, ClientEmail, accessToken);
     }
 
+    /// <summary>Rolü çağıran ayarlar (ör. uzman): yalnız GoTrue kullanıcısı + gerçek token.</summary>
+    public static async Task<AuthenticatedUser> EnsureUserAsync(string email, string password, CancellationToken cancellationToken)
+    {
+        var authUserId = await EnsureAuthUserAsync(email, password, cancellationToken);
+        var accessToken = await SignInAsync(email, password, cancellationToken);
+        return new AuthenticatedUser(authUserId, email, accessToken);
+    }
+
     private static async Task<Guid> EnsureAuthUserAsync(
         string email,
         string password,

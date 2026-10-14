@@ -9,6 +9,7 @@
 //
 // Zincir:
 //   admin kategori ekler → uzman kaydolur + profil açar → admin onaylar/doğrular
+//   → admin uzmanlara kredi yükler (teklif kredi harcar)
 //   → danışan ilan açar → admin onaylar → uzman teklif verir → danışan kabul eder
 //   → iki taraf da bırakır → danışan yorum yazar → admin yorumu onaylar
 //   → admin bildirim gönderir → admin blog yazılarını yayınlar/planlar
@@ -18,6 +19,10 @@ import { deflateSync } from 'node:zlib'
 const API = process.env.E2E_API_URL ?? 'http://localhost:5089'
 
 const ADMIN = { email: 'e2e-admin@psikoal.test', password: 'E2eAdminPass123!' }
+
+// Teklif başına OFFER_CREDIT_COST (varsayılan 1) kredi düşer; 20 kredi demo
+// zincirindeki teklifler ve elle denemeler için fazlasıyla yeter.
+const DEMO_EXPERT_CREDITS = 20
 
 // DEMO danışanı, E2E danışanından AYRI olmak zorunda.
 // e2e-client@psikoal.test hesabı .NET E2E testlerinin paylaşılan fixture'ıdır ve
@@ -536,6 +541,25 @@ async function main() {
     })
 
     experts.push({ ...expert, token, id: expertId })
+  }
+
+  // --- 4b. Uzman kredisi ---------------------------------------------------
+  // Teklif göndermek kredi harcar ve yeni uzmana başlangıç kredisi YOK. Demo
+  // uzmanları, finans panelinin elle düzeltme ucundan DEMO_EXPERT_CREDITS'e
+  // tamamlanır (yalnız eksik kadar; script tekrar koşunca bakiye şişmez).
+  section('4b. Admin demo uzmanlarına kredi yükler')
+  for (const expert of experts) {
+    const credits = await call('GET', `/admin/credits/experts/${expert.id}`, {
+      token: adminToken,
+      label: `${expert.firstName} bakiye`,
+    })
+    const missing = DEMO_EXPERT_CREDITS - (credits.data?.balance ?? 0)
+    if (!credits.ok || missing <= 0) continue
+    await call('POST', `/admin/credits/experts/${expert.id}/adjust`, {
+      token: adminToken,
+      label: `${expert.firstName} +${missing} kredi`,
+      body: { amount: missing, reason: 'Demo verisi: başlangıç kredisi' },
+    })
   }
 
   // --- 5. İlanlar ----------------------------------------------------------

@@ -44,6 +44,13 @@ public sealed class ErrorHandlingContractTests(ApiFactory factory) : IClassFixtu
     [InlineData(ErrorKeys.AuthInvalidCredentials, 422)]
     [InlineData(ErrorKeys.AuthEmailAlreadyRegistered, 422)]
     [InlineData(ErrorKeys.ValidationFailed, 422)]
+    [InlineData(ErrorKeys.InsufficientCredits, 422)]
+    [InlineData(ErrorKeys.CreditBalanceNegative, 422)]
+    [InlineData(ErrorKeys.CreditPurchaseExpertNotApproved, 422)]
+    [InlineData(ErrorKeys.PaymentProviderUnavailable, 422)]
+    [InlineData(ErrorKeys.CreditPackageNotFound, 404)]
+    [InlineData(ErrorKeys.CreditPackageInUse, 409)]
+    [InlineData(ErrorKeys.ExpertRoleRequired, 403)]
     public void Domain_error_keys_map_to_http_status(string errorKey, int expectedStatus)
         => Assert.Equal(expectedStatus, DomainErrorStatusCodes.For(errorKey));
 

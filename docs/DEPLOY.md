@@ -51,6 +51,16 @@ güncellenir. Otomatik deploy açık olsaydı API, migration'dan önce canlıya 
    | psikoal-api | `Supabase__AnonKey` | Dashboard → API Keys |
    | psikoal-api | `Supabase__ServiceRoleKey` | Dashboard → API Keys (gizli) |
    | psikoal-api | `Brevo__ApiKey` | Boş bırakılabilir — bildirim e-postası şu an kapalı |
+   | psikoal-api | `PayTR__MerchantId` | PayTR Mağaza Paneli → Destek & Kurulum → Entegrasyon Bilgileri → Mağaza No |
+   | psikoal-api | `PayTR__MerchantKey` | Aynı ekran → Mağaza Parola (gizli) |
+   | psikoal-api | `PayTR__MerchantSalt` | Aynı ekran → Mağaza Gizli Anahtar (gizli) |
+   | psikoal-api | `PayTR__TestMode` | Blueprint'te `true`; canlı satışa geçerken `false` |
+   | psikoal-api | `PayTR__OkUrl` | Web sitesinin ödeme başarılı sayfası, ör. `https://psikoal.com/kredi/basarili` |
+   | psikoal-api | `PayTR__FailUrl` | Web sitesinin ödeme başarısız sayfası, ör. `https://psikoal.com/kredi/hata` |
+
+   PayTR anahtarları boşsa API çalışır, yalnız kredi satın alma uçları
+   `PAYMENT_PROVIDER_UNAVAILABLE` döner. PayTR panel ayarları (Bildirim URL'si dahil):
+   `docs/PAYMENTS.md`.
    | psikoal-admin | `Api__BaseUrl` | API'nin public adresi, ör. `https://psikoal-api.onrender.com` |
 
 3. Her iki servis için Settings → **Deploy Hook** URL'sini kopyala (GitHub sırrı olacak).
