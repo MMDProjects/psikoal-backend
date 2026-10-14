@@ -33,7 +33,7 @@ açıktır. Bu bilinçli bir tercihtir; güvenlik gizliliğe değil, katmanlara 
 - Supabase proje referansı bir kimlik bilgisi değildir; her istek ayrıca kimlik doğrular.
 - CI'da her PR'da: `gitleaks` (tüm geçmiş), CodeQL (`csharp`), NetAnalyzers.
 
-Mobil istemci `MMDProjects/psikoal-app` reposundadır.
+Mobil istemci `psikologmobile/psikoal-app` reposundadır.
 
 ## Secret sızıntısında yapılacak
 
