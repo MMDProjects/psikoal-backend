@@ -2,10 +2,12 @@ using System.Threading.RateLimiting;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PsikoAl.Api.Authorization;
+using PsikoAl.Api.Extensions;
 using PsikoAl.Api.Middleware;
 using PsikoAl.Api.Serialization;
 using PsikoAl.Data;
@@ -191,22 +193,36 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddControllers()
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new UtcDateTimeOffsetJsonConverter()));
-builder.Services.AddHealthChecks();
+builder.Services.AddConfiguredForwardedHeaders(builder.Configuration);
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<AppDbContext>("database", tags: [ReadinessTag]);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<UnhandledExceptionHandler>();
 
 var app = builder.Build();
 
+app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseMiddleware<DomainExceptionMiddleware>();
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHsts();
+}
+
 app.UseHttpsRedirection();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<AccountStatusMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHealthChecks("/health");
+// /health: hazırlık (DB dahil) — yük dengeleyici ve E2E betikleri bunu bekler.
+// /health/live: yalnız sürecin ayakta olduğu; DB kesintisinde container yeniden başlatılmasın.
+app.MapHealthChecks("/health", new HealthCheckOptions { Predicate = check => check.Tags.Contains(ReadinessTag) });
+app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
 
 app.Run();
 
-public partial class Program;
+public partial class Program
+{
+    private const string ReadinessTag = "ready";
+}
