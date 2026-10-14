@@ -18,6 +18,12 @@ public static class RateLimitPolicies
 
     // Test gönderimi anonim ve her çağrı DB'ye satır yazıyor.
     public const string AssessmentSubmit = "assessment-submit";
+
+    // Ödeme başlatma her çağrıda PayTR'ye gider ve PENDING bir satır yazar.
+    public const string PaymentInit = "payment-init";
+
+    // PayTR bildirimleri anonim gelir; IP başına cömert ama sınırlı.
+    public const string PaymentCallback = "payment-callback";
 }
 
 public static class RateLimitingSetup
@@ -43,6 +49,8 @@ public static class RateLimitingSetup
             options.AddPolicy(RateLimitPolicies.Refresh, context => FixedWindow(IpPartition(context), permitLimit: 120));
             options.AddPolicy(RateLimitPolicies.Upload, context => FixedWindow(UserOrIpPartition(context), permitLimit: 20));
             options.AddPolicy(RateLimitPolicies.AssessmentSubmit, context => FixedWindow(UserOrIpPartition(context), permitLimit: 30));
+            options.AddPolicy(RateLimitPolicies.PaymentInit, context => FixedWindow(UserOrIpPartition(context), permitLimit: 10));
+            options.AddPolicy(RateLimitPolicies.PaymentCallback, context => FixedWindow(IpPartition(context), permitLimit: 300));
         });
     }
 
