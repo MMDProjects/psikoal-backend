@@ -29,6 +29,7 @@ public sealed class AdminAuthorizationContractTests(ApiFactory factory) : IClass
         { "AdminNotificationsController", AdminPolicies.SuperAdmin },
         { "AdminNotificationTemplatesController", AdminPolicies.SuperAdmin },
         { "AdminSystemSettingsController", AdminPolicies.SuperAdmin },
+        { "AdminAuditLogsController", AdminPolicies.SuperAdmin },
     };
 
     [Theory]
@@ -93,13 +94,15 @@ public sealed class AdminAuthorizationContractTests(ApiFactory factory) : IClass
     }
 
     [Fact]
-    public async Task Admin_session_endpoint_requires_authentication()
+    public async Task Admin_session_and_audit_endpoints_require_authentication()
     {
         var client = factory.CreateClient();
 
         var me = await client.GetAsync("/admin/me", CancellationToken.None);
+        var audit = await client.GetAsync("/admin/audit-logs", CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Unauthorized, me.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, audit.StatusCode);
     }
 
     private static IEnumerable<Type> AdminControllerTypes()

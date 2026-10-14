@@ -18,6 +18,7 @@ public static class AdminNavigation
         new("/assessments", "Testler", "assessment", AdminRoleGroups.Content),
         new("/notifications", "Bildirimler", "notification", AdminRoleGroups.SuperAdminOnly),
         new("/settings", "Ayarlar", "settings", AdminRoleGroups.SuperAdminOnly),
+        new("/audit-logs", "Denetim Kaydı", "audit", AdminRoleGroups.SuperAdminOnly),
     ];
 
     public static AdminNavItem? Find(string relativePath)

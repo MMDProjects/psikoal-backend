@@ -83,6 +83,10 @@ public interface IAdminClientService
     Task<AdminApiResult> UpdateAssessmentAsync(Guid assessmentId, UpdateAdminAssessmentDto request, CancellationToken cancellationToken);
 
     Task<AdminApiResult> UpdateScoreRuleAsync(Guid scoreRuleId, UpdateAdminScoreRuleDto request, CancellationToken cancellationToken);
+
+    Task<AdminApiResult<AdminPagedResultDto<AdminAuditLogDto>>> ListAuditLogsAsync(
+        AdminAuditLogQueryDto query,
+        CancellationToken cancellationToken);
 }
 
 public sealed record AdminExpertDocumentUrls(string? CvUrl, IReadOnlyList<string> CertificateUrls);

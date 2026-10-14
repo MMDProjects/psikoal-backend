@@ -1,0 +1,184 @@
+@page "/audit-logs"
+@inject IAdminClientService AdminClient
+
+<PageTitle>Denetim Kaydı — PsikoAl Admin</PageTitle>
+
+<PageHeader Title="Denetim Kaydı"
+            Description="Admin yazma işlemlerinin silinemez kaydı: kim, hangi kaydı, ne zaman, hangi değerden hangisine değiştirdi." />
+
+<div class="toolbar">
+    <Input Class="toolbar-search" Placeholder="Admin adı ara..." data-testid="audit-actor" @bind-Value="_actor" />
+    <Select Class="toolbar-select" @bind-Value="_entityType">
+        <option value="">Tüm kayıt türleri</option>
+        @foreach (var (value, label) in EntityTypes)
+        {
+            <option value="@value">@label</option>
+        }
+    </Select>
+    <Input Class="toolbar-select" Placeholder="Kayıt ID" @bind-Value="_entityId" />
+    <Input Class="toolbar-select" Type="date" aria-label="Başlangıç tarihi" @bind-Value="_from" />
+    <Input Class="toolbar-select" Type="date" aria-label="Bitiş tarihi" @bind-Value="_to" />
+    <Button Disabled="_isLoading" data-testid="audit-filter" OnClick="FilterAsync">Filtrele</Button>
+</div>
+
+@if (_errorMessage is not null)
+{
+    <Alert Variant="AlertVariant.Destructive" Class="mb-4">
+        <AlertDescription>@_errorMessage</AlertDescription>
+    </Alert>
+}
+
+<Card Class="table-card">
+    @if (_isLoading)
+    {
+        <LoadingSkeleton />
+    }
+    else if (_logs is { Count: 0 })
+    {
+        <EmptyState Title="Kayıt bulunamadı" Description="Seçtiğiniz filtrelere uyan bir admin işlemi yok." />
+    }
+    else if (_logs is not null)
+    {
+        <Table data-testid="audit-table">
+            <TableHeader>
+                <TableRow>
+                    <TableHead>Zaman</TableHead>
+                    <TableHead>Admin</TableHead>
+                    <TableHead>İşlem</TableHead>
+                    <TableHead>Kayıt</TableHead>
+                    <TableHead>Sebep</TableHead>
+                    <TableHead Class="text-right">Ayrıntı</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                @foreach (var log in _logs)
+                {
+                    <TableRow>
+                        <TableCell Class="text-muted-foreground">@log.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</TableCell>
+                        <TableCell>@(log.AdminDisplayName ?? ActorLabel(log.ActorType))</TableCell>
+                        <TableCell Class="font-mono text-xs">@log.Action</TableCell>
+                        <TableCell>
+                            @EntityLabel(log.EntityType)
+                            <div class="muted font-mono">@log.EntityId</div>
+                        </TableCell>
+                        <TableCell Class="max-w-sm">@(log.Reason ?? "—")</TableCell>
+                        <TableCell Class="cell-actions">
+                            <Button Variant="ButtonVariant.Outline" Size="ButtonSize.Sm" OnClick="() => ToggleDetail(log.Id)">
+                                @(_openLogId == log.Id ? "Kapat" : "Değerler")
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+
+                    @if (_openLogId == log.Id)
+                    {
+                        <TableRow>
+                            <TableCell Class="detail-cell" colspan="6">
+                                <div class="detail-columns">
+                                    <div>
+                                        <p class="detail-heading">Eski değer</p>
+                                        <pre class="audit-json">@(log.OldValue ?? "—")</pre>
+                                    </div>
+                                    <div>
+                                        <p class="detail-heading">Yeni değer</p>
+                                        <pre class="audit-json">@(log.NewValue ?? "—")</pre>
+                                    </div>
+                                </div>
+                            </TableCell>
+                        </TableRow>
+                    }
+                }
+            </TableBody>
+        </Table>
+        <Pager Meta="_meta" Disabled="_isLoading" OnPageChanged="GoToPageAsync" />
+    }
+</Card>
+
+@code {
+    private const int PerPage = 50;
+
+    private static readonly IReadOnlyList<(string Value, string Label)> EntityTypes =
+    [
+        ("profile", "Kullanıcı"),
+        ("expert", "Uzman"),
+        ("listing", "İlan"),
+        ("review", "Yorum"),
+        ("match", "Eşleşme"),
+        ("category", "Kategori"),
+        ("assessment", "Test"),
+        ("system_setting", "Sistem ayarı"),
+        ("notification_template", "Bildirim şablonu"),
+        ("notification", "Bildirim gönderimi"),
+    ];
+
+    private IReadOnlyList<AdminAuditLogDto>? _logs;
+    private AdminPageMetaDto? _meta;
+    private int _page = 1;
+    private long? _openLogId;
+    private string _actor = string.Empty;
+    private string _entityType = string.Empty;
+    private string _entityId = string.Empty;
+    private string _from = string.Empty;
+    private string _to = string.Empty;
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private Task FilterAsync()
+    {
+        _page = 1;
+        return LoadAsync();
+    }
+
+    private Task GoToPageAsync(int page)
+    {
+        _page = page;
+        return LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        _openLogId = null;
+        try
+        {
+            var query = new AdminAuditLogQueryDto(
+                Actor: _actor,
+                Action: null,
+                EntityType: _entityType,
+                EntityId: _entityId.Trim(),
+                From: ParseDate(_from),
+                To: ParseDate(_to),
+                Page: _page,
+                PerPage: PerPage);
+
+            var result = await AdminClient.ListAuditLogsAsync(query, CancellationToken.None);
+            _logs = result.Value?.Data;
+            _meta = result.Value?.Meta;
+            _errorMessage = result.ErrorMessage;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ToggleDetail(long logId) => _openLogId = _openLogId == logId ? null : logId;
+
+    private static DateOnly? ParseDate(string value)
+        => DateOnly.TryParseExact(value, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var date)
+            ? date
+            : null;
+
+    private static string EntityLabel(string entityType)
+        => EntityTypes.FirstOrDefault(item => item.Value == entityType).Label ?? entityType;
+
+    private static string ActorLabel(string actorType) => actorType switch
+    {
+        "system" => "Sistem",
+        "user" => "Kullanıcı",
+        _ => "Admin",
+    };
+}

@@ -161,6 +161,22 @@ public sealed class AdminClientService(
     public Task<AdminApiResult> UpdateScoreRuleAsync(Guid scoreRuleId, UpdateAdminScoreRuleDto request, CancellationToken cancellationToken)
         => SendAsync(HttpMethod.Patch, $"admin/assessments/score-rules/{scoreRuleId}", request, cancellationToken);
 
+    public Task<AdminApiResult<AdminPagedResultDto<AdminAuditLogDto>>> ListAuditLogsAsync(
+        AdminAuditLogQueryDto query,
+        CancellationToken cancellationToken)
+        => GetAsync<AdminPagedResultDto<AdminAuditLogDto>>(
+            WithQuery(
+                "admin/audit-logs",
+                ("actor", query.Actor),
+                ("action", query.Action),
+                ("entityType", query.EntityType),
+                ("entityId", query.EntityId),
+                ("from", query.From?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                ("to", query.To?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)),
+                ("page", query.Page?.ToString(CultureInfo.InvariantCulture)),
+                ("perPage", query.PerPage?.ToString(CultureInfo.InvariantCulture))),
+            cancellationToken);
+
     private static string WithQuery(string path, params (string Name, string? Value)[] parameters)
     {
         var query = parameters

@@ -523,3 +523,13 @@ h1:focus {
     display: flex;
     gap: 8px;
 }
+
+.audit-json {
+    margin: 0;
+    padding: 8px 12px;
+    border-radius: var(--radius);
+    background: hsl(var(--muted));
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
