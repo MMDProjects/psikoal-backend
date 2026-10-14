@@ -1,12 +1,14 @@
+using System.Net;
 using System.Net.Http.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PsikoAl.Common.Presentation;
 using PsikoAl.Services.Abstractions;
 using PsikoAl.Services.Options;
 
 namespace PsikoAl.Services;
 
-public sealed class BrevoEmailService(
+public sealed partial class BrevoEmailService(
     HttpClient httpClient,
     IOptions<BrevoOptions> options,
     ILogger<BrevoEmailService> logger) : IEmailService
@@ -16,11 +18,11 @@ public sealed class BrevoEmailService(
         var brevo = options.Value;
         if (string.IsNullOrWhiteSpace(brevo.ApiKey))
         {
-            logger.LogWarning("Brevo API key yapılandırılmamış, e-posta gönderilmedi: {Subject} -> {ToEmail}", subject, toEmail);
+            LogNotConfigured(logger, EmailMasker.Mask(toEmail));
             return;
         }
 
-        var response = await httpClient.PostAsJsonAsync(
+        using var response = await httpClient.PostAsJsonAsync(
             "v3/smtp/email",
             new
             {
@@ -31,10 +33,17 @@ public sealed class BrevoEmailService(
             },
             cancellationToken);
 
+        // Yanıt gövdesi loglanmaz: Brevo hata metninde alıcı adresini geri yazabiliyor.
+        // Konu da yazılmaz — bildirim şablonları ilan başlığı gibi sağlık bilgisi taşıyabilir.
         if (!response.IsSuccessStatusCode)
         {
-            var body = await response.Content.ReadAsStringAsync(cancellationToken);
-            logger.LogWarning("Brevo e-posta gönderimi başarısız ({Status}): {Body}", response.StatusCode, body);
+            LogSendFailed(logger, response.StatusCode, EmailMasker.Mask(toEmail));
         }
     }
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Brevo API key yapılandırılmamış, e-posta gönderilmedi -> {MaskedEmail}")]
+    private static partial void LogNotConfigured(ILogger logger, string maskedEmail);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Brevo e-posta gönderimi başarısız ({Status}) -> {MaskedEmail}")]
+    private static partial void LogSendFailed(ILogger logger, HttpStatusCode status, string maskedEmail);
 }
