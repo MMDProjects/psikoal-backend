@@ -33,4 +33,19 @@ public sealed class FakeSupabaseAdminService : ISupabaseAdminService
         UnbannedUserIds.Add(userId);
         return Task.CompletedTask;
     }
+
+    public Dictionary<Guid, string> AnonymizedUsers { get; } = [];
+
+    public Exception? AnonymizeFailure { get; set; }
+
+    public Task AnonymizeUserAsync(Guid userId, string anonymizedEmail, CancellationToken cancellationToken)
+    {
+        if (AnonymizeFailure is not null)
+        {
+            throw AnonymizeFailure;
+        }
+
+        AnonymizedUsers[userId] = anonymizedEmail;
+        return Task.CompletedTask;
+    }
 }

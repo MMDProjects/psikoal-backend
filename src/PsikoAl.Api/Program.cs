@@ -96,6 +96,7 @@ builder.Services.AddHttpClient<IPushNotificationService, ExpoPushNotificationSer
 
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IAccountStatusService, AccountStatusService>();
+builder.Services.AddScoped<IAccountErasureService, AccountErasureService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IProfileService, ProfileService>();
 builder.Services.AddScoped<IExpertService, ExpertService>();

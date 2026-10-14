@@ -5,6 +5,9 @@ public interface IRepository<TEntity, in TKey>
 {
     IQueryable<TEntity> Query();
 
+    // Değişiklik izlenen sorgu: toplu durum geçişleri (ör. hesap silme) için.
+    IQueryable<TEntity> QueryTracked();
+
     Task<TEntity?> GetByIdAsync(TKey id, CancellationToken cancellationToken);
 
     Task<bool> ExistsAsync(TKey id, CancellationToken cancellationToken);

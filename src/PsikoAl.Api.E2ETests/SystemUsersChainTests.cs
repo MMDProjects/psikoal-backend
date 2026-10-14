@@ -401,6 +401,92 @@ public sealed class SystemUsersChainTests(E2EFixture fixture)
     }
 
     /// <summary>
+    /// Hesap silme kişisel veriyi gerçekten kaldırır: test sonucu gider, e-posta GoTrue'da
+    /// anonimleşir, eski token 401 ACCOUNT_INACTIVE alır, eski e-postayla giriş yapılamaz.
+    /// </summary>
+    [Fact]
+    public async Task Hesap_silme_kişisel_veriyi_kaldırır_ve_oturumu_kapatır()
+    {
+        var email = $"e2e-delete-{Guid.NewGuid():N}@psikoal.test";
+        const string password = "E2eDeletePass123!";
+        Guid userId = Guid.Empty;
+
+        try
+        {
+            var registered = await fixture.Mobile.PostAsJsonAsync(
+                "/auth/register",
+                new
+                {
+                    email,
+                    password,
+                    firstName = "E2E",
+                    lastName = "Silme",
+                    role = "client",
+                    termsAccepted = true,
+                    healthDataConsent = true,
+                });
+            Assert.Equal(HttpStatusCode.OK, registered.StatusCode);
+            var session = await registered.Content.ReadFromJsonAsync<JsonElement>();
+            userId = session.GetProperty("user").GetProperty("id").GetGuid();
+            var accessToken = session.GetProperty("tokens").GetProperty("accessToken").GetString() ?? string.Empty;
+
+            await ExecuteAsync(
+                """
+                insert into public.assessment_results (assessment_id, user_id, score, level, summary)
+                select id, @id, 0, 'low', 'E2E silme' from public.assessments order by sort_order limit 1;
+                """,
+                userId);
+
+            using (var delete = new HttpRequestMessage(HttpMethod.Delete, "/auth/me"))
+            {
+                delete.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                Assert.Equal(HttpStatusCode.NoContent, (await fixture.Mobile.SendAsync(delete)).StatusCode);
+            }
+
+            using (var me = new HttpRequestMessage(HttpMethod.Get, "/auth/me"))
+            {
+                me.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+                var response = await fixture.Mobile.SendAsync(me);
+                Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+                Assert.Equal(
+                    "ACCOUNT_INACTIVE",
+                    (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+            }
+
+            var login = await fixture.Mobile.PostAsJsonAsync("/auth/login", new { email, password });
+            Assert.Equal(HttpStatusCode.UnprocessableEntity, login.StatusCode);
+
+            Assert.Equal(0L, await CountAsync("select count(*) from public.assessment_results where user_id = @id;", userId));
+            Assert.Equal(0L, await CountAsync("select count(*) from auth.users where id = @id and email not like 'deleted-%';", userId));
+            Assert.Equal(1L, await CountAsync("select count(*) from public.profiles where id = @id and status = 'deleted';", userId));
+        }
+        finally
+        {
+            await ExecuteAsync("delete from auth.users where id = @id;", userId);
+        }
+    }
+
+    private static async Task ExecuteAsync(string sql, Guid id)
+    {
+        await using var dataSource = new NpgsqlDataSourceBuilder(LocalStack.PostgresConnectionString).Build();
+        await using var connection = await dataSource.OpenConnectionAsync(CancellationToken.None);
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("id", id);
+        await command.ExecuteNonQueryAsync(CancellationToken.None);
+    }
+
+    private static async Task<long> CountAsync(string sql, Guid id)
+    {
+        await using var dataSource = new NpgsqlDataSourceBuilder(LocalStack.PostgresConnectionString).Build();
+        await using var connection = await dataSource.OpenConnectionAsync(CancellationToken.None);
+        await using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("id", id);
+        return await command.ExecuteScalarAsync(CancellationToken.None) is long count ? count : -1;
+    }
+
+    /// <summary>
     /// Dondurulan kullanıcının ELİNDEKİ access token artık 401 ACCOUNT_INACTIVE alır.
     /// </summary>
     /// <remarks>
