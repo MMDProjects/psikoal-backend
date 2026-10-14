@@ -40,6 +40,8 @@ public static class ErrorMessagesTr
         // --- Profil ---
         [ErrorKeys.ProfileNotFound] = "Profil bulunamadı.",
         [ErrorKeys.AdminUserNotFound] = "Bu işlem için yönetici yetkiniz yok.",
+        [ErrorKeys.AccountDeletedImmutable] = "Silinmiş bir hesap dondurulamaz ve yeniden etkinleştirilemez.",
+        [ErrorKeys.AccountStatusTransitionInvalid] = "Hesap bu işlem için uygun durumda değil. Listeyi yenileyip tekrar deneyin.",
 
         // --- Uzman ---
         [ErrorKeys.ExpertNotFound] = "Uzman profili bulunamadı. Profilinizi tamamlayın.",

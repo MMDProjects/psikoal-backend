@@ -74,6 +74,8 @@ public sealed class AdminUserService(
         var profile = await unitOfWork.Profiles.GetByIdAsync(targetUserId, cancellationToken)
             ?? throw new DomainException(ErrorKeys.ProfileNotFound);
 
+        ProfileStatusTransitions.EnsureAdminCanChange(profile.Status, newStatus);
+
         var oldStatus = profile.Status;
         profile.Status = newStatus;
 
