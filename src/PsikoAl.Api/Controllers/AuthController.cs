@@ -15,21 +15,23 @@ public sealed class AuthController(
     ISupabaseAuthService supabaseAuth) : ControllerBase
 {
     [HttpPost("login")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public Task<LoginResponseDto> Login(LoginRequestDto request, CancellationToken cancellationToken)
         => authService.LoginAsync(request, cancellationToken);
 
     [HttpPost("register")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public Task<LoginResponseDto> Register(RegisterRequestDto request, CancellationToken cancellationToken)
         => authService.RegisterAsync(request, cancellationToken);
 
     [HttpPost("refresh")]
+    [EnableRateLimiting(RateLimitPolicies.Refresh)]
     public Task<AuthTokensDto> Refresh(RefreshRequestDto request, CancellationToken cancellationToken)
         => supabaseAuth.RefreshAsync(request, cancellationToken);
 
     [Authorize]
     [HttpPost("change-password")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> ChangePassword(ChangePasswordRequestDto request, CancellationToken cancellationToken)
     {
         await authService.ChangePasswordAsync(this.CurrentUserId(), this.CurrentUserEmail(), request, cancellationToken);
@@ -37,7 +39,7 @@ public sealed class AuthController(
     }
 
     [HttpPost("forgot-password")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordRequestDto request, CancellationToken cancellationToken)
     {
         await authService.ForgotPasswordAsync(request, cancellationToken);
@@ -47,7 +49,7 @@ public sealed class AuthController(
     // Sözleşme §2: e-postadaki kurtarma bağlantısı uygulamaya recovery access token'ı
     // ile döner; uygulama yeni şifreyi o token'la buraya gönderir.
     [HttpPost("reset-password")]
-    [EnableRateLimiting("auth")]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> ResetPassword(ResetPasswordRequestDto request, CancellationToken cancellationToken)
     {
         await supabaseAuth.ResetPasswordAsync(request.AccessToken, request.NewPassword, cancellationToken);

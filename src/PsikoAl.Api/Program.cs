@@ -1,9 +1,7 @@
-using System.Threading.RateLimiting;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using PsikoAl.Api.Authorization;
@@ -168,26 +166,7 @@ builder.Services.AddAuthorization(options =>
         .AddRequirements(new AdminRequirement()));
 });
 
-builder.Services.AddRateLimiter(options =>
-{
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy("auth", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 10,
-            Window = TimeSpan.FromMinutes(1),
-        }));
-    options.AddPolicy("upload", context => RateLimitPartition.GetFixedWindowLimiter(
-        context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
-            ?? context.Connection.RemoteIpAddress?.ToString()
-            ?? "unknown",
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = 20,
-            Window = TimeSpan.FromMinutes(1),
-        }));
-});
+builder.Services.AddConfiguredRateLimiting();
 
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddFluentValidationAutoValidation();
@@ -210,9 +189,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<AccountStatusMiddleware>();
+app.UseRateLimiter();
 app.UseAuthorization();
 app.MapControllers();
 // /health: hazırlık (DB dahil) — yük dengeleyici ve E2E betikleri bunu bekler.

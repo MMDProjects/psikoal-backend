@@ -37,7 +37,7 @@ public sealed class ExpertsController(
 
     [Authorize]
     [HttpPost("profile/cv")]
-    [EnableRateLimiting("upload")]
+    [EnableRateLimiting(RateLimitPolicies.Upload)]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> UploadCv(IFormFile file, CancellationToken cancellationToken)
     {
@@ -48,7 +48,7 @@ public sealed class ExpertsController(
 
     [Authorize]
     [HttpPost("profile/certificates")]
-    [EnableRateLimiting("upload")]
+    [EnableRateLimiting(RateLimitPolicies.Upload)]
     [RequestSizeLimit(10 * 1024 * 1024)]
     public async Task<IActionResult> UploadCertificate(IFormFile file, CancellationToken cancellationToken)
     {

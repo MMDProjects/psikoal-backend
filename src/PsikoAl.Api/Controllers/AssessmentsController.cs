@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using PsikoAl.Api.Extensions;
 using PsikoAl.Common.Dtos.Assessment;
 using PsikoAl.Common.Dtos.Assessment.Create;
@@ -28,6 +29,7 @@ public sealed class AssessmentsController(IAssessmentService assessmentService) 
     }
 
     [HttpPost("submit")]
+    [EnableRateLimiting(RateLimitPolicies.AssessmentSubmit)]
     public Task<AssessmentResultDto> Submit(SubmitAssessmentDto request, CancellationToken cancellationToken)
         => assessmentService.SubmitAsync(this.CurrentUserIdOrNull(), request, cancellationToken);
 
