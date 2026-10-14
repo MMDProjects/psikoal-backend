@@ -10,6 +10,8 @@ public static class AdminRoleGroups
 
     public static readonly IReadOnlyList<string> Content = [AdminRoles.SuperAdmin, AdminRoles.ContentEditor];
 
+    public static readonly IReadOnlyList<string> Finance = [AdminRoles.SuperAdmin, AdminRoles.Finance];
+
     public static bool Allows(IReadOnlyList<string> allowedRoles, string? role)
         => role is not null && allowedRoles.Contains(role, StringComparer.Ordinal);
 }

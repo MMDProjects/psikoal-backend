@@ -159,6 +159,7 @@ builder.Services.AddScoped<IBlogService, BlogService>();
 builder.Services.AddScoped<IAdminBlogService, AdminBlogService>();
 builder.Services.AddScoped<ICreditService, CreditService>();
 builder.Services.AddScoped<ICreditPaymentService, CreditPaymentService>();
+builder.Services.AddScoped<IAdminCreditService, AdminCreditService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<IAdminGuard, AdminGuard>();
 builder.Services.AddScoped<IAdminAuditLogService, AdminAuditLogService>();
