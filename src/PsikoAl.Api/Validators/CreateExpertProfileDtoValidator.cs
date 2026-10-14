@@ -14,6 +14,5 @@ public sealed class CreateExpertProfileDtoValidator : AbstractValidator<CreateEx
         RuleFor(request => request.Bio).Length(50, 1000).WithMessage(ErrorKeys.ValidationFailed);
         RuleFor(request => request.AvatarUrl).MustBeAbsoluteHttpUrl();
         RuleFor(request => request.PersonalWebsite).MustBeAbsoluteHttpUrl();
-        RuleFor(request => request.CvUrl).MustBeAbsoluteHttpUrl();
     }
 }

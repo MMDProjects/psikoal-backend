@@ -175,14 +175,14 @@ public sealed class OffersChainTests(E2EFixture fixture) : IAsyncLifetime
     /// aynı uzmandan üst üste teklifler görürdü.
     /// </remarks>
     [Fact]
-    public async Task Aynı_ilana_ikinci_teklif_422_OFFER_ALREADY_EXISTS_ile_reddedilir()
+    public async Task Aynı_ilana_ikinci_teklif_409_OFFER_ALREADY_EXISTS_ile_reddedilir()
     {
         var listingId = await CreateOpenListingAsync();
         (await CreateOfferAsync(listingId, price: 1000m, title: "E2E ilk teklif")).EnsureSuccessStatusCode();
 
         var second = await CreateOfferAsync(listingId, price: 1100m, title: "E2E ikinci teklif");
 
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, second.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
         var body = await second.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("OFFER_ALREADY_EXISTS", body.GetProperty("code").GetString());
 
@@ -266,7 +266,7 @@ public sealed class OffersChainTests(E2EFixture fixture) : IAsyncLifetime
                 description = (string?)null,
             });
 
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("OFFER_EXPERT_ROLE_REQUIRED", body.GetProperty("code").GetString());
         Assert.Empty(await ListOffersAsync(listingId));

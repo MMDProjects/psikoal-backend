@@ -33,6 +33,11 @@ public sealed class ListingService(
             throw new DomainException(ErrorKeys.ValidationFailed, "specialization");
         }
 
+        if (request.AssessmentResultId is { } assessmentResultId)
+        {
+            await EnsureAssessmentResultOwnedAsync(assessmentResultId, clientUserId, cancellationToken);
+        }
+
         var autoApprove = await unitOfWork.SystemSettings.GetBoolAsync(SystemSettingKeys.ListingAutoApprove, cancellationToken);
 
         var listing = new Listing
@@ -73,6 +78,24 @@ public sealed class ListingService(
             : null;
 
         return ListingMapper.ToListingDto(listing, client, viewerIsOwner: true, viewerHasOffered: false, viewerOfferId: null, assessmentResult);
+    }
+
+    // İlana bağlanan sonuç, ilanı gören uzmanlara gösterilir. Başkasının (ya da sahipsiz)
+    // sonucunun id'si verilerek onun sağlık verisi bir ilana iliştirilip ifşa edilemez.
+    private async Task EnsureAssessmentResultOwnedAsync(
+        Guid assessmentResultId,
+        Guid clientUserId,
+        CancellationToken cancellationToken)
+    {
+        var ownerId = await unitOfWork.AssessmentResults.Query()
+            .Where(result => result.Id == assessmentResultId)
+            .Select(result => result.UserId)
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (ownerId != clientUserId)
+        {
+            throw new DomainException(ErrorKeys.AssessmentResultNotOwned, "assessmentResultId");
+        }
     }
 
     public async Task<ListingListResult> ListFeedAsync(ListingFeedFilters filters, CancellationToken cancellationToken)

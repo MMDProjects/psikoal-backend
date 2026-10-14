@@ -15,5 +15,10 @@ public sealed class RegisterRequestDtoValidator : AbstractValidator<RegisterRequ
         RuleFor(request => request.Role)
             .Must(role => role is ProfileRoles.Expert or ProfileRoles.Client)
             .WithMessage(ErrorKeys.ValidationFailed);
+
+        // KVKK m.6: özel nitelikli (sağlık) veri ancak açık rızayla işlenir. Alan
+        // gönderilmezse bool varsayılanı false olur — eski istemci de reddedilir.
+        RuleFor(request => request.TermsAccepted).Equal(true).WithMessage(ErrorKeys.AuthTermsNotAccepted);
+        RuleFor(request => request.HealthDataConsent).Equal(true).WithMessage(ErrorKeys.AuthHealthDataConsentRequired);
     }
 }

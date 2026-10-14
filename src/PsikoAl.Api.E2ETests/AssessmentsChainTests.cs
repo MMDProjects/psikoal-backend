@@ -202,13 +202,13 @@ public sealed class AssessmentsChainTests(E2EFixture fixture) : IAsyncLifetime
     /// staleTime 10 dk), yani "listede görünmüyor" bir kısıt DEĞİL. Asıl kısıt
     /// AssessmentService.SubmitAsync içindeki "assessment is null || !assessment.IsActive"
     /// koruması; bu test onun gerçekten koştuğunu ölçüyor.
-    /// Beklenen kod 422, 404 DEĞİL: DomainExceptionMiddleware tüm DomainException'ları
-    /// 422'ye çeviriyor. Pasifleştirme ÖNCESİ aynı gövdenin 200 döndüğü de doğrulanıyor —
+    /// Beklenen kod 404: DomainExceptionMiddleware *_NOT_FOUND kodlarını 404'e, iş kuralı
+    /// ihlallerini 422'ye çeviriyor. Pasifleştirme ÖNCESİ aynı gövdenin 200 döndüğü de doğrulanıyor —
     /// yoksa test, gönderimin bambaşka bir sebeple (bozuk payload) patlamasıyla da
     /// yeşil olurdu.
     /// </remarks>
     [Fact]
-    public async Task Pasifleştirilmiş_teste_mobil_gönderim_422_ASSESSMENT_NOT_FOUND_ile_reddedilir()
+    public async Task Pasifleştirilmiş_teste_mobil_gönderim_404_ASSESSMENT_NOT_FOUND_ile_reddedilir()
     {
         var payload = NewSubmitPayload(0, 2, 0);
 
@@ -219,7 +219,7 @@ public sealed class AssessmentsChainTests(E2EFixture fixture) : IAsyncLifetime
         patch.EnsureSuccessStatusCode();
 
         var rejected = await fixture.Mobile.PostAsJsonAsync("/assessment/submit", payload);
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, rejected.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, rejected.StatusCode);
 
         var error = await rejected.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("ASSESSMENT_NOT_FOUND", error.GetProperty("code").GetString());
@@ -357,57 +357,71 @@ public sealed class AssessmentsChainTests(E2EFixture fixture) : IAsyncLifetime
     }
 
     /// <summary>
-    /// BUGÜNKÜ GERÇEĞİ ÖLÇER: gönderim cevapları doğrulanmaz ve skor yalnız ilk değeri toplar.
+    /// Giriş yapmış kullanıcının sonucu yalnız kendisine açık; anonim sonuç id ile açık kalır.
     /// </summary>
     /// <remarks>
-    /// Bu test iki gerçek sapmayı sabitliyor; ikisi de sessiz, ikisi de bir gün patlar:
-    ///
-    /// 1) DOĞRULAMA YOK: AssessmentService.SubmitAsync, request.Answers içindeki
-    ///    QuestionId'leri HİÇ okumaz — teste ait mi, soru sayısı tutuyor mu, tekrar var mı
-    ///    bakmaz. Aşağıda tamamen UYDURMA questionId'lerle gönderim yapılıyor ve yine de
-    ///    geçerli bir AssessmentResult üretilip DB'ye yazılıyor. (Tip uyuşmazlığı da var:
-    ///    AssessmentAnswerDto.QuestionId string, QuestionDto.Id ise Guid — kimseyi
-    ///    rahatsız etmiyor çünkü alan hiç kullanılmıyor.)
-    ///
-    /// 2) PUANLAMA SAPMASI: skor "answer.Values.Count > 0 ? answer.Values[0] : 0" ile
-    ///    toplanıyor, yani yalnız İLK değer. Mobil taraftaki useAssessmentEngine.ts ise
-    ///    multiple_choice sorularda values dizisini bilerek BİRİKTİRİYOR. Aşağıdaki ilk
-    ///    cevap [5, 5] gönderiyor; toplam 7 (moderate) çıkıyor, 12 (high) değil — yani
-    ///    kullanıcının ikinci seçimi sessizce yutuluyor.
-    ///
-    /// Test bilerek sapmaya göre GEVŞETİLMEDİ, tersine sapmayı çiviliyor: SubmitAsync bir
-    /// gün tüm değerleri toplayacak şekilde düzeltilirse bu test kırmızı olur ve düzelten
-    /// kişi mobil motorun sözleşmesiyle birlikte karar vermek zorunda kalır. Sessizce
-    /// davranış değiştirmesindense burada durması iyidir.
+    /// Sözleşme §5. Önceden id'yi bilen herkes başkasının sonucunu okuyabiliyordu —
+    /// özel nitelikli sağlık verisi. Başkasına 403 değil 404 dönülür: kaydın varlığı
+    /// bile sızdırılmaz.
     /// </remarks>
     [Fact]
-    public async Task Gönderimde_cevaplar_doğrulanmaz_ve_skora_yalnız_ilk_değer_girer()
+    public async Task Sahibi_olan_sonuç_yalnız_sahibine_açık_anonim_sonuç_herkese_açık()
     {
-        var payload = new
+        var owned = await fixture.Client.PostAsJsonAsync("/assessment/submit", NewSubmitPayload(0, 2, 0));
+        Assert.Equal(HttpStatusCode.OK, owned.StatusCode);
+        var ownedId = (await owned.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        Assert.Equal(HttpStatusCode.OK, (await fixture.Client.GetAsync($"/assessment/results/{ownedId}")).StatusCode);
+
+        var anonymousRead = await fixture.Mobile.GetAsync($"/assessment/results/{ownedId}");
+        Assert.Equal(HttpStatusCode.NotFound, anonymousRead.StatusCode);
+        Assert.Equal(
+            "ASSESSMENT_RESULT_NOT_FOUND",
+            (await anonymousRead.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
+
+        Assert.Equal(HttpStatusCode.NotFound, (await fixture.Admin.GetAsync($"/assessment/results/{ownedId}")).StatusCode);
+
+        var anonymous = await fixture.Mobile.PostAsJsonAsync("/assessment/submit", NewSubmitPayload(0, 2, 0));
+        Assert.Equal(HttpStatusCode.OK, anonymous.StatusCode);
+        var anonymousId = (await anonymous.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("id").GetGuid();
+
+        Assert.Equal(HttpStatusCode.OK, (await fixture.Mobile.GetAsync($"/assessment/results/{anonymousId}")).StatusCode);
+    }
+
+    /// <summary>
+    /// Gönderim testin gerçek sorularına karşı doğrulanır; puan istemciden alınmaz.
+    /// </summary>
+    /// <remarks>
+    /// Eskiden QuestionId'ler hiç okunmuyordu ve skor yalnız her cevabın İLK değerini
+    /// topluyordu: uydurma soru kimlikleri ve seçenekte olmayan değerlerle istenen
+    /// seviye üretilebiliyordu. Artık her soru tam bir kez cevaplanmalı, her değer o
+    /// sorunun seçeneklerinden biri olmalı; aksi 422 ASSESSMENT_ANSWERS_INVALID.
+    /// </remarks>
+    [Fact]
+    public async Task Testle_eşleşmeyen_cevaplar_422_ASSESSMENT_ANSWERS_INVALID_ile_reddedilir()
+    {
+        var fabricatedQuestions = new
         {
             assessmentId = _assessmentId,
             answers = (object[])
             [
-                new { questionId = "bu-soru-hicbir-teste-ait-degil", values = (int[])[5, 5] },
+                new { questionId = "bu-soru-hicbir-teste-ait-degil", values = (int[])[5] },
                 new { questionId = Guid.NewGuid().ToString(), values = (int[])[2] },
                 new { questionId = "42", values = (int[])[0] },
             ],
-            email = (string?)null,
         };
 
-        var response = await fixture.Mobile.PostAsJsonAsync("/assessment/submit", payload);
+        var fabricated = await fixture.Mobile.PostAsJsonAsync("/assessment/submit", fabricatedQuestions);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, fabricated.StatusCode);
+        Assert.Equal(
+            "ASSESSMENT_ANSWERS_INVALID",
+            (await fabricated.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("code").GetString());
 
-        // Uydurma soru kimlikleri reddedilmiyor — sapmanın birinci yarısı.
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var result = await response.Content.ReadFromJsonAsync<JsonElement>();
-
-        // 5 (ilk cevabın YALNIZ ilk değeri) + 2 + 0 = 7. Tüm değerler toplansaydı 12
-        // olurdu ve level "high" gelirdi — sapmanın ikinci yarısı tam burada.
-        Assert.Equal(7, result.GetProperty("score").GetInt32());
-        Assert.Equal("moderate", result.GetProperty("level").GetString());
-        Assert.Equal(ModerateSummary, result.GetProperty("summary").GetString());
+        // 99 hiçbir seçeneğin değeri değil: istemci puanı şişiremez.
+        var inflated = await fixture.Mobile.PostAsJsonAsync("/assessment/submit", NewSubmitPayload(99, 0, 0));
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, inflated.StatusCode);
     }
+
 
     private async Task<Guid> InsertAssessmentAsync(NpgsqlConnection connection)
     {

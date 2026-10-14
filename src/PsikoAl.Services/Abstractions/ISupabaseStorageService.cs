@@ -11,6 +11,9 @@ public interface ISupabaseStorageService
         bool isPublicBucket,
         CancellationToken cancellationToken);
 
+    /// Klasördeki tüm objeleri (alt klasörler dahil) siler; klasör boşsa no-op.
+    Task DeleteFolderAsync(string bucket, string folder, CancellationToken cancellationToken);
+
     Task<string> CreateSignedUrlAsync(
         string bucket,
         string path,

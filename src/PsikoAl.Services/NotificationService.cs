@@ -7,12 +7,13 @@ using PsikoAl.Common.Presentation;
 using PsikoAl.Data.Entities;
 using PsikoAl.Data.Repositories.Abstractions;
 using PsikoAl.Services.Abstractions;
+using PsikoAl.Services.Notifications;
 
 namespace PsikoAl.Services;
 
 public sealed class NotificationService(
     IUnitOfWork unitOfWork,
-    IPushNotificationService pushNotificationService,
+    IPushOutbox pushOutbox,
     IEmailService emailService,
     ILogger<NotificationService> logger) : INotificationService
 {
@@ -42,7 +43,8 @@ public sealed class NotificationService(
 
         if (template.PushEnabled)
         {
-            await SendPushSafeAsync(userId, title, body, dataJson, cancellationToken);
+            var (pushTitle, pushBody) = PushContent.TextFor(type, title, body);
+            pushOutbox.TryEnqueue(new PushDispatch(userId, pushTitle, pushBody, PushContent.DataFor(type, dataJson)));
         }
 
         if (template.EmailEnabled)
@@ -79,33 +81,6 @@ public sealed class NotificationService(
 
     public Task MarkAllReadAsync(Guid userId, CancellationToken cancellationToken)
         => unitOfWork.Notifications.MarkAllReadAsync(userId, cancellationToken);
-
-    private async Task SendPushSafeAsync(
-        Guid userId,
-        string title,
-        string body,
-        string? dataJson,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var tokens = await unitOfWork.PushTokens.GetTokensForUserAsync(userId, cancellationToken);
-            if (tokens.Count == 0)
-            {
-                return;
-            }
-
-            var invalidTokens = await pushNotificationService.SendAsync(tokens, title, body, dataJson, cancellationToken);
-            foreach (var invalidToken in invalidTokens)
-            {
-                await unitOfWork.PushTokens.DeleteByTokenAsync(invalidToken, cancellationToken);
-            }
-        }
-        catch (Exception exception)
-        {
-            logger.LogWarning(exception, "Push bildirimi gönderilemedi (userId: {UserId})", userId);
-        }
-    }
 
     private async Task SendEmailSafeAsync(
         Guid userId,

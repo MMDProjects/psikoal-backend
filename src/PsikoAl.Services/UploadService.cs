@@ -58,6 +58,11 @@ public sealed class UploadService(
         var expert = await unitOfWork.Experts.GetByIdAsync(userId, cancellationToken)
             ?? throw new DomainException(ErrorKeys.ExpertNotFound);
 
+        if (expert.Certificates.Count >= ExpertDocumentPaths.MaxCertificates)
+        {
+            throw new DomainException(ErrorKeys.ExpertCertificateLimitExceeded, "file");
+        }
+
         var validated = await ValidateAsync(content, contentType, DocumentContentTypes, cancellationToken);
         var path = $"{userId}/certificates/{Guid.NewGuid()}.{FileSignatures.ExtensionFor(contentType)}";
         var storedPath = await storage.UploadAsync("documents", path, validated, contentType, isPublicBucket: false, cancellationToken);

@@ -15,4 +15,7 @@ public interface ISupabaseAdminService
     Task BanUserAsync(Guid userId, CancellationToken cancellationToken);
 
     Task UnbanUserAsync(Guid userId, CancellationToken cancellationToken);
+
+    // Kullanıcı GoTrue'da zaten yoksa sessizce geçer (silme akışı tekrar koşulabilir olmalı).
+    Task AnonymizeUserAsync(Guid userId, string anonymizedEmail, CancellationToken cancellationToken);
 }

@@ -33,6 +33,5 @@ public sealed class UpdateExpertProfileDtoValidator : AbstractValidator<UpdateEx
             .When(request => request.Bio is not null);
 
         RuleFor(request => request.PersonalWebsite).MustBeAbsoluteHttpUrl();
-        RuleFor(request => request.CvUrl).MustBeAbsoluteHttpUrl();
     }
 }

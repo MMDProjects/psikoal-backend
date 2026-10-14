@@ -10,6 +10,8 @@ public class Repository<TEntity, TKey>(AppDbContext dbContext) : IRepository<TEn
 
     public IQueryable<TEntity> Query() => DbContext.Set<TEntity>().AsNoTracking();
 
+    public IQueryable<TEntity> QueryTracked() => DbContext.Set<TEntity>();
+
     public Task<TEntity?> GetByIdAsync(TKey id, CancellationToken cancellationToken)
         => DbContext.Set<TEntity>().FindAsync([id], cancellationToken).AsTask();
 

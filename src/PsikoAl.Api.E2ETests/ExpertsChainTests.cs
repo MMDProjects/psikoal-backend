@@ -125,7 +125,7 @@ public sealed class ExpertsChainTests(E2EFixture fixture) : IAsyncLifetime
             avatarUrl: "https://cdn.psikoal.test/avatar.png");
 
         var before = await fixture.Client.GetAsync($"/experts/{_expertId}");
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, before.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, before.StatusCode);
         Assert.Equal("EXPERT_NOT_FOUND", await ReadErrorCodeAsync(before));
 
         var approve = await fixture.Admin.PostAsync($"/admin/experts/{_expertId}/approve", content: null);
@@ -193,7 +193,7 @@ public sealed class ExpertsChainTests(E2EFixture fixture) : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, reject.StatusCode);
 
         var afterReject = await fixture.Client.GetAsync($"/experts/{_expertId}");
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, afterReject.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, afterReject.StatusCode);
         Assert.Equal("EXPERT_NOT_FOUND", await ReadErrorCodeAsync(afterReject));
 
         var ownView = await ExpertSendAsync(HttpMethod.Get, $"/experts/{_expertId}");
@@ -350,7 +350,7 @@ public sealed class ExpertsChainTests(E2EFixture fixture) : IAsyncLifetime
         // Rol kapısı: profiles.role='client' olan hesap uzman profili açamaz. Kontrol
         // satır yazılmadan ÖNCE koştuğu için bu çağrı temizlenecek veri de bırakmaz.
         var profileAsClient = await fixture.Client.PostAsJsonAsync("/experts/profile", NewProfilePayload());
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, profileAsClient.StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, profileAsClient.StatusCode);
         Assert.Equal("EXPERT_ROLE_REQUIRED", await ReadErrorCodeAsync(profileAsClient));
     }
 
@@ -509,9 +509,9 @@ public sealed class ExpertsChainTests(E2EFixture fixture) : IAsyncLifetime
         // Profil kaydedilmemiş olmalı: yalnız 400 dönüp satırı yazmak, sapmayı
         // gizleyen en sinsi biçim olurdu. "Kendi profilini oku" diye ayrı bir uç YOK
         // (ExpertsController: POST/PATCH profile + GET {id}); uzman kendi id'sini
-        // okuyor — satır olmadığında 422 EXPERT_NOT_FOUND döner.
+        // okuyor — satır olmadığında 404 EXPERT_NOT_FOUND döner.
         var afterFailedCreate = await ExpertSendAsync(HttpMethod.Get, $"/experts/{_expertId}");
-        Assert.Equal(HttpStatusCode.UnprocessableEntity, afterFailedCreate.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, afterFailedCreate.StatusCode);
         Assert.Equal("EXPERT_NOT_FOUND", await ReadErrorCodeAsync(afterFailedCreate));
 
         // PATCH yolu ayrıca kapatılmış olmalı: geçerli profil açıp sonra bozuk URL ile
@@ -578,9 +578,9 @@ public sealed class ExpertsChainTests(E2EFixture fixture) : IAsyncLifetime
 
     private static async Task<string?> ReadErrorCodeAsync(HttpResponseMessage response)
     {
-        // DomainExceptionMiddleware her DomainException'ı 422 + ApiErrorDto{code,message,field}
-        // yapıyor. Yalnız durum koduna bakmak yetmez: 422 aynı zamanda VALIDATION_FAILED'in de
-        // kodu, yani "yanlış sebeple yeşil" tuzağı tam burada.
+        // DomainExceptionMiddleware her DomainException'ı ApiErrorDto{code,message,field} yapıyor;
+        // durum kodu (404/403/409/422) türü söyler ama tek başına yetmez: 422 aynı zamanda
+        // VALIDATION_FAILED'in de kodu, yani "yanlış sebeple yeşil" tuzağı tam burada.
         var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("code").GetString();
     }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using PsikoAl.Api.Extensions;
 using PsikoAl.Common.Dtos.Admin;
 using PsikoAl.Common.Exceptions;
+using PsikoAl.Services;
 using PsikoAl.Services.Abstractions;
 
 namespace PsikoAl.Api.Controllers;
@@ -49,14 +50,12 @@ public sealed class AdminExpertsController(
     /// başarısız imzalama tüm isteği 422'ye düşürüyordu: CV pekâlâ imzalanabilirken
     /// admin HİÇBİR belge göremiyordu.
     ///
-    /// Bunun gerçek sebebi <c>certificates</c> alanının çift anlamlı olması:
-    /// <c>POST /experts/profile</c> onu serbest metin olarak kabul ediyor
-    /// ("BDT Uygulayıcı Sertifikası" gibi), <c>POST /experts/profile/certificates</c>
-    /// ise Storage YOLU ekliyor. Aynı dizi ikisini birden tutabiliyor ve metin bir
-    /// Storage anahtarı olarak geçersiz (400 InvalidKey).
-    ///
-    /// Alanı tek anlamlıya indirmek ayrı bir iş (veri göçü gerektirir); bu uç o
-    /// karara kadar bozuk veriye rağmen çalışmak zorunda.
+    /// <c>certificates</c> alanı eskiden çift anlamlıydı: <c>POST /experts/profile</c> onu
+    /// serbest metin olarak kabul ediyordu ("BDT Uygulayıcı Sertifikası" gibi). Artık
+    /// profil uçları cvUrl/certificates alanlarını yok sayıyor; yalnız yükleme uçları
+    /// Storage yolu yazıyor. Eski satırlardaki metinler ve uzmanın kendi klasörü
+    /// (<c>{expertId}/</c>) dışını gösteren yollar İMZALANMAZ, unresolvedCertificates
+    /// listesine düşer — service_role imzası başka birinin belgesini açamaz.
     /// </remarks>
     [HttpGet("{id:guid}/documents")]
     public async Task<IActionResult> GetDocumentUrls(Guid id, CancellationToken cancellationToken)
@@ -64,13 +63,13 @@ public sealed class AdminExpertsController(
         var detail = await adminExpertService.GetDetailAsync(id, cancellationToken);
         var validFor = TimeSpan.FromMinutes(15);
 
-        var cvUrl = await TrySignAsync(detail.Current.CvUrl, validFor, cancellationToken);
+        var cvUrl = await TrySignAsync(id, detail.Current.CvUrl, validFor, cancellationToken);
 
         var certificateUrls = new List<string>();
         var unresolvedCertificates = new List<string>();
         foreach (var certificatePath in detail.Current.Certificates)
         {
-            var signed = await TrySignAsync(certificatePath, validFor, cancellationToken);
+            var signed = await TrySignAsync(id, certificatePath, validFor, cancellationToken);
             if (signed is null)
             {
                 // Panelde sessizce kaybolmasın: admin, bu satırın indirilebilir bir
@@ -86,13 +85,14 @@ public sealed class AdminExpertsController(
         return Ok(new { cvUrl, certificateUrls, unresolvedCertificates });
     }
 
-    /// <summary>İmzalar; yol boşsa ya da Storage reddederse <c>null</c> döner.</summary>
+    /// <summary>İmzalar; yol boşsa, uzmanın klasöründe değilse ya da Storage reddederse <c>null</c> döner.</summary>
     private async Task<string?> TrySignAsync(
+        Guid expertId,
         string? path,
         TimeSpan validFor,
         CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(path))
+        if (!ExpertDocumentPaths.IsOwnedBy(expertId, path))
         {
             return null;
         }

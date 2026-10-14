@@ -11,7 +11,7 @@ public interface IAssessmentService
 
     Task<AssessmentResultDto> SubmitAsync(Guid? userId, SubmitAssessmentDto request, CancellationToken cancellationToken);
 
-    Task<AssessmentResultDto> GetResultAsync(Guid resultId, CancellationToken cancellationToken);
+    Task<AssessmentResultDto> GetResultAsync(Guid resultId, Guid? viewerUserId, CancellationToken cancellationToken);
 
     Task<MyAssessmentResultListResult> ListMyResultsAsync(Guid userId, CancellationToken cancellationToken);
 }

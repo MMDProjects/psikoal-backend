@@ -31,6 +31,11 @@ public static class ErrorMessagesTr
         [ErrorKeys.AuthAccountFrozen] = "Hesabınız donduruldu. Destek ekibiyle iletişime geçin.",
         [ErrorKeys.AuthCurrentPasswordInvalid] = "Mevcut şifreniz hatalı.",
         [ErrorKeys.AuthProviderError] = "Kimlik doğrulama servisine şu an ulaşılamıyor. Biraz sonra tekrar deneyin.",
+        [ErrorKeys.ResetTokenInvalid] = "Şifre sıfırlama bağlantısının süresi dolmuş ya da geçersiz. Yeni bir bağlantı isteyin.",
+        [ErrorKeys.AuthSamePassword] = "Yeni şifreniz eskisiyle aynı olamaz.",
+        [ErrorKeys.AccountInactive] = "Hesabınız aktif değil. Yardım için destek ekibiyle iletişime geçin.",
+        [ErrorKeys.AuthTermsNotAccepted] = "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul edin.",
+        [ErrorKeys.AuthHealthDataConsentRequired] = "Devam etmek için sağlık verilerinizin işlenmesine açık rıza verin.",
 
         // --- Profil ---
         [ErrorKeys.ProfileNotFound] = "Profil bulunamadı.",
@@ -41,6 +46,7 @@ public static class ErrorMessagesTr
         [ErrorKeys.ExpertProfileAlreadyExists] = "Uzman profiliniz zaten oluşturulmuş.",
         [ErrorKeys.ExpertRoleRequired] = "Bu işlem yalnızca uzman hesapları için geçerli.",
         [ErrorKeys.ExpertRejectionReasonRequired] = "Reddetme gerekçesi yazmanız gerekiyor.",
+        [ErrorKeys.ExpertCertificateLimitExceeded] = "En fazla 10 sertifika yükleyebilirsiniz.",
 
         // --- Dosya ---
         [ErrorKeys.FileTypeNotAllowed] = "Bu dosya türü desteklenmiyor.",
@@ -93,9 +99,12 @@ public static class ErrorMessagesTr
         [ErrorKeys.AssessmentNotFound] = "Test bulunamadı.",
         [ErrorKeys.AssessmentResultNotFound] = "Test sonucu bulunamadı.",
         [ErrorKeys.AssessmentScoreRuleNotFound] = "Bu test için puanlama kuralı tanımlı değil.",
+        [ErrorKeys.AssessmentAnswersInvalid] = "Cevaplarınız bu testle eşleşmiyor. Testi baştan çözüp tekrar gönderin.",
+        [ErrorKeys.AssessmentResultNotOwned] = "Seçtiğiniz test sonucu hesabınıza ait değil. Kendi sonuçlarınızdan birini seçin.",
 
         // --- Genel ---
         [ErrorKeys.ValidationFailed] = "Girdiğiniz bilgileri kontrol edin.",
+        [ErrorKeys.ResourceConflict] = "Bu kayıt zaten mevcut. Sayfayı yenileyip tekrar deneyin.",
         [ErrorKeys.InternalError] = "Beklenmeyen bir hata oluştu. Tekrar deneyin.",
     };
 

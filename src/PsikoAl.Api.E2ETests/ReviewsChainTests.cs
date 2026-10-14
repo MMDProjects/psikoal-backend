@@ -280,7 +280,7 @@ public sealed class ReviewsChainTests(E2EFixture fixture)
     /// </summary>
     /// <remarks>
     /// <c>ExpertService.GetByIdAsync</c> uzman 'approved' değilse (ve bakan kişi uzmanın
-    /// kendisi değilse) EXPERT_NOT_FOUND/422 fırlatıyor;
+    /// kendisi değilse) EXPERT_NOT_FOUND/404 fırlatıyor;
     /// <c>ReviewService.ListApprovedForExpertAsync</c>'te uzman durumu HİÇ kontrol edilmiyor.
     /// Mobil ekran (src/app/expert/[id].tsx) iki sorguyu birlikte açtığı için profili
     /// alamayıp yorumları alabiliyor.
@@ -299,7 +299,7 @@ public sealed class ReviewsChainTests(E2EFixture fixture)
             (await fixture.Admin.PostAsync($"/admin/reviews/{reviewId}/approve", null)).EnsureSuccessStatusCode();
 
             var profile = await fixture.Client.GetAsync($"/experts/{seed.ExpertId}");
-            Assert.Equal(HttpStatusCode.UnprocessableEntity, profile.StatusCode);
+            Assert.Equal(HttpStatusCode.NotFound, profile.StatusCode);
             var error = await profile.Content.ReadFromJsonAsync<JsonElement>();
             Assert.Equal("EXPERT_NOT_FOUND", error.GetProperty("code").GetString());
 
