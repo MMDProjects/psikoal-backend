@@ -15,4 +15,7 @@ public sealed class FakeSupabaseAuthService(Guid sessionUserId) : ISupabaseAuthS
     public Task LogoutAsync(string accessToken, CancellationToken cancellationToken) => Task.CompletedTask;
 
     public Task SendPasswordRecoveryAsync(string email, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task ResetPasswordAsync(string recoveryAccessToken, string newPassword, CancellationToken cancellationToken)
+        => Task.CompletedTask;
 }

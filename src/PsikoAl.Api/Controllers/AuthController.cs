@@ -44,6 +44,16 @@ public sealed class AuthController(
         return Ok(new { success = true });
     }
 
+    // Sözleşme §2: e-postadaki kurtarma bağlantısı uygulamaya recovery access token'ı
+    // ile döner; uygulama yeni şifreyi o token'la buraya gönderir.
+    [HttpPost("reset-password")]
+    [EnableRateLimiting("auth")]
+    public async Task<IActionResult> ResetPassword(ResetPasswordRequestDto request, CancellationToken cancellationToken)
+    {
+        await supabaseAuth.ResetPasswordAsync(request.AccessToken, request.NewPassword, cancellationToken);
+        return NoContent();
+    }
+
     [Authorize]
     [HttpPost("logout")]
     public async Task<IActionResult> Logout(CancellationToken cancellationToken)

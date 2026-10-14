@@ -101,6 +101,19 @@ public sealed class AuthContractTests : IClassFixture<ApiFactory>
         Assert.True(body.GetProperty("success").GetBoolean());
     }
 
+    [Theory]
+    [InlineData("", "YeniSifre123")]
+    [InlineData("recovery-token", "short")]
+    public async Task Reset_password_validates_request(string accessToken, string newPassword)
+    {
+        var response = await _client.PostAsJsonAsync(
+            "/auth/reset-password",
+            new { accessToken, newPassword },
+            CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
     [Fact]
     public async Task Me_endpoints_require_authentication()
     {

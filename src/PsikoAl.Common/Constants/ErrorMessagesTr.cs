@@ -31,6 +31,8 @@ public static class ErrorMessagesTr
         [ErrorKeys.AuthAccountFrozen] = "Hesabınız donduruldu. Destek ekibiyle iletişime geçin.",
         [ErrorKeys.AuthCurrentPasswordInvalid] = "Mevcut şifreniz hatalı.",
         [ErrorKeys.AuthProviderError] = "Kimlik doğrulama servisine şu an ulaşılamıyor. Biraz sonra tekrar deneyin.",
+        [ErrorKeys.ResetTokenInvalid] = "Şifre sıfırlama bağlantısının süresi dolmuş ya da geçersiz. Yeni bir bağlantı isteyin.",
+        [ErrorKeys.AuthSamePassword] = "Yeni şifreniz eskisiyle aynı olamaz.",
         [ErrorKeys.AccountInactive] = "Hesabınız aktif değil. Yardım için destek ekibiyle iletişime geçin.",
         [ErrorKeys.AuthTermsNotAccepted] = "Devam etmek için Kullanım Koşulları ve Gizlilik Politikası'nı kabul edin.",
         [ErrorKeys.AuthHealthDataConsentRequired] = "Devam etmek için sağlık verilerinizin işlenmesine açık rıza verin.",

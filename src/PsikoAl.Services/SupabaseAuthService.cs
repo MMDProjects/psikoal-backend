@@ -1,15 +1,17 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.Extensions.Options;
 using PsikoAl.Common.Constants;
 using PsikoAl.Common.Dtos.Auth;
 using PsikoAl.Common.Dtos.Auth.Create;
 using PsikoAl.Common.Exceptions;
 using PsikoAl.Services.Abstractions;
+using PsikoAl.Services.Options;
 
 namespace PsikoAl.Services;
 
-public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthService
+public sealed class SupabaseAuthService(HttpClient httpClient, IOptions<AuthOptions> authOptions) : ISupabaseAuthService
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
@@ -63,7 +65,38 @@ public sealed class SupabaseAuthService(HttpClient httpClient) : ISupabaseAuthSe
 
     public async Task SendPasswordRecoveryAsync(string email, CancellationToken cancellationToken)
     {
-        await httpClient.PostAsJsonAsync("auth/v1/recover", new { email }, JsonOptions, cancellationToken);
+        // redirect_to: e-postadaki doğrulama bağlantısı kullanıcıyı uygulamanın
+        // psikoal://reset-password#access_token=...&type=recovery adresine döndürür (sözleşme §2).
+        var redirectTo = Uri.EscapeDataString(authOptions.Value.PasswordResetRedirectUrl);
+        using var response = await httpClient.PostAsJsonAsync(
+            $"auth/v1/recover?redirect_to={redirectTo}",
+            new { email },
+            JsonOptions,
+            cancellationToken);
+    }
+
+    public async Task ResetPasswordAsync(string recoveryAccessToken, string newPassword, CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Put, "auth/v1/user")
+        {
+            Content = JsonContent.Create(new { password = newPassword }, options: JsonOptions),
+        };
+        request.Headers.Authorization = new("Bearer", recoveryAccessToken);
+
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var error = await ReadErrorAsync(response, cancellationToken);
+        throw error?.ErrorCode switch
+        {
+            "weak_password" => new DomainException(ErrorKeys.AuthWeakPassword, "newPassword"),
+            "same_password" => new DomainException(ErrorKeys.AuthSamePassword, "newPassword"),
+            "over_request_rate_limit" => new DomainException(ErrorKeys.AuthRateLimited),
+            _ => new DomainException(ErrorKeys.ResetTokenInvalid, "accessToken"),
+        };
     }
 
     private static async Task<GoTrueError?> ReadErrorAsync(HttpResponseMessage response, CancellationToken cancellationToken)

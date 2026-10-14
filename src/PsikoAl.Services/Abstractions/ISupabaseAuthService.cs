@@ -12,4 +12,7 @@ public interface ISupabaseAuthService
     Task LogoutAsync(string accessToken, CancellationToken cancellationToken);
 
     Task SendPasswordRecoveryAsync(string email, CancellationToken cancellationToken);
+
+    // E-postadaki kurtarma bağlantısından gelen access token ile şifreyi değiştirir.
+    Task ResetPasswordAsync(string recoveryAccessToken, string newPassword, CancellationToken cancellationToken);
 }

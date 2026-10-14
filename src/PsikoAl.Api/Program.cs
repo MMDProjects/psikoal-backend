@@ -36,6 +36,10 @@ builder.Services
     .AddOptions<LegalOptions>()
     .Bind(builder.Configuration.GetSection(LegalOptions.SectionName));
 
+builder.Services
+    .AddOptions<AuthOptions>()
+    .Bind(builder.Configuration.GetSection(AuthOptions.SectionName));
+
 var supabase = builder.Configuration.GetSection(SupabaseOptions.SectionName).Get<SupabaseOptions>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>

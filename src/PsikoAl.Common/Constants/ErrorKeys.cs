@@ -14,6 +14,8 @@ public static class ErrorKeys
     public const string AuthCurrentPasswordInvalid = "AUTH_CURRENT_PASSWORD_INVALID";
     public const string AuthProviderError = "AUTH_PROVIDER_ERROR";
     public const string AccountInactive = "ACCOUNT_INACTIVE";
+    public const string ResetTokenInvalid = "RESET_TOKEN_INVALID";
+    public const string AuthSamePassword = "AUTH_SAME_PASSWORD";
     public const string AuthTermsNotAccepted = "AUTH_TERMS_NOT_ACCEPTED";
     public const string AuthHealthDataConsentRequired = "AUTH_HEALTH_DATA_CONSENT_REQUIRED";
     public const string ProfileNotFound = "PROFILE_NOT_FOUND";
