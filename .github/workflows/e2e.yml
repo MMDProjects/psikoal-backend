@@ -31,6 +31,9 @@ env:
   # (10/dk) yalnız bu test ortamında yükseltilir. Bkz. RateLimitingSetup.
   RateLimiting__AuthPermitLimit: '1000'
   E2E_ADMIN_PASSWORD: E2eAdminPass123!
+  # Playwright "admin olmayan hesap panele giremez" testi danışan fixture'ıyla giriş dener.
+  E2E_CLIENT_EMAIL: e2e-client@psikoal.test
+  E2E_CLIENT_PASSWORD: E2eClientPass123!
   E2E_API_URL: http://localhost:5089
   ADMIN_URL: http://localhost:5057
 
