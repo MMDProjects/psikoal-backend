@@ -1,0 +1,63 @@
+# Render Blueprint — PsikoAl API + Admin Paneli
+# Kurulum ve sırlar: docs/DEPLOY.md
+#
+# Otomatik deploy KAPALI: migration'lar API'den ÖNCE uygulanmalı. Sıra
+# .github/workflows/deploy.yml'de: yedek dump → supabase db push → Render deploy hook'ları.
+
+services:
+  - type: web
+    name: psikoal-api
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./src/PsikoAl.Api/Dockerfile
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: PORT
+        value: "8080"
+      # Render'ın vekil adresleri sabit değil; konteynere yalnız Render'ın kenarından
+      # erişilebildiği için tüm ağlar güvenilir sayılır (X-Forwarded-For / -Proto okunur).
+      - key: ForwardedHeaders__KnownNetworks__0
+        value: 0.0.0.0/0
+      - key: ForwardedHeaders__KnownNetworks__1
+        value: ::/0
+      # Render dışa IPv6 çıkışı desteklemiyor; Supabase'in doğrudan bağlantısı yalnız IPv6.
+      # Bu yüzden Supavisor SESSION pooler adresi (port 5432) verilmeli — bkz. docs/DEPLOY.md.
+      - key: ConnectionStrings__Postgres
+        sync: false
+      - key: Supabase__Url
+        sync: false
+      - key: Supabase__AnonKey
+        sync: false
+      - key: Supabase__ServiceRoleKey
+        sync: false
+      - key: Brevo__ApiKey
+        sync: false
+
+  - type: web
+    name: psikoal-admin
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    branch: main
+    dockerContext: .
+    dockerfilePath: ./src/PsikoAl.Client/Dockerfile
+    healthCheckPath: /login
+    autoDeploy: false
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: PORT
+        value: "8080"
+      # Panelin kendi forwarded-headers ayarı yok; ASP.NET'in yerleşik bayrağı vekil
+      # başlıklarını açar (aksi hâlde Request.Scheme http kalır, çerezler Secure düşmez).
+      - key: ASPNETCORE_FORWARDEDHEADERS_ENABLED
+        value: "true"
+      # API'nin herkese açık adresi, ör. https://psikoal-api.onrender.com (sonunda / yok).
+      - key: Api__BaseUrl
+        sync: false
