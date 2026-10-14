@@ -16,7 +16,7 @@ emülatör gerektirmediği için PR'larda da koşuyor.
 
 | # | Katman | Araç | Nerede | Test | Süre |
 |---|---|---|---|---|---|
-| 1 | API zinciri | xUnit + gerçek Postgres | `src/PsikoAl.Api.E2ETests/` | 49 | ~30 sn |
+| 1 | API zinciri | xUnit + gerçek Postgres | `src/PsikoAl.Api.E2ETests/` | 52 | ~30 sn |
 | 2 | Admin paneli | Playwright + Chromium | `e2e/admin/` | 7 | ~20 sn |
 | 3 | Mobil sözleşme | Jest + uygulamanın gerçek Zod şemaları | `psikoal-app/src/lib/contract.live.test.ts` | 17 | ~20 sn |
 | 4 | Mobil uygulama | Maestro + Android emülatör | `e2e/mobile/` | 3 akış | ~4 dk |
@@ -58,7 +58,7 @@ scripts/e2e-stack-down.sh
 İlk kurulum bir kez: `cd e2e/admin && npm install && npx playwright install chromium`
 Test verisi birikirse: `scripts/e2e-clean.sh`
 
-## Katman 1 — API zinciri (49 test)
+## Katman 1 — API zinciri (52 test)
 
 `src/PsikoAl.Api.E2ETests/`
 
@@ -73,11 +73,11 @@ doğrulanabilir.
 |---|---|---|
 | `AdminToMobileChainTests.cs` | Kategori ekle/pasifleştir → mobil kategori listesi | 5 |
 | `ExpertsChainTests.cs` | Uzman onayla/reddet/revizyon → mobil uzman profili | 6 |
-| `ListingsChainTests.cs` | İlan onayla/reddet → mobil feed | 5 |
+| `ListingsChainTests.cs` | İlan onayla/reddet → mobil feed; başkasının test sonucu ilana bağlanamaz | 6 |
 | `ReviewsChainTests.cs` | Yorum onayla → uzman profili + rating | 6 |
 | `NotificationsChainTests.cs` | Bildirim gönder → mobil bildirim + okunmamış sayacı | 5 |
-| `AssessmentsChainTests.cs` | Test/soru/puan kuralı → mobil test listesi + skorlama | 6 |
-| `SystemUsersChainTests.cs` | Sistem ayarı / kullanıcı dondurma → mobil davranış | 7 |
+| `AssessmentsChainTests.cs` | Test/soru/puan kuralı → mobil test listesi + skorlama; sonuç sahipliği, cevap doğrulama | 7 |
+| `SystemUsersChainTests.cs` | Sistem ayarı / kullanıcı dondurma / hesap silme → mobil davranış | 8 |
 | `OffersChainTests.cs` | Uzman teklif gönderir → danışan ilanında görür | 6 |
 | `DashboardChainTests.cs` | Admin panelin açılış sayfası gerçek Postgres üzerinde yüklenir | 3 |
 
@@ -102,6 +102,19 @@ alan `.nullable().optional()`.
 
 Bu kararın tek sahibi `ListingsChainTests.AssertNullableOptional`. Orada
 gevşetirseniz `SystemUsersChainTests` kırmızıya döner; kararı orada değiştirin.
+
+### KVKK sertleştirmesiyle değişen beklentiler (2026-10-14)
+
+- Domain hataları artık türüne göre kod taşıyor: `*_NOT_FOUND` 404, rol kapıları 403,
+  `OFFER_ALREADY_EXISTS` 409. Önceden hepsi 422 bekleyen iddialar güncellendi.
+- Kayıt çağrıları (`SystemUsersChainTests`, `scripts/seed-demo.mjs`) `termsAccepted` ve
+  `healthDataConsent` gönderiyor; göndermeyen istemci 400 alır.
+- Dondurulan kullanıcının eski token'ı artık **401 `ACCOUNT_INACTIVE`** alıyor
+  (eskiden "hâlâ çalışıyor" sapması çivileniyordu).
+- Test gönderimi cevapları doğruluyor: uydurma soru kimliği / seçenek dışı değer 422
+  `ASSESSMENT_ANSWERS_INVALID` (eskiden "doğrulama yok, yalnız ilk değer" çivileniyordu).
+- `seed-demo.mjs` uzman profillerinde `cvUrl`/`certificates` göndermiyor; profil uçları
+  bu alanları yok sayıyor.
 
 ### Neden `Category=E2E` trait'i
 

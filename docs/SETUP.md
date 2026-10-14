@@ -30,6 +30,20 @@ Not: 3 Storage bucket'ı (`avatars` public-read, `blog-media` public-read, `docu
 }
 ```
 
+### Yeni yapılandırma anahtarları (2026-10-14)
+
+`appsettings.json` makul varsayılanlarla geliyor; ortama göre ezilmesi gerekenler:
+
+| Anahtar | Varsayılan | Not |
+|---|---|---|
+| `Legal:ConsentVersion` | `2026-10` | Kullanım koşulları / açık rıza metni değişince artırılır; kayıtta profile yazılır. |
+| `Auth:PasswordResetRedirectUrl` | `psikoal://reset-password` | Supabase Dashboard → Authentication → URL Configuration → **Redirect URLs** listesine de eklenmeli; yoksa GoTrue `site_url`'e döner. Lokal: `supabase/config.toml`. |
+| `ForwardedHeaders:KnownProxies` | `[]` | Ters vekil IP'leri (ör. `["10.0.0.5"]`). Boşsa yalnız loopback'e güvenilir. |
+| `ForwardedHeaders:KnownNetworks` | `[]` | CIDR (ör. `["10.0.0.0/8"]`). Vekil arkasında doğru verilmezse IP başına rate limit herkesi tek kovaya koyar. |
+| `ForwardedHeaders:ForwardLimit` | `1` | Zincirdeki vekil sayısı. |
+
+Sağlık uçları: `/health` (hazırlık, DB dahil; ulaşılamazsa 503) ve `/health/live` (yalnız süreç).
+
 ## 3. Supabase MCP (önerilir — Claude'un DB'yi doğrudan yönetebilmesi için)
 
 ```bash
