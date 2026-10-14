@@ -136,6 +136,11 @@ public sealed class AdminClientService(
             request,
             cancellationToken);
 
+    public Task<AdminApiResult<AdminNotificationPreviewDto>> PreviewNotificationAsync(
+        AdminSendNotificationDto request,
+        CancellationToken cancellationToken)
+        => SendForResultAsync<AdminNotificationPreviewDto>(HttpMethod.Post, "admin/notifications/preview", request, cancellationToken);
+
     public async Task<AdminApiResult<int>> SendNotificationAsync(AdminSendNotificationDto request, CancellationToken cancellationToken)
     {
         var result = await SendForResultAsync<AdminSendNotificationResult>(

@@ -12,6 +12,10 @@ namespace PsikoAl.Api.Controllers;
 [Authorize(Policy = AdminPolicies.SuperAdmin)]
 public sealed class AdminNotificationsController(IAdminNotificationService adminNotificationService) : ControllerBase
 {
+    [HttpPost("preview")]
+    public async Task<AdminNotificationPreviewDto> Preview(AdminSendNotificationDto request, CancellationToken cancellationToken)
+        => new(await adminNotificationService.PreviewRecipientCountAsync(request, cancellationToken));
+
     [HttpPost("send")]
     public async Task<IActionResult> Send(AdminSendNotificationDto request, CancellationToken cancellationToken)
     {

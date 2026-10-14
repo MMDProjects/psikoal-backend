@@ -74,6 +74,10 @@ public interface IAdminClientService
         UpdateAdminNotificationTemplateDto request,
         CancellationToken cancellationToken);
 
+    Task<AdminApiResult<AdminNotificationPreviewDto>> PreviewNotificationAsync(
+        AdminSendNotificationDto request,
+        CancellationToken cancellationToken);
+
     Task<AdminApiResult<int>> SendNotificationAsync(AdminSendNotificationDto request, CancellationToken cancellationToken);
 
     Task<AdminApiResult<IReadOnlyList<AdminAssessmentListItemDto>>> ListAssessmentsAsync(CancellationToken cancellationToken);
