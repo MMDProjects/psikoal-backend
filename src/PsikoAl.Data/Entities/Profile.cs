@@ -22,11 +22,11 @@ public sealed class Profile
 
     public string? City { get; set; }
 
-    public bool ShareEmail { get; set; } = true;
+    public bool ShareEmail { get; set; }
 
-    public bool SharePhone { get; set; } = true;
+    public bool SharePhone { get; set; }
 
-    public bool ShareLocation { get; set; } = true;
+    public bool ShareLocation { get; set; }
 
     public string Status { get; set; } = ProfileStatuses.Active;
 
