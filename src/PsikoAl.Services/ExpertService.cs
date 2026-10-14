@@ -35,6 +35,9 @@ public sealed class ExpertService(IUnitOfWork unitOfWork, ICategoryService categ
 
         await EnsureValidSpecializationsAsync(request.Specializations, cancellationToken);
 
+        // cvUrl/certificates istekte gelse de yok sayılır: belgeler yalnız yükleme uçlarından
+        // (POST /experts/profile/cv, /certificates) Storage yolu olarak yazılır. Serbest
+        // metin hem admin imzalamasını bozuyordu hem de başka klasörü işaret edebiliyordu.
         var expert = new Expert
         {
             Id = userId,
@@ -43,8 +46,6 @@ public sealed class ExpertService(IUnitOfWork unitOfWork, ICategoryService categ
             ExperienceYears = request.ExperienceYears,
             Bio = request.Bio,
             Education = NullIfEmpty(request.Education),
-            CvUrl = NullIfEmpty(request.CvUrl),
-            Certificates = request.Certificates is null ? [] : [.. request.Certificates],
             PersonalWebsite = NullIfEmpty(request.PersonalWebsite),
         };
 
@@ -138,16 +139,6 @@ public sealed class ExpertService(IUnitOfWork unitOfWork, ICategoryService categ
             expert.Education = NullIfEmpty(request.Education);
         }
 
-        if (request.CvUrl is not null)
-        {
-            expert.CvUrl = NullIfEmpty(request.CvUrl);
-        }
-
-        if (request.Certificates is not null)
-        {
-            expert.Certificates = [.. request.Certificates];
-        }
-
         if (request.PersonalWebsite is not null)
         {
             expert.PersonalWebsite = NullIfEmpty(request.PersonalWebsite);
@@ -166,8 +157,8 @@ public sealed class ExpertService(IUnitOfWork unitOfWork, ICategoryService categ
             request.ExperienceYears ?? existing?.ExperienceYears,
             request.Bio ?? existing?.Bio,
             request.Education ?? existing?.Education,
-            request.CvUrl ?? existing?.CvUrl,
-            request.Certificates ?? existing?.Certificates,
+            CvUrl: null,
+            Certificates: null,
             request.PersonalWebsite ?? existing?.PersonalWebsite);
     }
 

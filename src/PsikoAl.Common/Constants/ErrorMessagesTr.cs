@@ -46,6 +46,7 @@ public static class ErrorMessagesTr
         [ErrorKeys.ExpertProfileAlreadyExists] = "Uzman profiliniz zaten oluşturulmuş.",
         [ErrorKeys.ExpertRoleRequired] = "Bu işlem yalnızca uzman hesapları için geçerli.",
         [ErrorKeys.ExpertRejectionReasonRequired] = "Reddetme gerekçesi yazmanız gerekiyor.",
+        [ErrorKeys.ExpertCertificateLimitExceeded] = "En fazla 10 sertifika yükleyebilirsiniz.",
 
         // --- Dosya ---
         [ErrorKeys.FileTypeNotAllowed] = "Bu dosya türü desteklenmiyor.",
